@@ -1,0 +1,40 @@
+# User-private notes (excluded by request)
+notes.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artefacts (PyInstaller, etc.)
+dist/
+build/
+*.spec.bak
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Project runtime data (when implementation lands)
+pds.sqlite
+pds.sqlite-journal
+pds.sqlite.bak.*
+artefacts/
+exports/
+.config/
+
+# Rendered docs (regenerated from sources)
+sdd.pdf
+findings.pdf
+findings.html
+findings.pptx
