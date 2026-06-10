@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pds"
+version = "0.1.0"
+description = "Thesis Text Analyzer — per-thesis text metrics and their evolution over publication date"
+requires-python = ">=3.11"
+# Core stays dependency-light (QA-RES); analysis libraries are added per
+# module as the catalogue lands (SDD §7.1).
+dependencies = []
+
+[project.optional-dependencies]
+# PyMuPDF is AGPL — development-phase extractor only. The release gate
+# (ADR-0011 / ADR-0014) fails any distributed build that imports it under
+# pds/core/. Kept out of the default dependency set on purpose.
+pymupdf = ["pymupdf>=1.24"]
+dev = ["pytest>=8", "pds[pymupdf]"]
+
+[tool.setuptools.packages.find]
+include = ["pds*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
