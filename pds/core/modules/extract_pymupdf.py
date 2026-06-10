@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import fitz  # PyMuPDF
-
 from pds.core import artefact_kinds
 from pds.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from pds.core.types import Thesis
@@ -36,6 +34,8 @@ class ExtractPymupdf(Module):
         return Applicability(ok=True)
 
     def run(self, ctx: RunContext) -> RunResult:
+        import fitz  # PyMuPDF — lazy: the `pymupdf` extra is optional (dev-only, AGPL)
+
         with fitz.open(ctx.thesis.pdf_path) as doc:
             pages = [page.get_text("text") for page in doc]
         text = PAGE_SEPARATOR.join(pages)

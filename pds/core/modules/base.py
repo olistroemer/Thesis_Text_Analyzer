@@ -54,6 +54,16 @@ class Applicability:
     reason: str | None = None
 
 
+class NotApplicable(Exception):
+    """Raised from ``run()`` when applicability depends on consumed artefact
+    content (e.g. the detected language, SDD §7.2); the runner records an
+    ``na`` outcome with the exception message as reason (SDD §6.3).
+
+    ``applicable()`` remains the place for checks that need only the
+    ``Thesis`` row, such as the file extension.
+    """
+
+
 class Module(ABC):
     """An analysis unit consuming artefacts and producing metrics/artefacts.
 

@@ -382,12 +382,19 @@ class Applicability:
     ok: bool
     reason: str | None = None
 
+class NotApplicable(Exception):
+    """Raised from run() when applicability depends on consumed artefact
+    content (e.g. the detected language); recorded as `na` with the
+    exception message as reason."""
+
 class Module(ABC):
     spec: ModuleSpec
     def applicable(self, thesis: Thesis) -> Applicability: ...
     @abstractmethod
     def run(self, ctx: RunContext) -> RunResult: ...
 ```
+
+`applicable()` covers checks that need only the `Thesis` row (e.g. file extension); data-dependent checks from the applicability matrix ([§7.2](#72-applicability-matrix)) — detected language, minimum text length — happen inside `run()` via `NotApplicable`, since consumed artefact content is not available before execution.
 
 Decisions: [ADR-004](adr/0004-module-contract.md) for the contract, [ADR-005](adr/0005-producer-swap-deferred.md) for producer-swap semantics.
 
@@ -398,7 +405,7 @@ stateDiagram-v2
     [*] --> Scheduled : runner picks up
     Scheduled --> Running : module.run() starts
     Running --> Ok : returns metrics + artefacts
-    Running --> NA : applicable() returns false (cascades to dependents)
+    Running --> NA : applicable() false or run() raises NotApplicable (cascades to dependents)
     Running --> Error : exception
     Ok --> [*]
     NA --> [*]

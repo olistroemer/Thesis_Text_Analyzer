@@ -7,9 +7,14 @@ name = "pds"
 version = "0.1.0"
 description = "Thesis Text Analyzer — per-thesis text metrics and their evolution over publication date"
 requires-python = ">=3.11"
-# Core stays dependency-light (QA-RES); analysis libraries are added per
-# module as the catalogue lands (SDD §7.1).
-dependencies = []
+# Core stays dependency-light (QA-RES); analysis libraries per SDD §7.1 /
+# ADR-0011 library-choice policy.
+dependencies = [
+    "langdetect>=1.0.9",  # mod_classify_language
+    "nltk>=3.9",          # mod_tokenize (punkt_tab; data bundled at release per ADR-0014)
+    "textstat>=0.7.4",    # mod_readability (Flesch en / Amstad de)
+    "pypdf>=5.0",         # mod_count_images, mod_extract_pdf_metadata
+]
 
 [project.optional-dependencies]
 # PyMuPDF is AGPL — development-phase extractor only. The release gate
@@ -21,5 +26,9 @@ dev = ["pytest>=8", "pds[pymupdf]"]
 [tool.setuptools.packages.find]
 include = ["pds*"]
 
+[tool.setuptools.package-data]
+"pds.core.db" = ["migrations/*.sql"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: full-pipeline tests over real PDFs"]
