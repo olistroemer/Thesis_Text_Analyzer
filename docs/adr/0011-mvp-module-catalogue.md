@@ -1,12 +1,12 @@
-# ADR-0011: MVP module catalogue — 10 modules / 25 metrics
+# ADR-0011: MVP module catalogue — 10 modules / 26 metrics
 
-**Status:** Accepted
-**Date:** 2026-06-03
+**Status:** Accepted (revision 2 — hapax measured as both token-ratio V1/N and type-ratio V1/V so the variants can be compared on real cohorts; 25 → 26 metrics)
+**Date:** 2026-06-03 (rev. 2: 2026-06-10)
 **Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
 
 ## Decision
 
-MVP ships exactly the ten modules listed in SDD §7, producing 25 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
+MVP ships exactly the ten modules listed in SDD §7, producing 26 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
 
 Module-name convention bakes the library into the identifier when the choice is provisional (`mod_extract_pymupdf`) so the producer-swap mechanism remains visible in the schema, privacy registry, and export.
 

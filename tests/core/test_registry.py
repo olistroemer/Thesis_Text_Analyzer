@@ -76,6 +76,6 @@ def test_default_registry_matches_catalogue():
     assert names.index("mod_extract_pymupdf") < names.index("mod_classify_language")
     assert names.index("mod_classify_language") < names.index("mod_tokenize")
     assert names.index("mod_tokenize") < names.index("mod_surface_counts")
-    # 25 metrics across the catalogue
+    # 26 metrics across the catalogue (ADR-0011 rev. 2)
     metric_count = sum(len(m.spec.produces_metrics) for m in registry.in_topological_order())
-    assert metric_count == 25
+    assert metric_count == 26
