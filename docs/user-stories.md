@@ -8,8 +8,11 @@ Personas: `PROF` (professor), `PWR` (power user), `RES` (researcher / project te
 
 | ID | Story |
 |---|---|
-| **US-PROF-FIVE-STEPS** | As a professor, my entire workflow with this application fits in five steps: (1) start the application, (2) select theses, (3) run the analysis, (4) export data, (5) send the export back — so I never have to learn or remember anything beyond that. |
-| **US-PROF-AUTO-OPEN** | As a professor, the application remembers my project across runs and re-opens it automatically, so step 1 stays "start the application" — never "start the application, then pick a folder". |
+| **US-PROF-INSIGHTS** | As a professor I want to see interesting insights about my collection of theses — patterns, trends, outliers — that I wouldn't have noticed by reading them individually, so the analysis is worth the time I spent setting it up and I have a reason to come back. |
+| **US-PROF-TRENDS** | As a professor I want to see how characteristics of theses in my department have changed over the years, so I can spot real generational shifts in writing. |
+| **US-PROF-COMPARE** | As a professor I want to compare bachelor and master theses in my collection side-by-side, so I can see whether the step up in degree level shows up in the writing. |
+| **US-PROF-NOTICE** | As a professor I want unusual theses in my collection surfaced to me, so I can decide whether to give them a second look. |
+| **US-PROF-AUTO-OPEN** | As a professor, the application remembers my project across runs and re-opens it automatically, so I don't have to think about where data is stored. |
 | **US-PROF-ATTRS** | As a professor I want to add attributes to files when adding them (e.g. the type of thesis: bachelor, master), so the analyses can be grouped meaningfully. |
 | **US-PROF-EXCLUDE** | As a professor I want to exclude certain files from all analyses, to protect theses with a confidential clause. |
 | **US-PROF-SELECT** | As a professor I want to select which analyses are run, since I might have reservations against some of the metrics for reasons. |
@@ -34,6 +37,7 @@ Personas: `PROF` (professor), `PWR` (power user), `RES` (researcher / project te
 
 | ID | Story |
 |---|---|
+| **US-RES-LOW-FRICTION** | As a researcher I want professors to be able to complete the contribute-data loop in five simple steps (start → select → run → export → send), so that friction is low enough that they actually do it and we get the data back for our research. |
 | **US-RES-CLI** | As a researcher, I want to be able to run analyses quickly from the CLI and use the graphical UI only as a viewer of the results, to iterate quickly while developing modules and have a solid testing interface. |
 | **US-RES-OUTLIERS** | As a researcher I want to be able to quickly identify outliers in my data to further investigate them. → The cells with outliers are highlighted. |
 | **US-RES-LANG** | As a researcher I want to know in which language a thesis was written, to apply the metrics properly. → Language classifier module. |

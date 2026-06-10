@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-06-03
-**Drivers:** US-ALL-OFFLINE, US-PROF-FIVE-STEPS, US-PROF-AUTO-OPEN, QA-PORT.
+**Drivers:** US-ALL-OFFLINE, US-RES-LOW-FRICTION (step 1 = "start the app", not "start the app and then pick a folder"), US-PROF-AUTO-OPEN, QA-PORT.
 
 ## Decision
 

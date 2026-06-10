@@ -115,28 +115,40 @@ flowchart LR
 
 The application binary is the same on every node; what differs is which sources exist in each local database (see [ADR-006](adr/0006-schema.md)).
 
-## 3.3 The professor's happy path
+## 3.3 The two happy paths
 
-Per US-PROF-FIVE-STEPS, the professor's entire workflow with the application is exactly five steps:
+The application serves two stakeholders with overlapping but distinct goals. Acknowledging the difference avoids designing for one and accidentally compromising the other.
+
+### 3.3.1 The researcher's contribute-data loop (US-RES-LOW-FRICTION)
+
+What the researcher needs the professor to be able to do, in five low-friction steps:
 
 ```mermaid
 flowchart LR
-    S1[1. Start app] -->|"auto-opens last project<br/>(or default on first launch)"| S2[2. Select theses]
-    S2 -->|"file dialog: optional<br/>type attribute"| S3[3. Run all]
+    S1[1. Start app] -->|"auto-opens last project"| S2[2. Select theses]
+    S2 -->|"optional type attribute"| S3[3. Run all]
     S3 -->|"toolbar button, progress bar"| S4[4. Export]
-    S4 -->|"file dialog, consent confirmation"| S5[5. Send back]
+    S4 -->|"save dialog, no extra choices"| S5[5. Send back]
     S5 -.->|"outside the app"| END[email / shared drive]
 ```
 
-| Step | Single action | What we make invisible |
-|---|---|---|
-| 1 | Double-click the binary | Project directory selection (default + auto-open), schema migrations, NLTK data load |
-| 2 | "Add files" → pick PDFs → optional type attribute | Per-file attribute prompting, file-hash computation, duplicate detection |
-| 3 | "Run all" | Producer resolution, DAG planning, worker pool, progress events |
-| 4 | "Export" → pick save path → confirm | PII filtering, history vs current-only choice (default: include), file-rename atomicity |
-| 5 | Email the file / upload it | (out of scope for the app) |
+This is what motivates the **low-friction** design choices: auto-open the last project, sensible defaults, basic-mode toolbar with four core buttons, no extra checkboxes in the export dialog. Every design choice gets reviewed against this: *does this add a step to the contribute loop?*
 
-This flow is the dominant UX constraint. Every other design choice gets reviewed against it: *does this add a step?*
+### 3.3.2 The professor's insights journey (US-PROF-INSIGHTS)
+
+What actually motivates a professor to use the app voluntarily:
+
+```mermaid
+flowchart LR
+    P1[1. Start app] --> P2[2. Add my theses]
+    P2 --> P3[3. Run analyses]
+    P3 --> P4[4. Open Report —<br/>see patterns &<br/>outliers]
+    P4 -.->|"optionally"| P5[5. Export & send back<br/>(researcher's ask)]
+```
+
+The professor's *reward* is in step 4 — the Report view ([§9.9](#99-report-view)) shows trends, comparisons, and outliers in their collection that they couldn't see by reading individually. Step 5 (export/send) is the researcher's interest; without step 4 there's no reason for the professor to engage.
+
+The two journeys share the first three steps; they diverge at step 4. The researcher's "Export and send" is shifted to step 5 of the professor's path, framed as an optional thank-you rather than the goal.
 
 ---
 
@@ -148,12 +160,18 @@ Headline stories driving load-bearing decisions:
 
 | ID | Story (abbreviated) | Drives |
 |---|---|---|
+| **US-PROF-INSIGHTS** | See interesting patterns / trends / outliers in my collection | Report view ([ADR-016](adr/0016-report-view.md)) |
+| US-PROF-TRENDS | See how text characteristics evolved over years | Report → length-over-time chart |
+| US-PROF-COMPARE | Compare bachelor vs master theses side-by-side | Report → length-by-type box plots |
+| US-PROF-NOTICE | Have unusual theses surfaced | Report → outlier list |
 | US-PROF-ATTRS | Add attributes when adding files (bachelor/master) | Schema, UI |
 | US-PROF-EXCLUDE | Exclude confidential theses | Schema, runner |
 | US-PROF-EXPLAIN | Read explanations of metrics | Help system ([ADR-012](adr/0012-help-content.md)) |
 | US-PROF-EXPORT | Export results into a single file | Export format ([ADR-007](adr/0007-export-format.md)) |
 | US-PROF-QUALITY | See garbled extractions flagged in the grid | `mod_check_extraction_quality` |
+| US-PROF-AUTO-OPEN | App remembers last project across runs | Distribution / project model ([ADR-014](adr/0014-distribution.md)) |
 | US-PWR-EXTENDED | Extended mode with more settings | UI modes |
+| **US-RES-LOW-FRICTION** | Contribute-loop fits in five low-friction steps | Distribution, export, defaults throughout the UI |
 | US-RES-CLI | Run analyses from the CLI; use GUI only as viewer | CLI as first-class ([ADR-003](adr/0003-cli-first-class.md)) |
 | US-RES-IMPORT | Import multiple exports; analyse grouped by source | Schema (`source_id`) |
 | US-RES-LOCAL-RERUN | Run on own theses; imported data stays read-only | Runner filter on `source.kind='local'` |
@@ -568,8 +586,10 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 ┌────────────────────────────────────────────────────────────────────┐
 │ File   Edit   View   Help                              (menu bar)  │
 ├────────────────────────────────────────────────────────────────────┤
-│ [+ Add files] [▶ Run all] [↻ Re-run all] [⟳ Update stale]  (toolbar)│
+│ [+ Add files] [▶ Run all] [↻ Re-run all] [⟳ Update stale]          │
+│                            [📊 Report] [💾 Export] [? Help]         │
 ├────────────────────────────────────────────────────────────────────┤
+│ ╔═══════ Grid ═══════╗  Report                       (tabs)         │
 │ Thesis            │ Type   │ Lang │ Pages │ FRE   │ Yules K │ ... │
 │ ─────────────────────────────────────────────────────────────────── │
 │ thesis_001.pdf    │ Master │ en   │ 78    │ 51.2  │ 103.4   │ ... │
@@ -579,6 +599,8 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 │ Ready · 24 theses · last run 2026-06-03 17:42      (status line)   │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+The toolbar's Report button sits to the right of "Update stale" so the two batch-action buttons (Update stale, Report) are visually adjacent. The Report button is disabled until at least one successful module run exists; tooltip "Run analyses on at least one thesis to view the report."
 
 - Toolbar buttons are icon + text.
 - Grid is sortable by clicking column headers.
@@ -590,10 +612,12 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 
 ## 9.3 Modes
 
-| Mode | Default for | Differences from basic |
-|---|---|---|
-| **Basic** | Professor persona | Limited columns visible by default; settings simplified; producer-selection hidden; help glossary front-and-centre. |
-| **Extended** | Power user, researcher | All metrics visible; producer-selection panel exposed; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
+| Mode | Default for | Toolbar buttons (left to right) | Differences from basic |
+|---|---|---|---|
+| **Basic** | Professor persona | Add files · Run all · **Report** · Export · Help | Limited columns visible by default; settings simplified; help glossary front-and-centre. |
+| **Extended** | Power user, researcher | Add files · Run all · Re-run all · Update stale · **Report** · Export · Help | All metrics visible; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
+
+Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode.
 
 Mode toggle in `View → Mode → Extended`. State persisted in `pds.toml`.
 
@@ -620,15 +644,16 @@ MVP ships English-only UI. Strings are wrapped in `_(...)` (gettext) so adding a
 
 ## 9.7 Happy path walkthrough
 
-Step-by-step, the GUI walks the professor through the five-step path (§3.3) with no required dialogs beyond the obvious file pickers:
+Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs beyond the obvious file pickers. Steps 1–3 are shared; the professor's journey inserts a Report step before the researcher's export.
 
 | Step | Screen / dialog | Defaults |
 |---|---|---|
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened from `recent.json`. |
 | 2. Add | "Add files" toolbar button → multi-select file dialog → optional "Type" mini-dialog (Bachelor / Master / Unspecified). | Default Type = Unspecified. |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
-| 4. Export | "Export" toolbar button → confirmation dialog (no checkboxes — just row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
-| 5. Send | Post-export toast with "Show in folder" link. | (Outside the app.) |
+| 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → switches to the Report tab → charts + summary cards + outlier list. | Re-renders on `RunCompleted` while the tab is active. |
+| 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
+| 6. Send | Post-export toast with "Show in folder" link. | (Outside the app.) |
 
 **First-launch banner text:**
 
@@ -638,7 +663,46 @@ Dismisses on first interaction; never shown again for this project.
 
 **Basic-mode toolbar** contains exactly four icon+text buttons: **Add files | Run all | Export | Help**. Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection.
 
-## 9.8 Grid cell render states
+## 9.8 Report view
+
+Decision: [ADR-016](adr/0016-report-view.md). Matplotlib-backed summary of the local cohort, opened from the Report toolbar button into its own tab.
+
+### 9.8.1 Layout
+
+```
+┌─ Report ──────────────────────────────────────────────────────────┐
+│  Summary cards                                                     │
+│   N theses analysed · N excluded · Languages: en=X de=Y · Years: … │
+│   Bachelor: A · Master: B · Median length: N words                 │
+│                                                                    │
+│  Length over time                  Length by type                  │
+│  ┌──────────────────────────┐      ┌──────────────────────────┐   │
+│  │  scatter (year × words)  │      │  box plots (B / M)       │   │
+│  └──────────────────────────┘      └──────────────────────────┘   │
+│                                                                    │
+│  Reading ease distribution         Language mix                    │
+│  ┌──────────────────────────┐      ┌──────────────────────────┐   │
+│  │  histogram, by language  │      │  bar chart               │   │
+│  └──────────────────────────┘      └──────────────────────────┘   │
+│                                                                    │
+│  Notable theses                                                    │
+│   • <title> · outlier on: <metric>, <metric> · <handle>            │
+│   • …                                                              │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 9.8.2 Data sources
+
+The report reads from `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`. Aggregates are computed in-process at tab-open time (cheap — tens of thousands of metric rows in milliseconds). The view re-renders on `RunCompleted` events while it is the active tab so the professor sees the picture update as a batch completes.
+
+### 9.8.3 Behaviour
+
+- Linear axes throughout (per the project's no-log-scale preference).
+- The "Length over time" trend line is shown only when ≥ 5 data points are available.
+- "Notable theses" picks outliers via per-metric IQR over the trustworthy length-independent metrics (`avg_word_len`, `std_sentence_len`, `yules_k`, `flesch_reading_ease`); a thesis flagged on ≥ 2 of them is listed.
+- Theses flagged with `extraction_quality='garbled'` are excluded from the report's aggregates (with a one-line caption naming the count of excluded theses).
+
+## 9.9 Grid cell render states
 
 Every grid cell renders in one of four visually distinct states:
 
@@ -724,6 +788,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted |
 | [0015](adr/0015-performance-budget.md) | Performance budget — concrete numbers, CI-enforced | Accepted |
+| [0016](adr/0016-report-view.md) | Report view — matplotlib-backed summary for the professor | Accepted |
 
 ---
 

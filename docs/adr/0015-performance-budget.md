@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-06-03
-**Drivers:** QA-RES, US-PROF-FIVE-STEPS (step 3 must finish in reasonable time); running on a 10-year-old laptop is a hard requirement, not a stretch goal.
+**Drivers:** QA-RES, US-RES-LOW-FRICTION (step 3 of the contribute loop must finish in reasonable time), US-PROF-INSIGHTS (Report needs current data fast); running on a 10-year-old laptop is a hard requirement, not a stretch goal.
 
 ## Decision
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted (revised — history always included; no UI checkbox)
 **Date:** 2026-06-03
-**Drivers:** US-PROF-EXPORT, US-RES-IMPORT, QA-PRIV, US-PROF-FIVE-STEPS (no extra choices in step 4), debugging value of run history for the research team.
+**Drivers:** US-PROF-EXPORT, US-RES-IMPORT, US-RES-LOW-FRICTION (no extra choices in step 4 of the contribute loop), QA-PRIV, debugging value of run history for the research team.
 
 ## Decision
 
