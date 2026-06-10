@@ -41,7 +41,7 @@ Out of MVP scope but architecturally accommodated: LM-based modules (perplexity,
 
 External (academic): Flesch (1948), Yule (1944), Amstad (1978), and others — see [`references.bib`](references.bib).
 
-Internal: ADR documents under [`adr/`](adr/); user-story catalogue at [`user-stories.md`](user-stories.md); privacy registry at [`pds/core/privacy_metadata.py`](../core/privacy_metadata.py); artefact kinds vocabulary at [`pds/core/artefact_kinds.py`](../core/artefact_kinds.py).
+Internal: ADR documents under [`adr/`](adr/); user-story catalogue at [`user-stories.md`](user-stories.md); privacy registry at [`pds/core/privacy_metadata.py`](../pds/core/privacy_metadata.py); artefact kinds vocabulary at [`pds/core/artefact_kinds.py`](../pds/core/artefact_kinds.py).
 
 ---
 
@@ -210,39 +210,42 @@ flowchart LR
 ## 5.2 Package layout
 
 ```
-pds/
-├── core/
-│   ├── types.py              # Thesis, Module, RunContext, RunResult, Applicability
-│   ├── events.py             # in-process pub/sub for progress
-│   ├── db/                   # schema, migrations, repository
-│   ├── modules/              # analysis modules — see §7
-│   │   └── base.py           # Module ABC + ModuleSpec
-│   ├── artefact_kinds.py     # vocabulary of artefact kinds
-│   ├── privacy_metadata.py   # source-of-truth for the GDPR statement
-│   ├── runner.py             # dependency resolution + execution
-│   ├── artefacts.py          # filesystem layer for cached files
-│   ├── export.py             # anonymisation + export
-│   ├── importer.py           # import researcher merge DB
-│   ├── config.py             # pds.toml reader/writer
-│   └── help/                 # markdown content (see §9.4)
-├── ui/
-│   └── tk/                   # Tk + tksheet UI ([ADR-001](adr/0001-ui-toolkit.md))
-├── cli/                      # `pds` command-line ([ADR-003](adr/0003-cli-first-class.md))
+pds/                              # repository root
+├── pds/                          # Python package (import root: `pds.*`)
+│   ├── core/
+│   │   ├── types.py              # Thesis + shared plain types (module contract lives in modules/base.py)
+│   │   ├── events.py             # in-process pub/sub for progress
+│   │   ├── db/                   # schema, migrations, repository
+│   │   ├── modules/              # analysis modules — see §7
+│   │   │   └── base.py           # Module ABC + ModuleSpec, RunContext, RunResult, Applicability
+│   │   ├── artefact_kinds.py     # vocabulary of artefact kinds
+│   │   ├── privacy_metadata.py   # source-of-truth for the GDPR statement
+│   │   ├── runner.py             # dependency resolution + execution
+│   │   ├── artefacts.py          # filesystem layer for cached files
+│   │   ├── export.py             # anonymisation + export
+│   │   ├── importer.py           # import researcher merge DB
+│   │   ├── config.py             # pds.toml reader/writer
+│   │   └── help/                 # markdown content (see §9.4)
+│   ├── ui/
+│   │   └── tk/                   # Tk + tksheet UI ([ADR-001](adr/0001-ui-toolkit.md))
+│   └── cli/                      # `pds` command-line ([ADR-003](adr/0003-cli-first-class.md))
 ├── tests/
-│   ├── fixtures/             # tiny sample PDFs
-│   ├── core/                 # tested without any UI
-│   └── integration/          # exercises the CLI
+│   ├── fixtures/                 # tiny sample PDFs
+│   ├── core/                     # tested without any UI
+│   ├── modules/                  # per-module unit tests (QA-TEST)
+│   └── integration/              # exercises the CLI
+├── docs/                         # this SDD, ADRs, user stories
 └── pyproject.toml
 ```
 
 CI invariants:
 
 ```
-grep -rn "from ui\|import ui" core/ cli/                       → no results
-grep -rn "from cli\|import cli" core/ ui/                      → no results
-grep -rn "import fitz\|import pymupdf" core/ --include="*.py"  → only in extract_pymupdf.py
-                                                                 (build script fails the release
-                                                                  branch if found anywhere)
+grep -rn "pds\.ui\|from \.\. import ui\|from \.\.ui" pds/core/ pds/cli/    → no results
+grep -rn "pds\.cli\|from \.\. import cli\|from \.\.cli" pds/core/ pds/ui/  → no results
+grep -rn "import fitz\|import pymupdf" pds/core/ --include="*.py"          → only in modules/extract_pymupdf.py
+                                                                             (build script fails the release
+                                                                              branch if found anywhere)
 ```
 
 ## 5.3 Module pipeline (DAG)
@@ -370,9 +373,9 @@ class RunContext:
 
 @dataclass
 class RunResult:
-    metrics: dict[str, Any]
-    artefacts: dict[str, Path]
-    notes: dict[str, Any]
+    metrics: dict[str, Any] = field(default_factory=dict)
+    artefacts: dict[str, Path] = field(default_factory=dict)
+    notes: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Applicability:
@@ -522,7 +525,7 @@ erDiagram
 
 Decision: [ADR-006](adr/0006-schema.md). Single unified schema; `source.kind='local'` for the user's own data, `'imported'` for researcher merges. Append-only history on `module_runs` and `metric_values`; current state via the `v_current_metrics` view.
 
-Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../core/db/migrations/0001_initial.sql).
+Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../pds/core/db/migrations/0001_initial.sql).
 
 ### 8.1.1 Views
 
@@ -819,6 +822,16 @@ Items captured because they will eventually be revisited or because they impose 
 | **`CONTRACT_VERSION` constant on the module ABC** (tracks the contract version itself; bumped if `ModuleSpec`'s shape ever changes) | None — adding a constant is non-breaking; for MVP the git commit hash IS the contract version. | First external contributor wants to depend on the contract version programmatically. |
 | **Producer-swap configuration** (`pds.toml [producers]` table, `--producer KIND=MODULE` CLI override, three-layer selection resolution) | None — exactly one producer per kind is registered in MVP; the runner resolves it from the registry with no config knob. The future design is documented in ADR-005's "Future selection mechanism" section. | Alternative extractors land for the library-comparison study and we want runtime selection. |
 | **Additional PDF-technical metrics** (`pdf_version`, `is_encrypted`, `is_linearized`, `xmp_present`, `has_acroform`, `has_xfa`) — low research value, kept in the local-only `pdf_metadata` artefact instead of promoted to DB metrics. | None — already extracted into the artefact JSON; promotion is purely additive. | A specific research question requires one of them. |
+
+---
+
+# 13. Implementation start list
+
+Bootstrapping order — each step is a vertical slice that ends green under `pytest`:
+
+1. **Package scaffold + module contract + first concrete module.** `pyproject.toml`, package skeleton per [§5.2](#52-package-layout), `core/modules/base.py` (`ModuleSpec` + `Module` ABC per [ADR-004](adr/0004-module-contract.md)), `core/types.py` (`Thesis`), `core/artefact_kinds.py` (vocabulary + registration check), and `mod_extract_pymupdf` (catalogue #1, DAG root) with unit tests (QA-TEST).
+2. **Persistence + runner.** `core/db/` (migration `0001_initial.sql`, migrator, repository), `core/artefacts.py`, `core/events.py`, and `core/runner.py` (plan/execute split per [ADR-013](adr/0013-runner-orchestration.md)); the remaining nine catalogue modules land alongside, each with fixtures and tests.
+3. **Adapters.** `cli/` first ([ADR-003](adr/0003-cli-first-class.md): `pds run`, `pds list`, `pds module`, `pds export`, `pds import`, …), then `ui/tk/` (grid, toolbar, Report tab), plus `core/export.py` / `core/importer.py`, privacy registry, and help content with their CI checks.
 
 ---
 
