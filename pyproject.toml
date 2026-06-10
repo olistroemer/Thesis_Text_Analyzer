@@ -14,7 +14,13 @@ dependencies = [
     "nltk>=3.9",          # mod_tokenize (punkt_tab; data bundled at release per ADR-0014)
     "textstat>=0.7.4",    # mod_readability (Flesch en / Amstad de)
     "pypdf>=5.0",         # mod_count_images, mod_extract_pdf_metadata
+    "click>=8.1",         # cli (ADR-0003)
+    "rich>=13",           # cli tables + markdown help rendering (ADR-0012)
+    "tomli-w>=1.0",       # pds.toml writer (reading uses stdlib tomllib)
 ]
+
+[project.scripts]
+pds = "pds.cli.main:main"
 
 [project.optional-dependencies]
 # PyMuPDF is AGPL — development-phase extractor only. The release gate
@@ -28,6 +34,7 @@ include = ["pds*"]
 
 [tool.setuptools.package-data]
 "pds.core.db" = ["migrations/*.sql"]
+"pds.core" = ["help/**/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
