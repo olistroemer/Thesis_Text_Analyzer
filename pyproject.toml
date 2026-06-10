@@ -17,10 +17,15 @@ dependencies = [
     "click>=8.1",         # cli (ADR-0003)
     "rich>=13",           # cli tables + markdown help rendering (ADR-0012)
     "tomli-w>=1.0",       # pds.toml writer (reading uses stdlib tomllib)
+    "tksheet>=7.5",       # data grid with per-cell styling (ADR-0001)
+    "matplotlib>=3.8",    # report view charts (ADR-0016)
 ]
 
 [project.scripts]
 pds = "pds.cli.main:main"
+
+[project.gui-scripts]
+pds-gui = "pds.ui.tk.app:main"
 
 [project.optional-dependencies]
 # PyMuPDF is AGPL — development-phase extractor only. The release gate
