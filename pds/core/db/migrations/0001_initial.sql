@@ -38,6 +38,8 @@ CREATE TABLE module_runs (
     status          TEXT NOT NULL CHECK (status IN ('ok', 'na', 'error')),
     reason          TEXT,
     error_traceback TEXT,   -- may contain filesystem paths; stripped from exports
+    notes           TEXT,   -- JSON RunResult.notes; may contain content-derived
+                            -- values; stripped from exports (§8.3.1)
     started_at      TEXT NOT NULL,
     duration_ms     INTEGER
 );
@@ -74,6 +76,7 @@ SELECT
     mr.status,
     mr.reason,
     mr.error_traceback,
+    mr.notes,
     mr.started_at,
     mr.duration_ms,
     ROW_NUMBER() OVER (
@@ -94,6 +97,7 @@ SELECT
     h.id AS run_id,
     h.status,
     h.reason,
+    h.notes,
     h.started_at,
     h.duration_ms,
     mv.metric_name,

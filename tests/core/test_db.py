@@ -1,5 +1,6 @@
 """Migrator + repository tests (SDD §8.1, ADR-0006)."""
 
+import json
 import shutil
 import sqlite3
 
@@ -91,6 +92,23 @@ def test_record_run_metric_typing(project, tmp_path):
     assert rows["flag"] == (1.0, None)
     assert rows["label"] == (None, "ok")
     assert rows["missing"] == (None, None)
+
+
+def test_record_run_persists_notes_as_json(project, tmp_path):
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"x")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        with_notes = project.repo.record_run(
+            thesis.id, "mod_x", "1.0.0", "ok", notes={"stop_word_ratio": 0.21}
+        )
+        without_notes = project.repo.record_run(thesis.id, "mod_y", "1.0.0", "ok")
+    rows = {
+        r["id"]: r["notes"]
+        for r in project.conn.execute("SELECT id, notes FROM module_runs")
+    }
+    assert json.loads(rows[with_notes]) == {"stop_word_ratio": 0.21}
+    assert rows[without_notes] is None  # empty notes stay NULL, not "{}"
 
 
 def test_record_run_rejects_unsupported_metric_type(project, tmp_path):

@@ -25,6 +25,7 @@ Power users can still use `pds export --current-only` from the CLI to produce a 
 - Rows where `theses.excluded = 1`.
 - The entire `artefact_files` table (contents = raw text + tokens + full PDF metadata = full PII risk).
 - `module_runs.error_traceback` (may include filesystem paths).
+- `module_runs.notes` (free-form module diagnostics; may contain content-derived values).
 - `theses.added_at` is rounded to day to reduce timing fingerprints.
 - `theses.id` is preserved as-is (it's just an integer, no PII).
 - `pdf_sha256` is preserved (PII-free, used as portable cross-export identifier).

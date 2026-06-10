@@ -7,6 +7,7 @@ from the main process (ADR-0013: workers never touch the DB).
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -156,16 +157,19 @@ class Repository:
         started_at: str | None = None,
         duration_ms: int | None = None,
         metrics: dict[str, Any] | None = None,
+        notes: dict[str, Any] | None = None,
     ) -> int:
         """Append one module run with its metric values; returns run_id.
 
         Metric typing per §8.1: numbers (incl. bools) land in value_num,
-        strings in value_text, None in neither.
+        strings in value_text, None in neither. ``notes`` is stored as
+        JSON; it may contain content-derived values and is therefore
+        stripped from exports (§8.3.1).
         """
         cur = self.conn.execute(
             "INSERT INTO module_runs (thesis_id, module_name, module_version, status,"
-            " reason, error_traceback, started_at, duration_ms)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            " reason, error_traceback, notes, started_at, duration_ms)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 thesis_id,
                 module_name,
@@ -173,6 +177,7 @@ class Repository:
                 status,
                 reason,
                 error_traceback,
+                json.dumps(notes, ensure_ascii=False) if notes else None,
                 started_at or _now(),
                 duration_ms,
             ),

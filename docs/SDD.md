@@ -396,6 +396,8 @@ class Module(ABC):
 
 `applicable()` covers checks that need only the `Thesis` row (e.g. file extension); data-dependent checks from the applicability matrix ([§7.2](#72-applicability-matrix)) — detected language, minimum text length — happen inside `run()` via `NotApplicable`, since consumed artefact content is not available before execution.
 
+`RunResult.notes` is free-form diagnostic context that is neither a metric nor an artefact (e.g. the stop-word ratio behind an `extraction_quality` verdict). It is persisted as JSON in `module_runs.notes` for local inspection, but — because it may contain content-derived values — it is always stripped from exports ([§8.3.1](#831-anonymisation-rules)).
+
 Decisions: [ADR-004](adr/0004-module-contract.md) for the contract, [ADR-005](adr/0005-producer-swap-deferred.md) for producer-swap semantics.
 
 ## 6.3 Run lifecycle
@@ -513,6 +515,7 @@ erDiagram
         text module_version
         text status
         text reason
+        text notes "JSON diagnostics; never exported"
         text started_at
         int duration_ms
     }
@@ -567,7 +570,7 @@ Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; 
 | Source table | What ships | What's stripped |
 |---|---|---|
 | `theses` | `id`, `pdf_sha256`, `pdf_size_bytes`, `type`, `language_hint`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, rows where `excluded=1` |
-| `module_runs` | All columns except `error_traceback` (may contain filesystem paths) | `error_traceback` |
+| `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `notes` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `notes` |
 | `metric_values` | All | — |
 | `producer_chains` | n/a (no producer-chain table in MVP) | — |
 | `artefact_files` | — (entire table not exported) | — |

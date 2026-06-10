@@ -1,6 +1,7 @@
 """Runner tests (ADR-0013): plan modes, execution, cascade, timeout, events."""
 
 import dataclasses
+import json
 import time
 
 import pytest
@@ -240,6 +241,12 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
     }
     assert values["language_code"][1] == "en"
     assert values["extraction_quality"][1] == "ok"
+
+    # module diagnostics travel from worker to DB, local-only (§8.3.1)
+    quality_notes = project.conn.execute(
+        "SELECT notes FROM module_runs WHERE module_name = 'mod_check_extraction_quality'"
+    ).fetchone()["notes"]
+    assert json.loads(quality_notes)["stop_word_ratio"] > 0.149
     assert values["word_count"][0] > 300
     assert values["producer_category"][1] == "latex"
     assert 0 < values["flesch_reading_ease"][0] < 121

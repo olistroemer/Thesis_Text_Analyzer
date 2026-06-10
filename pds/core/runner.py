@@ -442,6 +442,7 @@ class Runner:
                     started_at=outcome.started_at,
                     duration_ms=outcome.duration_ms,
                     metrics=outcome.metrics,
+                    notes=outcome.notes,
                 )
                 for kind, tmp_path in outcome.artefacts.items():
                     relative = self.store.store(thesis_id, run_id, kind, Path(tmp_path))
