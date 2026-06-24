@@ -1,6 +1,6 @@
 # ADR-0014: Distribution as single-file standalone binary
 
-**Status:** Accepted
+**Status:** Accepted. The **AGPL release gate** in the build pipeline is **superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
 **Date:** 2026-06-03
 **Drivers:** US-ALL-OFFLINE, US-RES-LOW-FRICTION (step 1 = "start the app", not "start the app and then pick a folder"), US-PROF-AUTO-OPEN, QA-PORT.
 
@@ -23,7 +23,7 @@ This keeps the professor's happy-path step 1 as "start the app" — never "start
 
 ## Build pipeline
 
-CI matrix builds release binaries on Windows, macOS (arm64 + amd64), and Linux. Tag-triggered. The AGPL release gate (CI grep for `import fitz`/`import pymupdf` under `pds/core/`) blocks the build if PyMuPDF leaks. NLTK data bundled via PyInstaller `--add-data`. UPX disabled (antivirus false positives).
+CI matrix builds release binaries on Windows, macOS (arm64 + amd64), and Linux. Tag-triggered. ~~The AGPL release gate (CI grep for `import fitz`/`import pymupdf` under `pds/core/`) blocks the build if PyMuPDF leaks.~~ (Retired by [ADR-0017](0017-license.md) — PyMuPDF may ship under the project's copyleft licence.) NLTK data bundled via PyInstaller `--add-data`. UPX disabled (antivirus false positives).
 
 Approximate release-build size: ~100 MB per OS.
 

@@ -1,6 +1,6 @@
 # ADR-0011: MVP module catalogue — 10 modules / 26 metrics
 
-**Status:** Accepted (revision 2 — hapax measured as both token-ratio V1/N and type-ratio V1/V so the variants can be compared on real cohorts; 25 → 26 metrics)
+**Status:** Accepted (revision 2 — hapax measured as both token-ratio V1/N and type-ratio V1/V so the variants can be compared on real cohorts; 25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
 **Date:** 2026-06-03 (rev. 2: 2026-06-10)
 **Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
 
@@ -23,11 +23,13 @@ Flesch reading ease is **language-aware**: Flesch's formula for English [@flesch
 | `mod_tokenize` | NLTK punkt_tab | language-aware sentence + word tokenisation | spaCy, stanza |
 | `mod_readability` | textstat | implements Flesch + Amstad out of the box | custom implementation |
 
-The library-comparison study (SDD §2.1.1) produces a contracted research output: a ranked recommendation per module class. The distributed `.exe` ships the winners.
+The library-comparison study (SDD §2.1.1) produces a contracted research output: a ranked recommendation per module class. The distributed `.exe` ships the winners on extraction quality — no longer constrained to non-AGPL candidates (see below).
 
 ## AGPL release gate
 
-`mod_extract_pymupdf` MUST be replaced with a non-AGPL alternative before the first `.exe` distribution. CI on the release branch greps `core/` for `import fitz`/`import pymupdf` and fails the build.
+> **Superseded by [ADR-0017](0017-license.md).** This gate assumed the deliverable must avoid copyleft. ADR-0017 instead adopts a copyleft licence for the whole project, so PyMuPDF may ship as-is and the gate is retired. The text below is kept as the historical rationale.
+
+~~`mod_extract_pymupdf` MUST be replaced with a non-AGPL alternative before the first `.exe` distribution. CI on the release branch greps `core/` for `import fitz`/`import pymupdf` and fails the build.~~
 
 ## What we deferred and why
 
@@ -47,7 +49,7 @@ The library-comparison study (SDD §2.1.1) produces a contracted research output
 - ✅ Theses in unsupported languages gracefully degrade via N/A rather than failing.
 - ✅ Garbled-thesis case is flagged but doesn't break the pipeline.
 - ⚠️ SDD §2 must explicitly state that the MVP measures metric trends, NOT presence of AI authorship.
-- ⚠️ AGPL release gate must be visibly enforced in CI; missing it could ship a copyleft-tainted binary.
+- ⚠️ ~~AGPL release gate must be visibly enforced in CI; missing it could ship a copyleft-tainted binary.~~ Retired by [ADR-0017](0017-license.md): a copyleft binary is now the intended posture, not a hazard.
 
 ## Revisit when
 

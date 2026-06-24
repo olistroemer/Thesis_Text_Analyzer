@@ -62,9 +62,9 @@ The project produces a comparative evaluation of PDF text-extraction libraries (
 - Extraction quality (presence of garbled output, faithfulness to layout, handling of footnotes, captions, equations).
 - Resulting metric stability — do the same theses produce similar metric values across extractors?
 - Resource footprint (time, memory).
-- License compatibility with redistribution.
+- License compatibility with redistribution (informative only since [ADR-0017](adr/0017-license.md) adopts a copyleft licence — no longer a ship-blocking criterion).
 
-Findings inform which extractor ships in the distributed `.exe` and form a section of the planned publication. The architecture supports this study natively: alternative extractors are added as additional modules producing the same `raw_text` artefact kind, selected via `pds.toml` per run.
+Findings inform which extractor ships in the distributed `.exe` — selected on extraction quality, with the licence constraint removed by [ADR-0017](adr/0017-license.md) — and form a section of the planned publication. The architecture supports this study natively: alternative extractors are added as additional modules producing the same `raw_text` artefact kind, selected via `pds.toml` per run.
 
 ## 2.2 Distribution model
 
@@ -243,10 +243,9 @@ CI invariants:
 ```
 grep -rn "pds\.ui\|from \.\. import ui\|from \.\.ui" pds/core/ pds/cli/    → no results
 grep -rn "pds\.cli\|from \.\. import cli\|from \.\.cli" pds/core/ pds/ui/  → no results
-grep -rn "import fitz\|import pymupdf" pds/core/ --include="*.py"          → only in modules/extract_pymupdf.py
-                                                                             (build script fails the release
-                                                                              branch if found anywhere)
 ```
+
+(The former AGPL release-gate invariant — no `import fitz`/`import pymupdf` under `pds/core/` — is **retired by [ADR-0017](adr/0017-license.md)**: PyMuPDF ships under the project's copyleft licence. Only the two boundary invariants above remain.)
 
 ## 5.3 Module pipeline (DAG)
 
@@ -297,7 +296,7 @@ A `--dry-run` flag prints the plan without executing.
 
 Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update.
 
-On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). The only per-user state outside the project folder is `~/.config/pds/recent.json`. CI release-gate enforces no `import fitz`/`import pymupdf` under `pds/core/` (AGPL gate per ADR-011).
+On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). The only per-user state outside the project folder is `~/.config/pds/recent.json`. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `pds/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
 
 ---
 
@@ -439,7 +438,7 @@ Ten modules, twenty-six metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md)
 
 | # | Module | Inputs (artefacts) | Produces (artefacts) | Produces (metrics) | Notes |
 |---|---|---|---|---|---|
-| 1 | `mod_extract_pymupdf` | — (PDF directly) | `raw_text` | `text_chars`, `n_pages` | PyMuPDF (AGPL — dev only; release gate) |
+| 1 | `mod_extract_pymupdf` | — (PDF directly) | `raw_text` | `text_chars`, `n_pages` | PyMuPDF (AGPL); ships under the project copyleft licence (ADR-0017) |
 | 2 | `mod_check_extraction_quality` | `raw_text` | — | `extraction_quality` (text: `ok`/`garbled`/`sparse`) | heuristic from `harvester/GARBLED_EXTRACTIONS.md` |
 | 3 | `mod_classify_language` | `raw_text` | `language` | `language_code`, `language_confidence` | langdetect |
 | 4 | `mod_tokenize` | `raw_text`, `language` | `tokens` | — | NLTK punkt_tab |
@@ -469,7 +468,7 @@ Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf
 
 ## 7.4 Notes on specific modules
 
-**`mod_extract_pymupdf`** is the initial implementation; it must be replaced before the first distributed `.exe` per the AGPL release gate. See memory entry `feedback_agpl_pymupdf`.
+**`mod_extract_pymupdf`** is the initial implementation. The AGPL release gate that previously required replacing it before the first distributed `.exe` is retired by [ADR-0017](adr/0017-license.md) (the project adopts a copyleft licence, so PyMuPDF may ship); alternative extractors are now compared on quality, not licence ([§2.1.1](#211-methodological-output-library-comparison-study)).
 
 **`mod_check_extraction_quality`** flags but does NOT block downstream modules. A thesis flagged `garbled` still has all subsequent metrics computed; the grid renders the row with a warning glyph and a tooltip.
 
@@ -796,12 +795,13 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | 0008 | (retired — separate researcher schema; superseded by ADR-006) | Superseded |
 | [0009](adr/0009-privacy-as-code.md) | Privacy metadata as code; statement is rendered | Accepted |
 | [0010](adr/0010-sdd-authoring.md) | SDD authoring — markdown + Mermaid + pandoc/xelatex | Accepted |
-| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 10 modules / 26 metrics | Accepted (rev. 2) |
+| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 10 modules / 26 metrics | Accepted (rev. 2; AGPL gate superseded by 0017) |
 | [0012](adr/0012-help-content.md) | Help-content authoring conventions | Accepted |
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
-| [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted |
+| [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |
 | [0015](adr/0015-performance-budget.md) | Performance budget — concrete numbers, CI-enforced | Accepted |
 | [0016](adr/0016-report-view.md) | Report view — matplotlib-backed summary for the professor | Accepted |
+| [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
 
 ---
 
