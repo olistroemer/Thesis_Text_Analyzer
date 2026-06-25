@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: lint-and-test (linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package (dev extras)
+        run: |
+          pip install -e '.[dev]'
+          python -m nltk.downloader punkt_tab
+
+      # SDD §5.2 — hexagonal boundary invariant.
+      # core/cli must not import the UI layer; core/ui must not import the CLI
+      # layer. A match means the dependency direction was violated.
+      # (No AGPL gate — retired by ADR-0017.)
+      - name: Boundary invariant (SDD §5.2)
+        run: |
+          if grep -rn 'tta\.ui' tta/core tta/cli --include='*.py'; then
+            echo "::error::tta.core/tta.cli must not import tta.ui (SDD §5.2)"
+            exit 1
+          fi
+          if grep -rn 'tta\.cli' tta/core tta/ui --include='*.py'; then
+            echo "::error::tta.core/tta.ui must not import tta.cli (SDD §5.2)"
+            exit 1
+          fi
+
+      # ADR-0018 — Python source must be pure ASCII.
+      - name: ASCII-source invariant (ADR-0018)
+        run: |
+          if git ls-files '*.py' | xargs grep -lP '[^\x00-\x7F]'; then
+            echo "::error::non-ASCII byte found in tracked *.py (ADR-0018)"
+            exit 1
+          fi
+
+      # GUI smoke test self-skips headless (no DISPLAY) — expected, no xvfb.
+      - name: Run tests
+        run: python -m pytest -q
