@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  lint-and-test:
     name: lint-and-test (linux)
     runs-on: ubuntu-latest
 
