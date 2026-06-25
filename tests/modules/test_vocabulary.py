@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from pds.core.modules.vocabulary import Vocabulary
+from tta.core.modules.vocabulary import Vocabulary
 
 # lowercased words: the:2, cat:1, and:1, dog:1 → N=5, V=4, V1=3
 TOKENS = {"sentences": [["The", "cat", "and", "the", "dog", "."]], "language": "en"}

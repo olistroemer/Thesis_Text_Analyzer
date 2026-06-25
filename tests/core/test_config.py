@@ -1,6 +1,6 @@
-"""pds.toml round-trip tests (SDD §5.4)."""
+"""tta.toml round-trip tests (SDD §5.4)."""
 
-from pds.core.config import Config, load_config, save_config
+from tta.core.config import Config, load_config, save_config
 
 
 def test_missing_file_yields_defaults(tmp_path):
@@ -20,7 +20,7 @@ def test_round_trip(tmp_path):
 
 
 def test_unknown_keys_survive_round_trip(tmp_path):
-    (tmp_path / "pds.toml").write_text(
+    (tmp_path / "tta.toml").write_text(
         "[future_section]\nknob = 7\n\n[ui]\nmode = \"extended\"\n", encoding="utf-8"
     )
     config = load_config(tmp_path)
@@ -31,5 +31,5 @@ def test_unknown_keys_survive_round_trip(tmp_path):
 
 
 def test_invalid_mode_falls_back_to_basic(tmp_path):
-    (tmp_path / "pds.toml").write_text("[ui]\nmode = \"hacker\"\n", encoding="utf-8")
+    (tmp_path / "tta.toml").write_text("[ui]\nmode = \"hacker\"\n", encoding="utf-8")
     assert load_config(tmp_path).ui_mode == "basic"

@@ -2,7 +2,7 @@
 
 import pytest
 
-from pds.core import artefact_kinds
+from tta.core import artefact_kinds
 
 
 def test_mvp_vocabulary_is_exactly_four_kinds():

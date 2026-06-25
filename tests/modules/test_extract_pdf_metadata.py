@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from pds.core import artefact_kinds
-from pds.core.modules.extract_pdf_metadata import ExtractPdfMetadata, categorize_tool
+from tta.core import artefact_kinds
+from tta.core.modules.extract_pdf_metadata import ExtractPdfMetadata, categorize_tool
 from tests.conftest import make_thesis
 
 

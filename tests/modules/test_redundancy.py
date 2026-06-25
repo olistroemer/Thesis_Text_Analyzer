@@ -2,8 +2,8 @@
 
 import pytest
 
-from pds.core.modules.base import NotApplicable
-from pds.core.modules.redundancy import Redundancy
+from tta.core.modules.base import NotApplicable
+from tta.core.modules.redundancy import Redundancy
 
 
 def test_hand_computed_repetition(build_ctx):

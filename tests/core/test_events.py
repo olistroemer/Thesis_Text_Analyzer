@@ -1,6 +1,6 @@
 """EventBus tests (SDD §5.5, ADR-0013)."""
 
-from pds.core import events
+from tta.core import events
 
 
 def test_typed_subscription():

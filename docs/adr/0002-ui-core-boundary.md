@@ -29,7 +29,7 @@ A standalone analyzer that targets a multi-year lifecycle, will be distributed t
 ## Consequences
 
 - ✅ GUI and CLI evolve independently; researcher CLI workflow is unblocked from any GUI work.
-- ✅ Module developers can iterate via `pds run --module M --input fixture.pdf` without launching the GUI.
+- ✅ Module developers can iterate via `tta run --module M --input fixture.pdf` without launching the GUI.
 - ✅ A future UI swap (Tk → Qt) is bounded to `ui/`.
 - ⚠️ Discipline must be enforced (import-graph CI check).
 - ⚠️ Trivial-looking features that span "data plus UI" require slightly more ceremony.

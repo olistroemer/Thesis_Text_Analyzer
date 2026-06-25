@@ -2,8 +2,8 @@
 
 import pytest
 
-from pds.core.modules.base import NotApplicable
-from pds.core.modules.surface_counts import SurfaceCounts
+from tta.core.modules.base import NotApplicable
+from tta.core.modules.surface_counts import SurfaceCounts
 
 TOKENS = {
     # word tokens after punctuation filtering: [The, cat, sat] and [A, dog]

@@ -16,9 +16,9 @@ This document specifies the design of the **Thesis Text Analyzer**, a portable d
 
 The MVP comprises:
 
-- A core analysis library (`pds.core`) that runs analyses, persists results, and exports them — toolkit- and UI-agnostic.
-- A graphical UI (`pds.ui.tk`) targeted at professors who provide thesis files.
-- A command-line interface (`pds.cli`) targeted at researchers and developers, equal in capability to the GUI.
+- A core analysis library (`tta.core`) that runs analyses, persists results, and exports them — toolkit- and UI-agnostic.
+- A graphical UI (`tta.ui.tk`) targeted at professors who provide thesis files.
+- A command-line interface (`tta.cli`) targeted at researchers and developers, equal in capability to the GUI.
 
 Out of MVP scope but architecturally accommodated: LM-based modules (perplexity, embedding burstiness), citation/quotation validity modules, smarter figure analysis, full i18n, plugin loaders. See [§12](#12-out-of-mvp-scope).
 
@@ -41,7 +41,7 @@ Out of MVP scope but architecturally accommodated: LM-based modules (perplexity,
 
 External (academic): Flesch (1948), Yule (1944), Amstad (1978), and others — see [`references.bib`](references.bib).
 
-Internal: ADR documents under [`adr/`](adr/); user-story catalogue at [`user-stories.md`](user-stories.md); privacy registry at [`pds/core/privacy_metadata.py`](../pds/core/privacy_metadata.py); artefact kinds vocabulary at [`pds/core/artefact_kinds.py`](../pds/core/artefact_kinds.py).
+Internal: ADR documents under [`adr/`](adr/); user-story catalogue at [`user-stories.md`](user-stories.md); privacy registry at [`tta/core/privacy_metadata.py`](../tta/core/privacy_metadata.py); artefact kinds vocabulary at [`tta/core/artefact_kinds.py`](../tta/core/artefact_kinds.py).
 
 ---
 
@@ -64,7 +64,7 @@ The project produces a comparative evaluation of PDF text-extraction libraries (
 - Resource footprint (time, memory).
 - License compatibility with redistribution (informative only since [ADR-0017](adr/0017-license.md) adopts a copyleft licence — no longer a ship-blocking criterion).
 
-Findings inform which extractor ships in the distributed `.exe` — selected on extraction quality, with the licence constraint removed by [ADR-0017](adr/0017-license.md) — and form a section of the planned publication. The architecture supports this study natively: alternative extractors are added as additional modules producing the same `raw_text` artefact kind, selected via `pds.toml` per run.
+Findings inform which extractor ships in the distributed `.exe` — selected on extraction quality, with the licence constraint removed by [ADR-0017](adr/0017-license.md) — and form a section of the planned publication. The architecture supports this study natively: alternative extractors are added as additional modules producing the same `raw_text` artefact kind, selected via `tta.toml` per run.
 
 ## 2.2 Distribution model
 
@@ -94,22 +94,22 @@ The application is sent to professors at multiple institutions. They run analyse
 flowchart LR
     subgraph inst1["Institution A"]
         prof1[Professor]
-        db1[(local pds.sqlite)]
+        db1[(local tta.sqlite)]
         prof1 -->|adds PDFs, runs analyses| db1
         db1 -->|export.sqlite| out1[email / file share]
     end
     subgraph inst2["Institution B"]
         prof2[Professor]
-        db2[(local pds.sqlite)]
+        db2[(local tta.sqlite)]
         prof2 --> db2
         db2 --> out2[email / file share]
     end
     subgraph team["Project research team"]
-        rdb[(merged pds.sqlite)]
+        rdb[(merged tta.sqlite)]
         analysis[external analysis / publication]
     end
-    out1 -->|pds import| rdb
-    out2 -->|pds import| rdb
+    out1 -->|tta import| rdb
+    out2 -->|tta import| rdb
     rdb --> analysis
 ```
 
@@ -199,7 +199,7 @@ flowchart LR
         help[help]
     end
     fs[(filesystem<br/>artefacts/, txts/, tokens/)]
-    sqlite[(SQLite<br/>pds.sqlite)]
+    sqlite[(SQLite<br/>tta.sqlite)]
     ui --> core
     cli --> core
     core --> fs
@@ -211,8 +211,8 @@ flowchart LR
 ## 5.2 Package layout
 
 ```
-pds/                              # repository root
-├── pds/                          # Python package (import root: `pds.*`)
+tta/                              # repository root
+├── tta/                          # Python package (import root: `tta.*`)
 │   ├── core/
 │   │   ├── types.py              # Thesis + shared plain types (module contract lives in modules/base.py)
 │   │   ├── events.py             # in-process pub/sub for progress
@@ -225,11 +225,11 @@ pds/                              # repository root
 │   │   ├── artefacts.py          # filesystem layer for cached files
 │   │   ├── export.py             # anonymisation + export
 │   │   ├── importer.py           # import researcher merge DB
-│   │   ├── config.py             # pds.toml reader/writer
+│   │   ├── config.py             # tta.toml reader/writer
 │   │   └── help/                 # markdown content (see §9.4)
 │   ├── ui/
 │   │   └── tk/                   # Tk + tksheet UI ([ADR-001](adr/0001-ui-toolkit.md))
-│   └── cli/                      # `pds` command-line ([ADR-003](adr/0003-cli-first-class.md))
+│   └── cli/                      # `tta` command-line ([ADR-003](adr/0003-cli-first-class.md))
 ├── tests/
 │   ├── fixtures/                 # tiny sample PDFs
 │   ├── core/                     # tested without any UI
@@ -242,11 +242,11 @@ pds/                              # repository root
 CI invariants:
 
 ```
-grep -rn "pds\.ui\|from \.\. import ui\|from \.\.ui" pds/core/ pds/cli/    → no results
-grep -rn "pds\.cli\|from \.\. import cli\|from \.\.cli" pds/core/ pds/ui/  → no results
+grep -rn "tta\.ui\|from \.\. import ui\|from \.\.ui" tta/core/ tta/cli/    → no results
+grep -rn "tta\.cli\|from \.\. import cli\|from \.\.cli" tta/core/ tta/ui/  → no results
 ```
 
-(The former AGPL release-gate invariant — no `import fitz`/`import pymupdf` under `pds/core/` — is **retired by [ADR-0017](adr/0017-license.md)**: PyMuPDF ships under the project's copyleft licence. Only the two boundary invariants above remain.)
+(The former AGPL release-gate invariant — no `import fitz`/`import pymupdf` under `tta/core/` — is **retired by [ADR-0017](adr/0017-license.md)**: PyMuPDF ships under the project's copyleft licence. Only the two boundary invariants above remain.)
 
 ## 5.3 Module pipeline (DAG)
 
@@ -270,9 +270,9 @@ Three "root" modules read the PDF directly; everything else flows downstream fro
 
 ## 5.4 Persistence
 
-- **Database** — one SQLite file (`pds.sqlite`) at the project root. Schema in [§8.1](#81-database-schema). Append-only history on `module_runs` and `metric_values`.
+- **Database** — one SQLite file (`tta.sqlite`) at the project root. Schema in [§8.1](#81-database-schema). Append-only history on `module_runs` and `metric_values`.
 - **Artefact filesystem** — `<project>/artefacts/<thesis_id>/<run_id>/<kind>.<ext>` ([ADR-006](adr/0006-schema.md)). Files referenced by relative path in `artefact_files`.
-- **Configuration** — `<project>/pds.toml`. Worker count, user preferences. (Producer selection is omitted in MVP — see ADR-005.)
+- **Configuration** — `<project>/tta.toml`. Worker count, user preferences. (Producer selection is omitted in MVP — see ADR-005.)
 
 ## 5.5 Runner orchestration
 
@@ -297,7 +297,7 @@ A `--dry-run` flag prints the plan without executing.
 
 Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update.
 
-On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). By default the app writes **nothing** outside the project folder (US-PROF-NO-TRACES, [ADR-014](adr/0014-distribution.md)); the last-project pointer lives inside the default project, so deleting the folder removes every trace and no `~/.config/pds` file is created. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `pds/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
+On first launch the app creates `~/TTA-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). By default the app writes **nothing** outside the project folder (US-PROF-NO-TRACES, [ADR-014](adr/0014-distribution.md)); the last-project pointer lives inside the default project, so deleting the folder removes every trace and no `~/.config/tta` file is created. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `tta/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
 
 ---
 
@@ -535,7 +535,7 @@ erDiagram
 
 Decision: [ADR-006](adr/0006-schema.md). Single unified schema; `source.kind='local'` for the user's own data, `'imported'` for researcher merges. Append-only history on `module_runs` and `metric_values`; current state via the `v_current_metrics` view.
 
-Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../pds/core/db/migrations/0001_initial.sql).
+Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql).
 
 ### 8.1.1 Views
 
@@ -546,8 +546,8 @@ Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`
 
 ```
 <project>/
-    pds.sqlite                  # the database
-    pds.toml                    # configuration
+    tta.sqlite                  # the database
+    tta.toml                    # configuration
     artefacts/
         <thesis_id>/
             <run_id>/
@@ -561,7 +561,7 @@ Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`
 
 ## 8.3 Export format
 
-Decision: [ADR-007](adr/0007-export-format.md). A single SQLite file mirroring the local schema, minus PII columns, minus the `artefact_files` table, plus an `export_info` metadata table. **History is always included in MVP exports** (no UI opt-out); `pds export --current-only` from the CLI produces a trimmed form for power users.
+Decision: [ADR-007](adr/0007-export-format.md). A single SQLite file mirroring the local schema, minus PII columns, minus the `artefact_files` table, plus an `export_info` metadata table. **History is always included in MVP exports** (no UI opt-out); `tta export --current-only` from the CLI produces a trimmed form for power users.
 
 Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; the `exports/` directory is created on demand. The user can change the path in the file dialog. Sending the export "back" is then mechanically clear: navigate to `exports/`, attach the file.
 
@@ -577,11 +577,11 @@ Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; 
 
 ### 8.3.2 Import (researcher merge)
 
-The same schema accommodates imports. `pds import export.sqlite --name "FH Wedel CS 2025"` creates a new `sources` row with `kind='imported'`, then `ATTACH` + `INSERT-SELECT` copies the data with the new `source_id` prepended. Local theses (`kind='local'`) continue to run normally; imported theses are read-only (the runner filter at [§5.3](#53-module-pipeline-dag) skips them).
+The same schema accommodates imports. `tta import export.sqlite --name "FH Wedel CS 2025"` creates a new `sources` row with `kind='imported'`, then `ATTACH` + `INSERT-SELECT` copies the data with the new `source_id` prepended. Local theses (`kind='local'`) continue to run normally; imported theses are read-only (the runner filter at [§5.3](#53-module-pipeline-dag) skips them).
 
 ## 8.4 Privacy registry
 
-Decision: [ADR-009](adr/0009-privacy-as-code.md). Every persisted user-originating value has an entry in `core/privacy_metadata.py`. CI fails if a schema column or registered module is missing from the registry. The GDPR Art. 13 privacy statement is rendered from this registry by `pds privacy report --format md`.
+Decision: [ADR-009](adr/0009-privacy-as-code.md). Every persisted user-originating value has an entry in `core/privacy_metadata.py`. CI fails if a schema column or registered module is missing from the registry. The GDPR Art. 13 privacy statement is rendered from this registry by `tta privacy report --format md`.
 
 Categories of data tracked: `TECHNICAL`, `CONTENT_HASH`, `METRIC`, `CONTENT`, `IDENTIFYING`.
 
@@ -632,7 +632,7 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 
 Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode.
 
-Mode toggle in `View → Mode → Extended`. State persisted in `pds.toml`.
+Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 
 ## 9.4 Help system
 
@@ -640,7 +640,7 @@ Decision: [ADR-012](adr/0012-help-content.md). Help content under `core/help/`, 
 
 Three render targets:
 - **GUI**: tk Text widget via `markdown` library; clickable cross-refs.
-- **CLI**: `pds help <topic>`, rendered by `rich`.
+- **CLI**: `tta help <topic>`, rendered by `rich`.
 - **PDF**: pandoc + xelatex for the SDD and standalone help bundle.
 
 CI enforces coverage: every registered module and metric has a help page; every cross-reference resolves; every BibTeX key exists.
@@ -649,7 +649,7 @@ CI enforces coverage: every registered module and metric has a help page; every 
 
 MVP uses per-metric IQR (1.5 × IQR beyond Q1/Q3) for outlier detection, matching matplotlib's boxplot default. The algorithm is documented in `concepts/outlier_detection.md`. Multivariate detection (Mahalanobis / isolation forest) is deferred to [§12](#12-out-of-mvp-scope) under extended mode.
 
-Cells outside the IQR range are coloured according to a small palette; the palette can be swapped (a different "scheme") in Extended mode. Schemes are part of `pds.toml`.
+Cells outside the IQR range are coloured according to a small palette; the palette can be swapped (a different "scheme") in Extended mode. Schemes are part of `tta.toml`.
 
 ## 9.6 i18n posture
 
@@ -670,7 +670,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 
 **First-launch banner text:**
 
-> *Your project lives at `~/PDS-Theses/`. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File → Open Project…*
+> *Your project lives at `~/TTA-Theses/`. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File → Open Project…*
 
 Dismisses on first interaction; never shown again for this project.
 
@@ -768,7 +768,7 @@ Decision: ADR-002 (hexagonal boundary) + ADR-004 (module contract). Every module
 
 ### QA-GDPR — Privacy statement byproduct
 
-Decision: [ADR-009](adr/0009-privacy-as-code.md). The privacy statement is rendered from `core/privacy_metadata.py` via `pds privacy report`. CI enforces coverage. Schema or module changes that omit a privacy entry break the build.
+Decision: [ADR-009](adr/0009-privacy-as-code.md). The privacy statement is rendered from `core/privacy_metadata.py` via `tta privacy report`. CI enforces coverage. Schema or module changes that omit a privacy entry break the build.
 
 ### QA-REPRO — Reproducibility
 
@@ -818,7 +818,7 @@ Items captured because they will eventually be revisited or because they impose 
 | **LM-based modules** (perplexity, embedding burstiness) | None; integrates via standard module contract. | Researcher's module ready. |
 | **Citation/quotation validity module** | None; integrates via standard module contract. | Researcher's module ready. |
 | **Smarter figure module** (cluster fragments, distinguish photos/charts/equation renders) | None; `mod_count_images` is the POC. | Need to distinguish image types. |
-| **Tiered distribution** (basic vs research `.exe`) | Module loader supports module-set selection by `pds.toml`. | First LM-based module lands with heavy deps. |
+| **Tiered distribution** (basic vs research `.exe`) | Module loader supports module-set selection by `tta.toml`. | First LM-based module lands with heavy deps. |
 | **In-app auto-update** | Module versions stored in DB so cross-cohort version differences are visible. | Probably never (violates fully-offline principle). |
 | **A/B comparison view in the grid** | DB stores per-metric `module_name` + `module_version`, so cross-pivot is already feasible. | When the comparison study finishes and we want it in-app. |
 | **Multivariate outlier detection** (Mahalanobis, isolation forest) | Single-metric IQR is enough; outlier strategy interface is pluggable. | Researcher feedback that single-metric misses cross-metric weirdness. |
@@ -831,7 +831,7 @@ Items captured because they will eventually be revisited or because they impose 
 | **macOS code signing / Windows authenticode** | None; affects only release pipeline. Workarounds documented in release notes. | First release where unsigned binaries are blocked by institutional IT, or scaled deployment justifies the certificate cost. |
 | **Module priority + adaptive runtime degradation** (`essential`/`optional` field on `ModuleSpec`; run modes "fast scan", "triage"; `SlowRunDetected` event with non-blocking UI prompt to switch the remaining batch to fast scan when observed per-thesis duration exceeds budget × 2.5) | `ModuleSpec` stays extensible (frozen dataclass; adding `priority` with a default later is backward-compatible). Event bus already supports new event types being added. No other MVP commitment needed. | Real-world feedback that slow-tier batch runs are unacceptably long; OR first contributor module wants `optional`-by-construction; OR LM-based modules land and need explicit cost-gating. |
 | **`CONTRACT_VERSION` constant on the module ABC** (tracks the contract version itself; bumped if `ModuleSpec`'s shape ever changes) | None — adding a constant is non-breaking; for MVP the git commit hash IS the contract version. | First external contributor wants to depend on the contract version programmatically. |
-| **Producer-swap configuration** (`pds.toml [producers]` table, `--producer KIND=MODULE` CLI override, three-layer selection resolution) | None — exactly one producer per kind is registered in MVP; the runner resolves it from the registry with no config knob. The future design is documented in ADR-005's "Future selection mechanism" section. | Alternative extractors land for the library-comparison study and we want runtime selection. |
+| **Producer-swap configuration** (`tta.toml [producers]` table, `--producer KIND=MODULE` CLI override, three-layer selection resolution) | None — exactly one producer per kind is registered in MVP; the runner resolves it from the registry with no config knob. The future design is documented in ADR-005's "Future selection mechanism" section. | Alternative extractors land for the library-comparison study and we want runtime selection. |
 | **Additional PDF-technical metrics** (`pdf_version`, `is_encrypted`, `is_linearized`, `xmp_present`, `has_acroform`, `has_xfa`) — low research value, kept in the local-only `pdf_metadata` artefact instead of promoted to DB metrics. | None — already extracted into the artefact JSON; promotion is purely additive. | A specific research question requires one of them. |
 
 ---
@@ -842,7 +842,7 @@ Bootstrapping order — each step is a vertical slice that ends green under `pyt
 
 1. **Package scaffold + module contract + first concrete module.** `pyproject.toml`, package skeleton per [§5.2](#52-package-layout), `core/modules/base.py` (`ModuleSpec` + `Module` ABC per [ADR-004](adr/0004-module-contract.md)), `core/types.py` (`Thesis`), `core/artefact_kinds.py` (vocabulary + registration check), and `mod_extract_pymupdf` (catalogue #1, DAG root) with unit tests (QA-TEST).
 2. **Persistence + runner.** `core/db/` (migration `0001_initial.sql`, migrator, repository), `core/artefacts.py`, `core/events.py`, and `core/runner.py` (plan/execute split per [ADR-013](adr/0013-runner-orchestration.md)); the remaining nine catalogue modules land alongside, each with fixtures and tests.
-3. **Adapters.** `cli/` first ([ADR-003](adr/0003-cli-first-class.md): `pds run`, `pds list`, `pds module`, `pds export`, `pds import`, …), then `ui/tk/` (grid, toolbar, Report tab), plus `core/export.py` / `core/importer.py`, privacy registry, and help content with their CI checks.
+3. **Adapters.** `cli/` first ([ADR-003](adr/0003-cli-first-class.md): `tta run`, `tta list`, `tta module`, `tta export`, `tta import`, …), then `ui/tk/` (grid, toolbar, Report tab), plus `core/export.py` / `core/importer.py`, privacy registry, and help content with their CI checks.
 
 ---
 

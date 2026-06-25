@@ -26,9 +26,9 @@ build/
 Thumbs.db
 
 # Project runtime data (when implementation lands)
-pds.sqlite
-pds.sqlite-journal
-pds.sqlite.bak.*
+tta.sqlite
+tta.sqlite-journal
+tta.sqlite.bak.*
 artefacts/
 exports/
 .config/

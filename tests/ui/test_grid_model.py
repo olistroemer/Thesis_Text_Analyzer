@@ -1,8 +1,8 @@
 """Grid model tests — UI data layer without any Tk (ADR-0002 invariant 6)."""
 
-from pds.ui.tk import grid_model
-from pds.ui.tk.columns import BASIC_METRICS, MetricColumn, metric_columns
-from pds.core.modules.registry import default_registry
+from tta.ui.tk import grid_model
+from tta.ui.tk.columns import BASIC_METRICS, MetricColumn, metric_columns
+from tta.core.modules.registry import default_registry
 
 
 def seed(project, tmp_path):

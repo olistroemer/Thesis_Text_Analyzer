@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from pds.core import artefact_kinds
-from pds.core.modules.base import NotApplicable
-from pds.core.modules.classify_language import ClassifyLanguage
+from tta.core import artefact_kinds
+from tta.core.modules.base import NotApplicable
+from tta.core.modules.classify_language import ClassifyLanguage
 
 ENGLISH = (
     "This thesis investigates the evolution of text characteristics in student "

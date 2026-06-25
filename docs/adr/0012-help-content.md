@@ -26,7 +26,7 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 | Target | Renderer | Cross-refs | Math | Citations |
 |---|---|---|---|---|
 | GUI (Tk Text widget) | `markdown` lib → custom Tk renderer | clickable internal links | plain text (MVP) | resolved to bibliography panel |
-| CLI (`pds help <topic>`) | `rich` library's Markdown renderer | "see also" trailing block | plain text | `[Flesch 1948]` inline |
+| CLI (`tta help <topic>`) | `rich` library's Markdown renderer | "see also" trailing block | plain text | `[Flesch 1948]` inline |
 | PDF | pandoc + `--citeproc` + xelatex | pandoc internal refs | LaTeX math | full citations |
 
 ## CI checks

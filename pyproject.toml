@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pds"
+name = "tta"
 version = "0.1.0"
 description = "Thesis Text Analyzer — per-thesis text metrics and their evolution over publication date"
 requires-python = ">=3.11"
@@ -16,30 +16,30 @@ dependencies = [
     "pypdf>=5.0",         # mod_count_images, mod_extract_pdf_metadata
     "click>=8.1",         # cli (ADR-0003)
     "rich>=13",           # cli tables + markdown help rendering (ADR-0012)
-    "tomli-w>=1.0",       # pds.toml writer (reading uses stdlib tomllib)
+    "tomli-w>=1.0",       # tta.toml writer (reading uses stdlib tomllib)
     "tksheet>=7.5",       # data grid with per-cell styling (ADR-0001)
     "matplotlib>=3.8",    # report view charts (ADR-0016)
 ]
 
 [project.scripts]
-pds = "pds.cli.main:main"
+tta = "tta.cli.main:main"
 
 [project.gui-scripts]
-pds-gui = "pds.ui.tk.app:main"
+tta-gui = "tta.ui.tk.app:main"
 
 [project.optional-dependencies]
 # PyMuPDF is AGPL — development-phase extractor only. The release gate
 # (ADR-0011 / ADR-0014) fails any distributed build that imports it under
-# pds/core/. Kept out of the default dependency set on purpose.
+# tta/core/. Kept out of the default dependency set on purpose.
 pymupdf = ["pymupdf>=1.24"]
-dev = ["pytest>=8", "pds[pymupdf]"]
+dev = ["pytest>=8", "tta[pymupdf]"]
 
 [tool.setuptools.packages.find]
-include = ["pds*"]
+include = ["tta*"]
 
 [tool.setuptools.package-data]
-"pds.core.db" = ["migrations/*.sql"]
-"pds.core" = ["help/**/*.md"]
+"tta.core.db" = ["migrations/*.sql"]
+"tta.core" = ["help/**/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

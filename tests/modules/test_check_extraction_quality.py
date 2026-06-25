@@ -1,6 +1,6 @@
 """Unit tests for mod_check_extraction_quality (SDD §7.1 #2, US-PROF-QUALITY)."""
 
-from pds.core.modules.check_extraction_quality import CheckExtractionQuality
+from tta.core.modules.check_extraction_quality import CheckExtractionQuality
 
 CLEAN_SENTENCE = "the analysis of the data is presented in the following chapter and discussed "
 GIBBERISH = "wxq zrtk jvb qpfl mnshg kdwz xbrt "  # no function words

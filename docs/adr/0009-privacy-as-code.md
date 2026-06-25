@@ -6,7 +6,7 @@
 
 ## Decision
 
-A registry in `core/privacy_metadata.py` is the single source of truth for which fields and modules carry what category of data. The technical sections of the GDPR privacy statement are rendered deterministically from this registry by `pds privacy report`. Legal boilerplate (data-subject rights, controller contact) is a reviewed markdown stub appended at render time. CI fails if a schema column or registered module is missing from the registry.
+A registry in `core/privacy_metadata.py` is the single source of truth for which fields and modules carry what category of data. The technical sections of the GDPR privacy statement are rendered deterministically from this registry by `tta privacy report`. Legal boilerplate (data-subject rights, controller contact) is a reviewed markdown stub appended at render time. CI fails if a schema column or registered module is missing from the registry.
 
 ## Categories
 
@@ -26,9 +26,9 @@ Each `ArtefactKind` declares: `kind`, `category`, `description`, `exported` (alw
 ## Generation
 
 ```
-pds privacy report --format md     # markdown — for ethics boards / institutional IT
-pds privacy report --format json   # machine-readable
-pds privacy report --format pdf    # PDF via pandoc/xelatex
+tta privacy report --format md     # markdown — for ethics boards / institutional IT
+tta privacy report --format json   # machine-readable
+tta privacy report --format pdf    # PDF via pandoc/xelatex
 ```
 
 The rendered output combines:

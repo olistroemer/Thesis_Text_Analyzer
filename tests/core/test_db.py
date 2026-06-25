@@ -6,31 +6,31 @@ import sqlite3
 
 import pytest
 
-from pds.core import db
-from pds.core.db import migrator
-from pds.core.db.repository import Repository
+from tta.core import db
+from tta.core.db import migrator
+from tta.core.db.repository import Repository
 
 
 def test_migrate_fresh_db_applies_initial(tmp_path):
-    applied = migrator.migrate(tmp_path / "pds.sqlite")
+    applied = migrator.migrate(tmp_path / "tta.sqlite")
     assert applied == [1]
 
 
 def test_migrate_is_idempotent(tmp_path):
-    db_path = tmp_path / "pds.sqlite"
+    db_path = tmp_path / "tta.sqlite"
     assert migrator.migrate(db_path) == [1]
     assert migrator.migrate(db_path) == []
     assert not list(tmp_path.glob("*.bak.*"))  # no pending work → no backup
 
 
 def test_migrate_existing_db_writes_defensive_backup(tmp_path):
-    db_path = tmp_path / "pds.sqlite"
+    db_path = tmp_path / "tta.sqlite"
     conn = sqlite3.connect(db_path)
     conn.execute("CREATE TABLE legacy (x)")
     conn.commit()
     conn.close()
     migrator.migrate(db_path)
-    assert (tmp_path / "pds.sqlite.bak.1").exists()
+    assert (tmp_path / "tta.sqlite.bak.1").exists()
 
 
 def test_local_source_is_singleton(project):

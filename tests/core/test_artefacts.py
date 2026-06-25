@@ -1,7 +1,7 @@
 """Artefact filesystem layout tests (SDD §5.4, §8.2)."""
 
-from pds.core import artefact_kinds
-from pds.core.artefacts import KIND_FILENAMES, ArtefactStore
+from tta.core import artefact_kinds
+from tta.core.artefacts import KIND_FILENAMES, ArtefactStore
 
 
 def test_every_kind_has_a_filename():

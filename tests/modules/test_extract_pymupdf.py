@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("fitz")
 
-from pds.core import artefact_kinds
-from pds.core.modules.base import RunContext
-from pds.core.modules.extract_pymupdf import PAGE_SEPARATOR, ExtractPymupdf
+from tta.core import artefact_kinds
+from tta.core.modules.base import RunContext
+from tta.core.modules.extract_pymupdf import PAGE_SEPARATOR, ExtractPymupdf
 
 
 @pytest.fixture

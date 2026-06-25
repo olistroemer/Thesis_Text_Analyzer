@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from pds.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
-from pds.core.types import Thesis
+from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
+from tta.core.types import Thesis
 
 
 def make_thesis(**overrides):

@@ -2,9 +2,9 @@
 
 import pytest
 
-from pds.core import artefact_kinds
-from pds.core.modules.base import Module, ModuleSpec, RunContext, RunResult
-from pds.core.modules.registry import ModuleRegistry, default_registry
+from tta.core import artefact_kinds
+from tta.core.modules.base import Module, ModuleSpec, RunContext, RunResult
+from tta.core.modules.registry import ModuleRegistry, default_registry
 
 
 def make_module(name, consumes=(), produces=()):

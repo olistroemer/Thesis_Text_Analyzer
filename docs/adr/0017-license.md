@@ -9,7 +9,7 @@
 The application is released as **copyleft free software** with its source public. As a consequence:
 
 1. **PyMuPDF stays.** `mod_extract_pymupdf` may be the extractor shipped in the distributed binary; it no longer has to be replaced before distribution.
-2. **The AGPL contamination gate is retired.** The CI grep that forbade `import fitz`/`import pymupdf` under `pds/core/` (ADR-0011, ADR-0014, SDD §5.2) is removed. Keeping a copyleft dependency is no longer a problem to be guarded against — it is the chosen posture.
+2. **The AGPL contamination gate is retired.** The CI grep that forbade `import fitz`/`import pymupdf` under `tta/core/` (ADR-0011, ADR-0014, SDD §5.2) is removed. Keeping a copyleft dependency is no longer a problem to be guarded against — it is the chosen posture.
 3. **Source is conveyed with every binary.** The project's public Git repository at the tagged release commit is the Corresponding Source; distributing the binary alongside a link to that tag satisfies the obligation.
 4. **The library-comparison study (SDD §2.1.1) survives as research, not as a ship blocker.** Picking the best-quality extractor remains valuable; its "license compatibility with redistribution" axis becomes informative rather than decisive.
 

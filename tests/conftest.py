@@ -4,12 +4,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from pds.core import artefact_kinds, db
-from pds.core.modules.base import RunContext
-from pds.core.artefacts import ArtefactStore
-from pds.core.db import migrator
-from pds.core.db.repository import Repository
-from pds.core.types import Thesis
+from tta.core import artefact_kinds, db
+from tta.core.modules.base import RunContext
+from tta.core.artefacts import ArtefactStore
+from tta.core.db import migrator
+from tta.core.db.repository import Repository
+from tta.core.types import Thesis
 
 SAMPLE_PAGES = ("Hello thesis world.", "Second page text.")
 
@@ -124,7 +124,7 @@ def project(tmp_path):
     """A migrated project directory with repository and artefact store."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    db_path = project_dir / "pds.sqlite"
+    db_path = project_dir / "tta.sqlite"
     migrator.migrate(db_path)
     conn = db.connect(db_path)
     repo = Repository(conn)

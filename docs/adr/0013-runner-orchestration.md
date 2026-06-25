@@ -30,7 +30,7 @@ class Runner:
 
 ## Worker count
 
-Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `pds.toml [runner] workers = N`.
+Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `tta.toml [runner] workers = N`.
 
 ## Event surface
 

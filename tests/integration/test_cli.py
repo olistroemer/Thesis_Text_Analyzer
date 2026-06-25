@@ -9,7 +9,7 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from pds.cli.main import cli
+from tta.cli.main import cli
 
 runner = CliRunner()
 
@@ -35,7 +35,7 @@ def test_version_json_lists_all_modules():
 
 
 def test_db_init_creates_project(project_dir):
-    assert (project_dir / "pds.sqlite").exists()
+    assert (project_dir / "tta.sqlite").exists()
     result = invoke("-C", project_dir, "db", "migrate")
     assert "up to date" in result.stdout
 

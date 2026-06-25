@@ -1,6 +1,6 @@
 """recent.json store tests (ADR-0014, US-PROF-AUTO-OPEN)."""
 
-from pds.ui.tk import recent
+from tta.ui.tk import recent
 
 
 def test_first_launch_yields_default_dir(tmp_path):
@@ -16,7 +16,7 @@ def test_remember_and_resolve_most_recent(tmp_path):
     b = tmp_path / "proj_b"
     for proj in (a, b):
         proj.mkdir()
-        (proj / "pds.sqlite").write_bytes(b"")
+        (proj / "tta.sqlite").write_bytes(b"")
         recent.remember_project(proj, store)
     project_dir, first = recent.resolve_startup_project(store)
     assert first is False
@@ -27,9 +27,9 @@ def test_stale_entries_are_skipped(tmp_path):
     store = tmp_path / "recent.json"
     gone = tmp_path / "deleted_project"
     gone.mkdir()
-    (gone / "pds.sqlite").write_bytes(b"")
+    (gone / "tta.sqlite").write_bytes(b"")
     recent.remember_project(gone, store)
-    (gone / "pds.sqlite").unlink()
+    (gone / "tta.sqlite").unlink()
     project_dir, first = recent.resolve_startup_project(store)
     assert first is True  # falls back to default
 

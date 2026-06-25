@@ -2,8 +2,8 @@
 
 import pytest
 
-from pds.core.modules.base import NotApplicable
-from pds.core.modules.readability import Readability
+from tta.core.modules.base import NotApplicable
+from tta.core.modules.readability import Readability
 
 ENGLISH = "The cat sat on the mat. The dog ran to the park. We like short words."
 GERMAN = "Die Katze sitzt auf der Matte. Der Hund läuft in den Park. Wir mögen kurze Wörter."

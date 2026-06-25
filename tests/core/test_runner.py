@@ -6,16 +6,16 @@ import time
 
 import pytest
 
-from pds.core import artefact_kinds, events
-from pds.core.modules.base import (
+from tta.core import artefact_kinds, events
+from tta.core.modules.base import (
     Module,
     ModuleSpec,
     NotApplicable,
     RunContext,
     RunResult,
 )
-from pds.core.modules.registry import ModuleRegistry, default_registry
-from pds.core.runner import Runner
+from tta.core.modules.registry import ModuleRegistry, default_registry
+from tta.core.runner import Runner
 
 # Fake modules at module level: picklable / importable in worker processes.
 

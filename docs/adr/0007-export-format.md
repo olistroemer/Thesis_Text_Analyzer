@@ -10,7 +10,7 @@ Export is a single SQLite file with the same schema as the local DB minus PII co
 
 **The export always includes the full `module_runs` + `metric_values` history** (minus PII columns and excluded theses). The research team retains debugging value; the size cost is trivial (~700 KB extra per 100 theses across 5 re-runs). No UI checkbox; one less decision in step 4 of the professor's happy path.
 
-Power users can still use `pds export --current-only` from the CLI to produce a trimmed export from `v_current_metrics` only.
+Power users can still use `tta export --current-only` from the CLI to produce a trimmed export from `v_current_metrics` only.
 
 ## Why SQLite for export, not JSON / CSV / zip
 

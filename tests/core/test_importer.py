@@ -2,10 +2,10 @@
 
 import pytest
 
-from pds.core.export import export_database
-from pds.core.importer import ImportError_, ImportStats, import_export
-from pds.core.modules.registry import ModuleRegistry
-from pds.core.runner import Runner
+from tta.core.export import export_database
+from tta.core.importer import ImportError_, ImportStats, import_export
+from tta.core.modules.registry import ModuleRegistry
+from tta.core.runner import Runner
 from tests.core.test_export import populate
 from tests.core.test_runner import FakeExtract
 
@@ -21,14 +21,14 @@ def researcher(tmp_path_factory):
     """A second, independent project standing in for the researcher's DB."""
     from types import SimpleNamespace
 
-    from pds.core import db
-    from pds.core.artefacts import ArtefactStore
-    from pds.core.db import migrator
-    from pds.core.db.repository import Repository
+    from tta.core import db
+    from tta.core.artefacts import ArtefactStore
+    from tta.core.db import migrator
+    from tta.core.db.repository import Repository
 
     project_dir = tmp_path_factory.mktemp("researcher")
-    migrator.migrate(project_dir / "pds.sqlite")
-    conn = db.connect(project_dir / "pds.sqlite")
+    migrator.migrate(project_dir / "tta.sqlite")
+    conn = db.connect(project_dir / "tta.sqlite")
     repo = Repository(conn)
     repo.ensure_local_source()
     yield SimpleNamespace(dir=project_dir, conn=conn, repo=repo, store=ArtefactStore(project_dir))

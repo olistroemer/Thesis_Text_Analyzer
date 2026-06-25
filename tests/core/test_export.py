@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from pds.core.export import ExportPolicy, export_database
+from tta.core.export import ExportPolicy, export_database
 
 
 def populate(project, tmp_path):

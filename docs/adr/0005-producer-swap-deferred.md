@@ -12,7 +12,7 @@ Comparison of different libraries is done by **running the analysis twice into s
 
 ## Future selection mechanism (deferred)
 
-When this feature is un-deferred (see SDD §12), the design adds a three-layer producer selection: (1) module-declared default, (2) `pds.toml [producers]` table, (3) `--producer KIND=MODULE` CLI override. None of these exist in MVP.
+When this feature is un-deferred (see SDD §12), the design adds a three-layer producer selection: (1) module-declared default, (2) `tta.toml [producers]` table, (3) `--producer KIND=MODULE` CLI override. None of these exist in MVP.
 
 ## Context
 

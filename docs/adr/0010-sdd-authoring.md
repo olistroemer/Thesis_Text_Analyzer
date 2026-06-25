@@ -6,7 +6,7 @@
 
 ## Decision
 
-The SDD is authored in **markdown** under `pds/docs/`. The main document is `SDD.md`; ADRs are numbered files under `adr/`; the user-story catalogue is `user-stories.md`; the bibliography is `references.bib` (BibTeX).
+The SDD is authored in **markdown** under `tta/docs/`. The main document is `SDD.md`; ADRs are numbered files under `adr/`; the user-story catalogue is `user-stories.md`; the bibliography is `references.bib` (BibTeX).
 
 Diagrams are authored in **Mermaid**, inline in markdown fenced code blocks. GitHub/GitLab render them natively; pandoc renders them to PDF via a Node-based filter (`mermaid-filter`) or a pre-rendered SVG fallback.
 

@@ -9,7 +9,7 @@ import tkinter
 
 import pytest
 
-from pds.core.project import Project
+from tta.core.project import Project
 
 
 def _display_available() -> bool:
@@ -27,7 +27,7 @@ pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
 
 @pytest.mark.slow
 def test_main_window_builds_and_renders(tmp_path, english_pdf):
-    from pds.ui.tk.main_window import MainWindow
+    from tta.ui.tk.main_window import MainWindow
 
     with Project.open(tmp_path / "proj", create=True) as project:
         thesis = project.repo.add_thesis(english_pdf, type="master")

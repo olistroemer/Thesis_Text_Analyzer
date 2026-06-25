@@ -6,9 +6,9 @@ A schema column, registered module, or artefact kind missing from
 
 import json
 
-from pds.core import artefact_kinds, privacy_metadata
-from pds.core.export import export_database
-from pds.core.modules.registry import default_registry
+from tta.core import artefact_kinds, privacy_metadata
+from tta.core.export import export_database
+from tta.core.modules.registry import default_registry
 
 
 def schema_columns(conn):

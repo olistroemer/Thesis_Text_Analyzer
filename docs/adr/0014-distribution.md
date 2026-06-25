@@ -12,18 +12,18 @@ Build per-OS single-file executables with **PyInstaller `--onefile`**. Cross-OS 
 
 ```
 <project>/
-├── pds.toml          # configuration
-├── pds.sqlite        # the database
+├── tta.toml          # configuration
+├── tta.sqlite        # the database
 └── artefacts/        # cached files
 ```
 
-The binary itself is stateless. On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner naming the path. **By default the app writes nothing outside the chosen project folder (US-PROF-NO-TRACES).** Subsequent launches auto-open the default project; if the user has opened a different project, the pointer to it is stored *inside the default project folder* (not under `~/.config`), so removing the project folders removes the application's data and every trace of it (US-PROF-AUTO-OPEN). No `~/.config/pds` file is created.
+The binary itself is stateless. On first launch the app creates `~/TTA-Theses/` (or platform equivalent) as the default project and shows a dismissible banner naming the path. **By default the app writes nothing outside the chosen project folder (US-PROF-NO-TRACES).** Subsequent launches auto-open the default project; if the user has opened a different project, the pointer to it is stored *inside the default project folder* (not under `~/.config`), so removing the project folders removes the application's data and every trace of it (US-PROF-AUTO-OPEN). No `~/.config/tta` file is created.
 
 This keeps the professor's happy-path step 1 as "start the app" — never "start the app, then pick a folder".
 
 ## Build pipeline
 
-CI matrix builds release binaries on Windows, macOS (arm64 + amd64), and Linux. Tag-triggered. ~~The AGPL release gate (CI grep for `import fitz`/`import pymupdf` under `pds/core/`) blocks the build if PyMuPDF leaks.~~ (Retired by [ADR-0017](0017-license.md) — PyMuPDF may ship under the project's copyleft licence.) NLTK data bundled via PyInstaller `--add-data`. UPX disabled (antivirus false positives).
+CI matrix builds release binaries on Windows, macOS (arm64 + amd64), and Linux. Tag-triggered. ~~The AGPL release gate (CI grep for `import fitz`/`import pymupdf` under `tta/core/`) blocks the build if PyMuPDF leaks.~~ (Retired by [ADR-0017](0017-license.md) — PyMuPDF may ship under the project's copyleft licence.) NLTK data bundled via PyInstaller `--add-data`. UPX disabled (antivirus false positives).
 
 Approximate release-build size: ~100 MB per OS.
 
@@ -33,7 +33,7 @@ MVP ships **unsigned**. Workarounds (SmartScreen "More info → Run anyway", Gat
 
 ## Migrations on launch
 
-DB schema migrations run on app startup against the project's `pds.sqlite`. Before migration, a defensive backup is written to `pds.sqlite.bak.<version>`. Migrations are forward-only. If migration fails, the backup remains and the binary refuses to open the project.
+DB schema migrations run on app startup against the project's `tta.sqlite`. Before migration, a defensive backup is written to `tta.sqlite.bak.<version>`. Migrations are forward-only. If migration fails, the backup remains and the binary refuses to open the project.
 
 ## Alternatives considered
 

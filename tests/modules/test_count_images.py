@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from pds.core.modules.count_images import CountImages
+from tta.core.modules.count_images import CountImages
 from tests.conftest import make_thesis
 
 

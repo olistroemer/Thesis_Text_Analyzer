@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from pds.core import artefact_kinds
-from pds.core.modules.base import NotApplicable
-from pds.core.modules.tokenize import Tokenize
+from tta.core import artefact_kinds
+from tta.core.modules.base import NotApplicable
+from tta.core.modules.tokenize import Tokenize
 
 
 def test_tokenizes_english_sentences(build_ctx):
