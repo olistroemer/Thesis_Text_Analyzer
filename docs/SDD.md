@@ -142,8 +142,8 @@ What actually motivates a professor to use the app voluntarily:
 flowchart LR
     P1[1. Start app] --> P2[2. Add my theses]
     P2 --> P3[3. Run analyses]
-    P3 --> P4[4. Open Report —<br/>see patterns &<br/>outliers]
-    P4 -.->|"optionally"| P5[5. Export & send back<br/>(researcher's ask)]
+    P3 --> P4["4. Open Report —<br/>see patterns &<br/>outliers"]
+    P4 -.->|"optionally"| P5["5. Export & send back<br/>(researcher's ask)"]
 ```
 
 The professor's *reward* is in step 4 — the Report view ([§9.9](#99-report-view)) shows trends, comparisons, and outliers in their collection that they couldn't see by reading individually. Step 5 (export/send) is the researcher's interest; without step 4 there's no reason for the professor to engage.
