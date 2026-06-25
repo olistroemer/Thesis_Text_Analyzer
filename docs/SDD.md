@@ -170,6 +170,7 @@ Headline stories driving load-bearing decisions:
 | US-PROF-EXPORT | Export results into a single file | Export format ([ADR-007](adr/0007-export-format.md)) |
 | US-PROF-QUALITY | See garbled extractions flagged in the grid | `mod_check_extraction_quality` |
 | US-PROF-AUTO-OPEN | App remembers last project across runs | Distribution / project model ([ADR-014](adr/0014-distribution.md)) |
+| **US-PROF-NO-TRACES** | No writes outside the project folder by default | Distribution / project model ([ADR-014](adr/0014-distribution.md)) |
 | US-PWR-EXTENDED | Extended mode with more settings | UI modes |
 | **US-RES-LOW-FRICTION** | Contribute-loop fits in five low-friction steps | Distribution, export, defaults throughout the UI |
 | US-RES-CLI | Run analyses from the CLI; use GUI only as viewer | CLI as first-class ([ADR-003](adr/0003-cli-first-class.md)) |
@@ -296,7 +297,7 @@ A `--dry-run` flag prints the plan without executing.
 
 Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update.
 
-On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). The only per-user state outside the project folder is `~/.config/pds/recent.json`. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `pds/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
+On first launch the app creates `~/PDS-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). By default the app writes **nothing** outside the project folder (US-PROF-NO-TRACES, [ADR-014](adr/0014-distribution.md)); the last-project pointer lives inside the default project, so deleting the folder removes every trace and no `~/.config/pds` file is created. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `pds/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
 
 ---
 
@@ -660,7 +661,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 
 | Step | Screen / dialog | Defaults |
 |---|---|---|
-| 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened from `recent.json`. |
+| 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened); nothing stored outside it (US-PROF-NO-TRACES). |
 | 2. Add | "Add files" toolbar button → multi-select file dialog → optional "Type" mini-dialog (Bachelor / Master / Unspecified). | Default Type = Unspecified. |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
 | 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → switches to the Report tab → charts + summary cards + outlier list. | Re-renders on `RunCompleted` while the tab is active. |

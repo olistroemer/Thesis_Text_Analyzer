@@ -13,6 +13,7 @@ Personas: `PROF` (professor), `PWR` (power user), `RES` (researcher / project te
 | **US-PROF-COMPARE** | As a professor I want to compare bachelor and master theses in my collection side-by-side, so I can see whether the step up in degree level shows up in the writing. |
 | **US-PROF-NOTICE** | As a professor I want unusual theses in my collection surfaced to me, so I can decide whether to give them a second look. |
 | **US-PROF-AUTO-OPEN** | As a professor, the application remembers my project across runs and re-opens it automatically, so I don't have to think about where data is stored. |
+| **US-PROF-NO-TRACES** | As a professor, I want every file the application creates to live inside the one project folder I chose, with nothing written elsewhere on my machine, so that deleting that folder removes the application's data and every trace of it. |
 | **US-PROF-ATTRS** | As a professor I want to add attributes to files when adding them (e.g. the type of thesis: bachelor, master), so the analyses can be grouped meaningfully. |
 | **US-PROF-EXCLUDE** | As a professor I want to exclude certain files from all analyses, to protect theses with a confidential clause. |
 | **US-PROF-SELECT** | As a professor I want to select which analyses are run, since I might have reservations against some of the metrics for reasons. |
