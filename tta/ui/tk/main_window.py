@@ -164,18 +164,29 @@ class MainWindow:
         if self._run_thread and self._run_thread.is_alive():
             messagebox.showinfo("Run", "A run is already in progress.", parent=self.root)
             return
-        bus = events.EventBus()
-        bus.subscribe_all(self._event_queue.put)
-        self._runner = self.project.make_runner(bus=bus)
-        plan = self._runner.plan(rerun=rerun)
-        if plan.pair_count == 0:
-            self._set_status("Everything up to date — nothing to run")
-            return
-        self._set_status(f"Running {plan.pair_count} analyses…")
+        self._set_status("Planning…")
         self._run_thread = threading.Thread(
-            target=self._runner.execute, args=(plan,), daemon=True
+            target=self._run_worker, args=(rerun,), daemon=True
         )
         self._run_thread.start()
+
+    def _run_worker(self, rerun: bool) -> None:
+        """Background run: own the DB connection here, since sqlite3
+        connections are thread-affine (#27). Events still marshal to the
+        Tk thread via the queue drained by ``root.after``."""
+        bus = events.EventBus()
+        bus.subscribe_all(self._event_queue.put)
+        repo = self.project.connect()
+        try:
+            self._runner = self.project.make_runner(repo=repo, bus=bus)
+            plan = self._runner.plan(rerun=rerun)
+            if plan.pair_count == 0:
+                self._event_queue.put(events.RunCompleted(None))
+                return
+            self._runner.execute(plan)
+        finally:
+            self._runner = None
+            repo.conn.close()
 
     def _drain_events(self) -> None:
         try:

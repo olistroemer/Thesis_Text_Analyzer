@@ -42,7 +42,12 @@ class GridView(ttk.Frame):
         self._sort_reverse = False
         self.sheet = Sheet(self, headers=[], data=[])
         self.sheet.enable_bindings(
-            "single_select", "row_select", "column_width_resize", "copy", "arrowkeys"
+            "single_select",
+            "row_select",
+            "column_select",
+            "column_width_resize",
+            "copy",
+            "arrowkeys",
         )
         self.sheet.extra_bindings("column_select", self._on_column_select)
         self.sheet.bind("<Double-Button-1>", self._on_double_click)

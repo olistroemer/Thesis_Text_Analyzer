@@ -51,6 +51,11 @@ class Project:
         )
         return cls(project_dir, repo, ArtefactStore(project_dir), config)
 
+    def connect(self) -> Repository:
+        """A fresh Repository on a new connection to this project's DB, for
+        use on a worker thread (sqlite3 connections are thread-affine)."""
+        return Repository(db.connect(self.dir / DB_FILENAME))
+
     def close(self) -> None:
         self.repo.conn.close()
 
@@ -65,9 +70,10 @@ class Project:
         registry: ModuleRegistry | None = None,
         bus: EventBus | None = None,
         workers: int | None = None,
+        repo: Repository | None = None,
     ) -> Runner:
         return Runner(
-            self.repo,
+            repo or self.repo,
             self.store,
             registry or default_registry(),
             bus=bus,
