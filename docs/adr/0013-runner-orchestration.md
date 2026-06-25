@@ -12,6 +12,8 @@ Execution uses a `ProcessPoolExecutor` with one worker per concurrent thesis. Mo
 
 Cancellation is **skip-pending**: in-flight theses complete; no new ones are submitted. Module timeouts kill the worker process. Failures within a thesis cascade as `na` to dependents.
 
+Workers are spawned with the **`spawn`** start method (`multiprocessing.get_context("spawn")`), not the Linux `fork` default: `execute()` runs on a background thread in the GUI, and forking a multi-threaded process risks deadlocks (and warns since Python 3.12). Spawn is thread-safe and matches the macOS/Windows default; per-worker re-import cost (nltk/textstat/langdetect) stays well within the ADR-0015 per-thesis budget (#32).
+
 ## Two run modes
 
 - **Default** ("Run all"): runs `(thesis × module)` pairs that are missing, stale (`module_version` differs from live), or whose last run was `error`.

@@ -295,7 +295,12 @@ class Runner:
         summary = RunSummary(theses_total=len(plan.theses))
         self.bus.publish(events.RunStarted(plan))
 
-        ctx = multiprocessing.get_context()
+        # 'spawn' start method (#32): the GUI calls execute() on a background
+        # thread, and forking a multi-threaded process risks deadlocks (and
+        # emits a DeprecationWarning on Linux). spawn is thread-safe and
+        # matches the macOS/Windows default. _worker_main is module-level and
+        # its args (ThesisPlan with frozen ModuleSpec instances) pickle cleanly.
+        ctx = multiprocessing.get_context("spawn")
         pending = list(plan.theses)
         active: list[_ActiveWorker] = []
 
