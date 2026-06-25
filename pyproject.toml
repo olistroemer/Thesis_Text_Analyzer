@@ -33,6 +33,9 @@ tta-gui = "tta.ui.tk.app:main"
 # tta/core/. Kept out of the default dependency set on purpose.
 pymupdf = ["pymupdf>=1.24"]
 dev = ["pytest>=8", "tta[pymupdf]"]
+# Frozen single-file binaries (ADR-0014). PyInstaller --onefile; punkt_tab
+# NLTK data + SQL migrations bundled via the committed packaging/tta.spec.
+build = ["pyinstaller>=6"]
 
 [tool.setuptools.packages.find]
 include = ["tta*"]

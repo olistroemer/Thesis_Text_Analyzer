@@ -9,6 +9,13 @@ from tta.ui.tk.recent import remember_project, resolve_startup_project
 
 
 def main() -> None:
+    # The runner spawns workers (multiprocessing 'spawn', #32); in a frozen
+    # --onefile build spawn re-executes this binary, so freeze_support must
+    # intercept the worker/tracker sub-process before the GUI starts. No-op
+    # when not frozen / not a spawned child (ADR-0014).
+    import multiprocessing
+
+    multiprocessing.freeze_support()
     project_dir, first_launch = resolve_startup_project()
     with Project.open(project_dir, create=True) as project:
         remember_project(project_dir)

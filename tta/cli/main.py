@@ -411,6 +411,13 @@ def help_(topic: str | None) -> None:
 
 def main() -> None:
     """Console entry point: map uncaught errors to sysexits EX_SOFTWARE."""
+    # The runner spawns workers (multiprocessing 'spawn', #32); in a frozen
+    # --onefile build spawn re-executes this binary, so freeze_support must
+    # intercept the worker/tracker sub-process before Click parses argv.
+    # No-op when not frozen / not a spawned child (ADR-0014).
+    import multiprocessing
+
+    multiprocessing.freeze_support()
     try:
         cli(standalone_mode=True)
     except SystemExit:

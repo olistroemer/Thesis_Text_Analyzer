@@ -49,3 +49,64 @@ jobs:
       # GUI smoke test self-skips headless (no DISPLAY) — expected, no xvfb.
       - name: Run tests
         run: python -m pytest -q
+
+  # Frozen release binaries (issue #4, ADR-0014). Linux only — NO mac/win
+  # matrix. Builds the two --onefile executables from packaging/tta.spec and
+  # uploads them as a workflow artifact. PyMuPDF may ship (ADR-0017).
+  build-linux:
+    name: build-linux (onefile)
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # tkinter is not bundled with the actions/setup-python interpreter; the
+      # GUI binary (tta.ui.tk) needs it present at freeze time.
+      - name: Install Tk (system)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk tk-dev
+
+      # build extra = PyInstaller; pymupdf extra = the fitz extractor the
+      # default module registry uses (ADR-0017 permits shipping it).
+      - name: Install build dependencies
+        run: pip install -e '.[build,pymupdf]'
+
+      - name: Download NLTK punkt_tab (bundled into the binary)
+        run: python -m nltk.downloader punkt_tab
+
+      - name: Build onefile binaries
+        run: pyinstaller packaging/tta.spec --noconfirm --distpath dist --workpath build
+
+      # Headless CLI smoke test: prove the frozen binary boots, the bundled
+      # SQL migrations run, and the NLTK-dependent modules succeed end to end
+      # (issue #4). No DISPLAY here, so the GUI binary is not launched.
+      - name: Smoke-test CLI binary
+        run: |
+          set -euo pipefail
+          ./dist/tta version
+          ./dist/tta module list
+          ./dist/tta --help
+          work="$(mktemp -d)"
+          # Tiny English-text PDF so tokenize + readability are applicable.
+          python tests/make_sample_pdf.py "$work/sample.pdf"
+          ./dist/tta -C "$work" run "$work/sample.pdf" | tee run.log
+          # The run must complete with no module errors (proves bundled
+          # punkt_tab + migrations + fitz all work in the frozen binary).
+          grep -Eq '0 errors' run.log
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: tta-linux-x86_64
+          path: |
+            dist/tta
+            dist/tta-gui
+          if-no-files-found: error
