@@ -1,7 +1,7 @@
 """Privacy registry coverage gate (ADR-0009): this test IS the CI check.
 
 A schema column, registered module, or artefact kind missing from
-`core/privacy_metadata.py` fails here — statement and schema cannot drift.
+`core/privacy_metadata.py` fails here - statement and schema cannot drift.
 """
 
 import json

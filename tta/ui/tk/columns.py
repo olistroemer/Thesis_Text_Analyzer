@@ -1,4 +1,4 @@
-"""Grid column model (SDD §9.2/§9.3): lead columns + metric columns
+"""Grid column model (SDD Sec. 9.2/Sec. 9.3): lead columns + metric columns
 derived from the module catalogue; basic mode shows a curated subset."""
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from tta.core.modules.registry import ModuleRegistry
 
 LEAD_COLUMNS = ("file", "type")
 
-#: Curated basic-mode metric subset (§9.3 "limited columns visible by default").
+#: Curated basic-mode metric subset (Sec. 9.3 "limited columns visible by default").
 BASIC_METRICS = (
     "n_pages",
     "language_code",

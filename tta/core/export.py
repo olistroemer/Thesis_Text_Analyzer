@@ -1,11 +1,11 @@
-"""Anonymisation + export (SDD §8.3, ADR-0007, QA-PRIV).
+"""Anonymisation + export (SDD Sec. 8.3, ADR-0007, QA-PRIV).
 
 A single SQLite file mirroring the local schema minus PII columns and
 the `artefact_files` table, plus an `export_info` metadata table. Only
-the local source is exported — imported cohorts on a researcher machine
+the local source is exported - imported cohorts on a researcher machine
 are someone else's data and never re-travel.
 
-What never ships (§8.3.1): `theses.pdf_path/pdf_filename/notes/tags`,
+What never ships (Sec. 8.3.1): `theses.pdf_path/pdf_filename/notes/tags`,
 rows with `excluded=1`, `module_runs.error_traceback/notes`, the whole
 `artefact_files` table; `theses.added_at` is rounded to day.
 """
@@ -23,7 +23,7 @@ from tta.core.db import migrator
 
 
 class ExportPolicy(str, Enum):
-    """Parameterised even in MVP (SDD §12: aggregate-only mode may follow)."""
+    """Parameterised even in MVP (SDD Sec. 12: aggregate-only mode may follow)."""
 
     FULL = "full"  # complete module_runs + metric_values history (default)
     CURRENT_ONLY = "current-only"  # latest run per (thesis, module) only

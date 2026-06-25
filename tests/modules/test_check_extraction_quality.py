@@ -1,4 +1,4 @@
-"""Unit tests for mod_check_extraction_quality (SDD §7.1 #2, US-PROF-QUALITY)."""
+"""Unit tests for mod_check_extraction_quality (SDD Sec. 7.1 #2, US-PROF-QUALITY)."""
 
 from tta.core.modules.check_extraction_quality import CheckExtractionQuality
 

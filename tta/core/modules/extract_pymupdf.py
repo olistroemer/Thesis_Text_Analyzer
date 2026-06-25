@@ -1,7 +1,7 @@
-"""`mod_extract_pymupdf` — PDF text extraction, catalogue #1 (SDD §7.1).
+"""`mod_extract_pymupdf` - PDF text extraction, catalogue #1 (SDD Sec. 7.1).
 
 PyMuPDF is AGPL: development-phase only. This is the single file under
-``tta/core/`` permitted to import it (CI invariant, SDD §5.2); the release
+``tta/core/`` permitted to import it (CI invariant, SDD Sec. 5.2); the release
 gate (ADR-0011, ADR-0014) blocks distributed builds until a non-AGPL
 extractor replaces it.
 """
@@ -34,7 +34,7 @@ class ExtractPymupdf(Module):
         return Applicability(ok=True)
 
     def run(self, ctx: RunContext) -> RunResult:
-        import fitz  # PyMuPDF — lazy: the `pymupdf` extra is optional (dev-only, AGPL)
+        import fitz  # PyMuPDF - lazy: the `pymupdf` extra is optional (dev-only, AGPL)
 
         with fitz.open(ctx.thesis.pdf_path) as doc:
             pages = [page.get_text("text") for page in doc]

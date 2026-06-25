@@ -1,4 +1,4 @@
-"""Unit tests for mod_classify_language (SDD §7.1 #3, US-RES-LANG)."""
+"""Unit tests for mod_classify_language (SDD Sec. 7.1 #3, US-RES-LANG)."""
 
 import json
 
@@ -15,7 +15,7 @@ ENGLISH = (
 )
 GERMAN = (
     "Diese Arbeit untersucht die Entwicklung von Textmerkmalen in studentischen "
-    "Abschlussarbeiten über die letzten zwei Jahrzehnte. Das erste Kapitel führt "
+    "Abschlussarbeiten \u00fcber die letzten zwei Jahrzehnte. Das erste Kapitel f\u00fchrt "
     "in die Fragestellung ein und fasst die relevante Literatur zusammen."
 )
 

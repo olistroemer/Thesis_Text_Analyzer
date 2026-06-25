@@ -1,12 +1,12 @@
-"""`mod_check_extraction_quality` — catalogue #2 (SDD §7.1).
+"""`mod_check_extraction_quality` - catalogue #2 (SDD Sec. 7.1).
 
 Heuristic from `harvester/GARBLED_EXTRACTIONS.md`: PDFs with broken
 /ToUnicode CMaps extract as deterministic gibberish in every library;
-the ratio of common EN/DE function words separates clean (≥ 0.149) from
-garbled (≤ 0.063) text, threshold 0.10. Texts with fewer than 200 word
+the ratio of common EN/DE function words separates clean (>= 0.149) from
+garbled (<= 0.063) text, threshold 0.10. Texts with fewer than 200 word
 tokens are too sparse to judge (poster-style documents).
 
-Flags but does NOT block downstream modules (SDD §7.4): a `garbled`
+Flags but does NOT block downstream modules (SDD Sec. 7.4): a `garbled`
 thesis still gets all metrics computed; the grid shows a warning glyph.
 """
 
@@ -22,14 +22,14 @@ STOP_WORDS = frozenset(
         # en
         "the", "of", "and", "to", "in", "is", "a", "for", "with", "on", "as", "are",
         # de
-        "die", "der", "und", "das", "den", "von", "mit", "für", "ist", "auf", "des",
+        "die", "der", "und", "das", "den", "von", "mit", "f\u00fcr", "ist", "auf", "des",
         "im", "ein", "eine", "zu", "wird",
     }
 )
-WORD_RE = re.compile(r"[a-zäöüß]+")
+WORD_RE = re.compile(r"[a-z\u00e4\u00f6\u00fc\u00df]+")
 GARBLED_THRESHOLD = 0.10
 MIN_TOKENS = 200
-MAX_TOKENS = 5000  # judging the head is enough; keeps the budget ≤ 100 ms
+MAX_TOKENS = 5000  # judging the head is enough; keeps the budget <= 100 ms
 
 
 class CheckExtractionQuality(Module):

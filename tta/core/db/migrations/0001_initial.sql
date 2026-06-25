@@ -1,4 +1,4 @@
--- Initial schema (SDD §8.1, ADR-0006).
+-- Initial schema (SDD Sec. 8.1, ADR-0006).
 -- Single unified schema for local and merged databases; append-only
 -- history on module_runs / metric_values; current state via views.
 
@@ -18,7 +18,7 @@ CREATE TABLE theses (
     source_id      INTEGER NOT NULL REFERENCES sources(id),
     pdf_sha256     TEXT NOT NULL,
     pdf_size_bytes INTEGER,
-    pdf_path       TEXT,    -- PII; local only, stripped from exports (§8.3.1)
+    pdf_path       TEXT,    -- PII; local only, stripped from exports (Sec. 8.3.1)
     pdf_filename   TEXT,    -- PII; local only, stripped from exports
     type           TEXT NOT NULL DEFAULT 'unspecified'
                    CHECK (type IN ('bachelor', 'master', 'unspecified')),
@@ -39,7 +39,7 @@ CREATE TABLE module_runs (
     reason          TEXT,
     error_traceback TEXT,   -- may contain filesystem paths; stripped from exports
     notes           TEXT,   -- JSON RunResult.notes; may contain content-derived
-                            -- values; stripped from exports (§8.3.1)
+                            -- values; stripped from exports (Sec. 8.3.1)
     started_at      TEXT NOT NULL,
     duration_ms     INTEGER
 );
@@ -65,7 +65,7 @@ CREATE TABLE artefact_files (
     PRIMARY KEY (thesis_id, kind)
 );
 
--- Full history; recency_rank = 1 is the current row (§8.1.1).
+-- Full history; recency_rank = 1 is the current row (Sec. 8.1.1).
 CREATE VIEW v_module_run_history AS
 SELECT
     mr.id,
@@ -87,7 +87,7 @@ FROM module_runs mr
 JOIN theses t ON t.id = mr.thesis_id;
 
 -- Latest invocation per (thesis, module) with its metric values; bound
--- by the data grid and the Report view (§8.1.1, ADR-0016).
+-- by the data grid and the Report view (Sec. 8.1.1, ADR-0016).
 CREATE VIEW v_current_metrics AS
 SELECT
     h.thesis_id,

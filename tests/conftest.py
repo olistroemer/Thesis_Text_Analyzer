@@ -45,7 +45,7 @@ def sample_pdf(tmp_path):
 
 @pytest.fixture
 def english_pdf(tmp_path):
-    """Two pages of plain English prose — enough text for the full pipeline."""
+    """Two pages of plain English prose - enough text for the full pipeline."""
     fitz = pytest.importorskip("fitz")
     path = tmp_path / "english_thesis.pdf"
     doc = fitz.open()

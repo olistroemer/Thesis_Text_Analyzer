@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODULE_TIMEOUT_S = 300.0
 
-# Plan reasons per run mode (SDD §5.5): default = missing + stale + errored.
+# Plan reasons per run mode (SDD Sec. 5.5): default = missing + stale + errored.
 REASON_MISSING = "missing"
 REASON_STALE = "stale"
 REASON_ERRORED = "errored"
@@ -154,7 +154,7 @@ def _run_one_module(pm: PlannedModule, thesis: Thesis, available: dict[str, str]
 def _worker_main(thesis_plan: ThesisPlan, queue) -> None:
     """Worker process: run the thesis's modules serially in topo order.
 
-    No DB access, no event publishing (ADR-0013) — results stream back
+    No DB access, no event publishing (ADR-0013) - results stream back
     over the queue as ('module_started' | 'module_done' | 'thesis_done').
     """
     available = dict(thesis_plan.artefacts)
@@ -253,7 +253,7 @@ class Runner:
 
     def _close_over_artefacts(self, thesis: Thesis, planned: dict[str, PlannedModule]) -> None:
         """Pull in producers of consumed kinds whose artefact is not on
-        disk (e.g. deleted artefacts/ directory) — they count as missing."""
+        disk (e.g. deleted artefacts/ directory) - they count as missing."""
         on_disk = self._preexisting_artefacts(thesis, planned={})
         changed = True
         while changed:
@@ -366,7 +366,7 @@ class Runner:
     def _kill_timed_out(self, worker: _ActiveWorker) -> None:
         timed_out = worker.current_module
         logger.warning(
-            "module %s on thesis %s exceeded %.0f s — killing worker",
+            "module %s on thesis %s exceeded %.0f s - killing worker",
             timed_out,
             worker.plan.thesis.id,
             self.module_timeout_s,
@@ -387,7 +387,7 @@ class Runner:
         )
         # remaining modules: dependents of the dead worker's pipeline get an
         # na row; independent ones get no row and stay 'missing' for the
-        # next run (SDD §5.5: failures cascade as na to dependents)
+        # next run (SDD Sec. 5.5: failures cascade as na to dependents)
         unavailable = set(spec.produces_artefacts)
         for pm in worker.plan.modules:
             if pm.name in done_names or pm.name == timed_out:

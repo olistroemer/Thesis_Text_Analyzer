@@ -1,4 +1,4 @@
-"""Unit tests for mod_count_images (SDD §7.1 #9)."""
+"""Unit tests for mod_count_images (SDD Sec. 7.1 #9)."""
 
 import dataclasses
 

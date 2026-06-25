@@ -1,4 +1,4 @@
-"""EventBus tests (SDD §5.5, ADR-0013)."""
+"""EventBus tests (SDD Sec. 5.5, ADR-0013)."""
 
 from tta.core import events
 

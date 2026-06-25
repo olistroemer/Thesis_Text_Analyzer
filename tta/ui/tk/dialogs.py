@@ -1,4 +1,4 @@
-"""File-add and export dialogs (§9.7 happy path: no surprises, sensible
+"""File-add and export dialogs (Sec. 9.7 happy path: no surprises, sensible
 defaults, one decision per dialog)."""
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def ask_thesis_type(parent) -> str | None:
 
 
 def add_files_flow(parent, project: Project) -> int:
-    """Multi-select file dialog → type mini-dialog → add. Returns count."""
+    """Multi-select file dialog -> type mini-dialog -> add. Returns count."""
     filenames = filedialog.askopenfilenames(
         parent=parent, title="Add thesis PDFs", filetypes=[("PDF files", "*.pdf")]
     )
@@ -55,11 +55,11 @@ def add_files_flow(parent, project: Project) -> int:
 
 
 def export_flow(parent, project: Project) -> None:
-    """Pre-export confirmation (§8.3, QA-PRIV): row count + path, one
+    """Pre-export confirmation (Sec. 8.3, QA-PRIV): row count + path, one
     Export button, no further choices."""
     theses = project.repo.list_theses(local_only=True, include_excluded=False)
     if not theses:
-        messagebox.showinfo("Export", "Nothing to export yet — add and analyse theses first.",
+        messagebox.showinfo("Export", "Nothing to export yet - add and analyse theses first.",
                             parent=parent)
         return
     label = project.config.institution or "export"
@@ -83,7 +83,7 @@ def export_flow(parent, project: Project) -> None:
     if messagebox.askyesno(
         "Export complete",
         f"Exported {stats.theses} theses ({stats.runs} runs) to:\n{stats.path}\n\n"
-        "Only anonymised metric values were written — no documents, file names, "
+        "Only anonymised metric values were written - no documents, file names, "
         "or text left your machine.\n\nShow in folder?",
         parent=parent,
     ):

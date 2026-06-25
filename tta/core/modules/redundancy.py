@@ -1,6 +1,6 @@
-"""`mod_redundancy` — catalogue #8 (SDD §7.1). stdlib only.
+"""`mod_redundancy` - catalogue #8 (SDD Sec. 7.1). stdlib only.
 
-Repetition rate of word n-grams: 1 − distinct/total, over lowercased
+Repetition rate of word n-grams: 1 - distinct/total, over lowercased
 word tokens. N-grams do not cross sentence boundaries.
 """
 

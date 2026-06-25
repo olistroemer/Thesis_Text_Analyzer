@@ -1,4 +1,4 @@
-"""`mod_surface_counts` — catalogue #5 (SDD §7.1). stdlib only.
+"""`mod_surface_counts` - catalogue #5 (SDD Sec. 7.1). stdlib only.
 
 Definitions: a word is a token with at least one letter; word length
 counts alphabetic characters only; sentence length is in words.

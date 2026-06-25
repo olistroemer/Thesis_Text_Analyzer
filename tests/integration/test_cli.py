@@ -1,4 +1,4 @@
-"""Integration tests: exercise the CLI end to end (ADR-0003, SDD §5.2).
+"""Integration tests: exercise the CLI end to end (ADR-0003, SDD Sec. 5.2).
 
 Uses click's CliRunner (in-process); the full pipeline test runs the
 real multiprocessing runner over a generated PDF.
@@ -77,10 +77,10 @@ def test_help_lists_topics():
 
 @pytest.mark.slow
 def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
-    """The researcher's five-step loop, headless: add+run → list → export → import."""
+    """The researcher's five-step loop, headless: add+run -> list -> export -> import."""
     # dry-run first: all ten modules planned
     result = invoke("-C", project_dir, "run", english_pdf, "--type", "master", "--dry-run")
-    assert "10 (thesis × module) pairs planned" in result.stdout
+    assert "10 (thesis x module) pairs planned" in result.stdout
 
     # run for real
     result = invoke(
@@ -98,7 +98,7 @@ def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
 
     # second run: nothing to do (pause/resume property)
     result = invoke("-C", project_dir, "run", "--dry-run")
-    assert "0 (thesis × module) pairs planned" in result.stdout
+    assert "0 (thesis x module) pairs planned" in result.stdout
 
     # export with default path
     result = invoke("-C", project_dir, "export")
@@ -113,7 +113,7 @@ def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
     assert "1 theses" in result.stdout
     # imported data is read-only context: nothing planned
     result = invoke("-C", research_dir, "run", "--dry-run")
-    assert "0 (thesis × module) pairs planned" in result.stdout
-    # duplicate name → data error
+    assert "0 (thesis x module) pairs planned" in result.stdout
+    # duplicate name -> data error
     result = runner.invoke(cli, ["-C", str(research_dir), "import", str(exports[0]), "--name", "FH Wedel 2026"])
     assert result.exit_code == 65

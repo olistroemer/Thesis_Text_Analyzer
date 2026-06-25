@@ -1,6 +1,6 @@
-"""Filesystem layer for cached artefact files (SDD §5.4, §8.2).
+"""Filesystem layer for cached artefact files (SDD Sec. 5.4, Sec. 8.2).
 
-Layout: ``<project>/artefacts/<thesis_id>/<run_id>/<kind>.<ext>`` —
+Layout: ``<project>/artefacts/<thesis_id>/<run_id>/<kind>.<ext>`` -
 integers only, filesystem-safe on all OSes. The DB references artefacts
 by path relative to the project directory.
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 
 from tta.core import artefact_kinds
 
-#: Canonical on-disk filename per kind (SDD §8.2).
+#: Canonical on-disk filename per kind (SDD Sec. 8.2).
 KIND_FILENAMES = {
     artefact_kinds.RAW_TEXT: "raw_text.txt",
     artefact_kinds.LANGUAGE: "language.json",

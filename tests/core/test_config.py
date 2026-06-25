@@ -1,4 +1,4 @@
-"""tta.toml round-trip tests (SDD §5.4)."""
+"""tta.toml round-trip tests (SDD Sec. 5.4)."""
 
 from tta.core.config import Config, load_config, save_config
 

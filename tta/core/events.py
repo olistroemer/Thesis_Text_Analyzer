@@ -1,4 +1,4 @@
-"""In-process pub/sub for run progress (SDD §5.5, ADR-0013).
+"""In-process pub/sub for run progress (SDD Sec. 5.5, ADR-0013).
 
 The main process publishes; workers never do. Adapters subscribe and
 marshal into their own event loops (GUI via ``root.after``, CLI via

@@ -1,4 +1,4 @@
-"""`tta` command line — first-class primary adapter (ADR-0003).
+"""`tta` command line - first-class primary adapter (ADR-0003).
 
 Output rules: human-readable tables on stdout by default; `--format
 {human,json,csv}` for machine-readable output (JSON is the scripting
@@ -106,7 +106,7 @@ def db_migrate(ctx: click.Context) -> None:
     project_dir: Path = ctx.obj
     db_path = project_dir / DB_FILENAME
     if not db_path.exists():
-        raise DataError(f"no project at {project_dir} — run `tta db init` first")
+        raise DataError(f"no project at {project_dir} - run `tta db init` first")
     applied = migrator.migrate(db_path)
     stdout.print(f"applied migrations: {applied}" if applied else "schema is up to date")
 
@@ -161,7 +161,7 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
         for column in ("id", "filename", "type", "status", "excluded"):
             table.add_column(column)
         for row in rows:
-            status = f"{row['ok']} ok · {row['na']} na · {row['error']} err · {row['missing']} todo"
+            status = f"{row['ok']} ok | {row['na']} na | {row['error']} err | {row['missing']} todo"
             table.add_row(
                 str(row["id"]), row["filename"], row["type"], status,
                 "yes" if row["excluded"] else "",
@@ -204,7 +204,7 @@ def module_list(fmt: str) -> None:
         table.add_column(column)
     for s in specs:
         produces = list(s.produces_artefacts) + list(s.produces_metrics)
-        table.add_row(s.name, s.version, ", ".join(s.consumes) or "—", ", ".join(produces))
+        table.add_row(s.name, s.version, ", ".join(s.consumes) or "-", ", ".join(produces))
     stdout.print(table)
 
 
@@ -221,9 +221,9 @@ def module_show(name: str) -> None:
     doc = (type(mod).__module__ and sys.modules[type(mod).__module__].__doc__) or ""
     if doc:
         stdout.print(doc.strip().split("\n\n")[0])
-    stdout.print(f"consumes:  {', '.join(s.consumes) or '— (reads the PDF directly)'}")
-    stdout.print(f"artefacts: {', '.join(s.produces_artefacts) or '—'}")
-    stdout.print(f"metrics:   {', '.join(s.produces_metrics) or '—'}")
+    stdout.print(f"consumes:  {', '.join(s.consumes) or '- (reads the PDF directly)'}")
+    stdout.print(f"artefacts: {', '.join(s.produces_artefacts) or '-'}")
+    stdout.print(f"metrics:   {', '.join(s.produces_metrics) or '-'}")
 
 
 # -- run ---------------------------------------------------------------------
@@ -282,7 +282,7 @@ def run(ctx, inputs, thesis_type, modules, rerun, dry_run, workers, fmt) -> None
         if dry_run:
             for line in plan.describe():
                 click.echo(line)
-            click.echo(f"{plan.pair_count} (thesis × module) pairs planned")
+            click.echo(f"{plan.pair_count} (thesis x module) pairs planned")
             return
 
         summary = runner.execute(plan)
@@ -298,8 +298,8 @@ def run(ctx, inputs, thesis_type, modules, rerun, dry_run, workers, fmt) -> None
         click.echo(json.dumps(payload, indent=2))
     else:
         stdout.print(
-            f"{summary.theses_completed} theses · {summary.ok} ok · "
-            f"{summary.na} na · {summary.error} errors · {payload['duration_s']} s"
+            f"{summary.theses_completed} theses | {summary.ok} ok | "
+            f"{summary.na} na | {summary.error} errors | {payload['duration_s']} s"
         )
     if summary.error:
         ctx.exit(EX_PARTIAL)
@@ -326,7 +326,7 @@ def export(ctx: click.Context, out: Path | None, current_only: bool) -> None:
             raise DataError(str(exc)) from exc
     stdout.print(
         f"exported {stats.theses} theses, {stats.runs} runs, "
-        f"{stats.metrics} metric values ({stats.policy.value}) → {stats.path}"
+        f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
     )
 
 
@@ -335,7 +335,7 @@ def export(ctx: click.Context, out: Path | None, current_only: bool) -> None:
 @click.option("--name", required=True, help='Source label, e.g. "FH Wedel CS 2026".')
 @click.pass_context
 def import_(ctx: click.Context, export_file: Path, name: str) -> None:
-    """Import a professor's export as a new read-only source (§8.3.2)."""
+    """Import a professor's export as a new read-only source (Sec. 8.3.2)."""
     with open_project(ctx) as project:
         try:
             stats = import_export(project.repo.conn, export_file, name)
@@ -366,7 +366,7 @@ def privacy() -> None:
 @privacy.command("report")
 @click.option("--format", "fmt", type=click.Choice(["md", "json"]), default="md")
 def privacy_report(fmt: str) -> None:
-    """Generated from core/privacy_metadata.py — never hand-edited."""
+    """Generated from core/privacy_metadata.py - never hand-edited."""
     if fmt == "json":
         click.echo(privacy_metadata.render_report_json())
         return

@@ -1,4 +1,4 @@
-"""Unit tests for mod_redundancy (SDD §7.1 #8) — hand-computed values."""
+"""Unit tests for mod_redundancy (SDD Sec. 7.1 #8) - hand-computed values."""
 
 import pytest
 
@@ -7,8 +7,8 @@ from tta.core.modules.redundancy import Redundancy
 
 
 def test_hand_computed_repetition(build_ctx):
-    # bigrams: (a,b) (b,a) (a,b) → 3 total, 2 distinct → rate 1/3
-    # trigrams: (a,b,a) (b,a,b) → 2 total, 2 distinct → rate 0
+    # bigrams: (a,b) (b,a) (a,b) -> 3 total, 2 distinct -> rate 1/3
+    # trigrams: (a,b,a) (b,a,b) -> 2 total, 2 distinct -> rate 0
     tokens = {"sentences": [["a", "b", "a", "b"]], "language": "en"}
     metrics = Redundancy().run(build_ctx(tokens=tokens)).metrics
     assert metrics["bigram_repetition_rate"] == pytest.approx(1 / 3)

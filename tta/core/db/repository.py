@@ -1,4 +1,4 @@
-"""Repository over the project database (SDD §8.1, ADR-0006).
+"""Repository over the project database (SDD Sec. 8.1, ADR-0006).
 
 The repository is the only code that writes SQL. It is used exclusively
 from the main process (ADR-0013: workers never touch the DB).
@@ -139,7 +139,7 @@ class Repository:
     # -- runs and metrics --------------------------------------------------
 
     def latest_runs(self) -> dict[tuple[int, str], sqlite3.Row]:
-        """Current row per (thesis, module) — planning input (ADR-0013)."""
+        """Current row per (thesis, module) - planning input (ADR-0013)."""
         rows = self.conn.execute(
             "SELECT * FROM v_module_run_history WHERE recency_rank = 1"
         ).fetchall()
@@ -161,10 +161,10 @@ class Repository:
     ) -> int:
         """Append one module run with its metric values; returns run_id.
 
-        Metric typing per §8.1: numbers (incl. bools) land in value_num,
+        Metric typing per Sec. 8.1: numbers (incl. bools) land in value_num,
         strings in value_text, None in neither. ``notes`` is stored as
         JSON; it may contain content-derived values and is therefore
-        stripped from exports (§8.3.1).
+        stripped from exports (Sec. 8.3.1).
         """
         cur = self.conn.execute(
             "INSERT INTO module_runs (thesis_id, module_name, module_version, status,"

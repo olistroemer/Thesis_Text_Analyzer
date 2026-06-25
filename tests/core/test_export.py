@@ -1,4 +1,4 @@
-"""Export tests (ADR-0007, §8.3.1): the anonymisation rules are enforced here."""
+"""Export tests (ADR-0007, Sec. 8.3.1): the anonymisation rules are enforced here."""
 
 import sqlite3
 
@@ -69,7 +69,7 @@ def test_excluded_theses_are_stripped(project, tmp_path):
     stats, conn = export_conn(project, tmp_path)
     assert stats.theses == 1
     ids = [r["id"] for r in conn.execute("SELECT id FROM theses")]
-    assert ids == [a.id]  # ids preserved (§8.3.1); excluded thesis gone
+    assert ids == [a.id]  # ids preserved (Sec. 8.3.1); excluded thesis gone
     # ... and so are its runs and metrics
     assert conn.execute("SELECT COUNT(*) FROM module_runs WHERE thesis_id=?", (b.id,)).fetchone()[0] == 0
 

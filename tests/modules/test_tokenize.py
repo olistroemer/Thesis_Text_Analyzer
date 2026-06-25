@@ -1,4 +1,4 @@
-"""Unit tests for mod_tokenize (SDD §7.1 #4)."""
+"""Unit tests for mod_tokenize (SDD Sec. 7.1 #4)."""
 
 import json
 
@@ -23,7 +23,7 @@ def test_tokenizes_english_sentences(build_ctx):
 
 def test_german_uses_german_punkt(build_ctx):
     ctx = build_ctx(
-        raw_text="Die Katze saß z.B. auf der Matte. Der Hund schlief im Garten.",
+        raw_text="Die Katze sa\u00df z.B. auf der Matte. Der Hund schlief im Garten.",
         language={"code": "de", "confidence": 0.99},
     )
     payload = json.loads(

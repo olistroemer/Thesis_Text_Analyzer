@@ -1,4 +1,4 @@
-"""Importer tests (SDD §8.3.2, US-RES-IMPORT, US-RES-LOCAL-RERUN)."""
+"""Importer tests (SDD Sec. 8.3.2, US-RES-IMPORT, US-RES-LOCAL-RERUN)."""
 
 import pytest
 

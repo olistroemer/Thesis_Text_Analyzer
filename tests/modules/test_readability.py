@@ -1,4 +1,4 @@
-"""Unit tests for mod_readability (SDD §7.1 #7) — Flesch en / Amstad de."""
+"""Unit tests for mod_readability (SDD Sec. 7.1 #7) - Flesch en / Amstad de."""
 
 import pytest
 
@@ -6,7 +6,7 @@ from tta.core.modules.base import NotApplicable
 from tta.core.modules.readability import Readability
 
 ENGLISH = "The cat sat on the mat. The dog ran to the park. We like short words."
-GERMAN = "Die Katze sitzt auf der Matte. Der Hund läuft in den Park. Wir mögen kurze Wörter."
+GERMAN = "Die Katze sitzt auf der Matte. Der Hund l\u00e4uft in den Park. Wir m\u00f6gen kurze W\u00f6rter."
 
 
 def test_english_flesch(build_ctx):

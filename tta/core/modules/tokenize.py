@@ -1,4 +1,4 @@
-"""`mod_tokenize` — catalogue #4 (SDD §7.1).
+"""`mod_tokenize` - catalogue #4 (SDD Sec. 7.1).
 
 NLTK punkt_tab sentence segmentation + word tokenisation. The punkt_tab
 model data is bundled into release builds via PyInstaller ``--add-data``
@@ -14,7 +14,7 @@ import nltk
 from tta.core import artefact_kinds
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
-#: Supported language codes → NLTK language names (SDD §7.2).
+#: Supported language codes -> NLTK language names (SDD Sec. 7.2).
 NLTK_LANGUAGES = {"en": "english", "de": "german"}
 
 

@@ -1,11 +1,11 @@
-"""`mod_extract_pdf_metadata` — catalogue #10 (SDD §7.1, §7.4).
+"""`mod_extract_pdf_metadata` - catalogue #10 (SDD Sec. 7.1, Sec. 7.4).
 
 Writes the full PDF Info dict + XMP (potentially identifying: Author,
 Title) to the local-only `pdf_metadata` artefact, but promotes only six
 curated, safe metrics. Producer/Creator strings are mapped to a small
-categorical — the raw strings never reach the DB; dates are stored to
+categorical - the raw strings never reach the DB; dates are stored to
 year precision only. Extra technical fields stay in the artefact
-(SDD §12: promotion is purely additive).
+(SDD Sec. 12: promotion is purely additive).
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from tta.core import artefact_kinds
 from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from tta.core.types import Thesis
 
-#: Ordered (category, substring-markers) — first match wins.
+#: Ordered (category, substring-markers) - first match wins.
 _TOOL_CATEGORIES = (
     ("latex", ("latex", "pdftex", "xetex", "luatex", "dvips", "miktex", "tex live")),
     ("word", ("microsoft", "word")),
@@ -90,9 +90,9 @@ class ExtractPdfMetadata(Module):
             has_acroform = has_xfa = False
 
         artefact = {
-            "info": info,  # full, including Author/Title — local only, never exported
+            "info": info,  # full, including Author/Title - local only, never exported
             "xmp": xmp_raw,
-            # technical fields kept here, not promoted to metrics (SDD §12)
+            # technical fields kept here, not promoted to metrics (SDD Sec. 12)
             "pdf_version": reader.pdf_header,
             "is_encrypted": reader.is_encrypted,
             "xmp_present": xmp_raw is not None,

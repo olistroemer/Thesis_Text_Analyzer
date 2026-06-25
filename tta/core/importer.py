@@ -1,8 +1,8 @@
-"""Import a professor's export into the researcher's merged DB (SDD §8.3.2).
+"""Import a professor's export into the researcher's merged DB (SDD Sec. 8.3.2).
 
 Each import becomes one new `sources` row with `kind='imported'`; thesis
 and run ids are remapped into the local id space. Imported theses are
-read-only context — the runner's `kind='local'` filter never touches
+read-only context - the runner's `kind='local'` filter never touches
 them (US-RES-LOCAL-RERUN).
 """
 

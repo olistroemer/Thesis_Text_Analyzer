@@ -1,6 +1,6 @@
 """Module registry: validation at registration + topological order.
 
-Registration checks (SDD §6.4, ADR-0005):
+Registration checks (SDD Sec. 6.4, ADR-0005):
 - declared artefact kinds must be in the documented vocabulary,
 - module names are unique,
 - exactly one producer per artefact kind (startup error otherwise),
@@ -44,7 +44,7 @@ class ModuleRegistry:
         self._topo: list[Module] = self._topological_order()
 
     def _topological_order(self) -> list[Module]:
-        """Kahn's algorithm over producer→consumer edges; insertion order
+        """Kahn's algorithm over producer->consumer edges; insertion order
         breaks ties so the result is deterministic."""
         modules = list(self._by_name.values())
         remaining_deps = {
@@ -88,7 +88,7 @@ class ModuleRegistry:
 
 
 def default_registry() -> ModuleRegistry:
-    """The MVP catalogue (SDD §7.1, ADR-0011)."""
+    """The MVP catalogue (SDD Sec. 7.1, ADR-0011)."""
     from tta.core.modules.check_extraction_quality import CheckExtractionQuality
     from tta.core.modules.classify_language import ClassifyLanguage
     from tta.core.modules.count_images import CountImages

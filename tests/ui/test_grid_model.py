@@ -1,4 +1,4 @@
-"""Grid model tests — UI data layer without any Tk (ADR-0002 invariant 6)."""
+"""Grid model tests - UI data layer without any Tk (ADR-0002 invariant 6)."""
 
 from tta.ui.tk import grid_model
 from tta.ui.tk.columns import BASIC_METRICS, MetricColumn, metric_columns
@@ -42,7 +42,7 @@ def test_cell_states_cover_the_four_render_states(project, tmp_path):
     assert row.cells["flesch_reading_ease"].reason == "no formula for language: it"
     assert row.cells["flesch_reading_ease"].display() == ""
     assert row.cells["yules_k"].status == "error"
-    assert row.cells["yules_k"].display() == "⚠"
+    assert row.cells["yules_k"].display() == "err"
     assert row.cells["n_images"].status == "missing"
     assert row.garbled is True  # US-PROF-QUALITY row flag
 

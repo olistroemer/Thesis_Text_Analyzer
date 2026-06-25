@@ -1,4 +1,4 @@
-"""Unit tests for mod_extract_pymupdf (SDD §7.1 #1, QA-TEST)."""
+"""Unit tests for mod_extract_pymupdf (SDD Sec. 7.1 #1, QA-TEST)."""
 
 import dataclasses
 

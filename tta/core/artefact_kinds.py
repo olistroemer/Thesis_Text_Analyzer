@@ -1,4 +1,4 @@
-"""Vocabulary of artefact kinds — the documented source of truth (SDD §6.4).
+"""Vocabulary of artefact kinds - the documented source of truth (SDD Sec. 6.4).
 
 Module declarations are checked against this vocabulary at registration.
 Privacy classes per kind are registered in ``privacy_metadata.py`` (ADR-0009);
@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-#: UTF-8 plain text file extracted from the PDF. Content — PII risk; never exported.
+#: UTF-8 plain text file extracted from the PDF. Content - PII risk; never exported.
 RAW_TEXT = "raw_text"
 
-#: JSON ``{"code": "en", "confidence": 0.99}``. Metric — no PII.
+#: JSON ``{"code": "en", "confidence": 0.99}``. Metric - no PII.
 LANGUAGE = "language"
 
-#: JSON ``{"sentences": [["w", "w"], …], "language": "en"}``. Content — PII in aggregate; never exported.
+#: JSON ``{"sentences": [["w", "w"], ...], "language": "en"}``. Content - PII in aggregate; never exported.
 TOKENS = "tokens"
 
 #: JSON: full PDF Info dict + XMP. Identifying (may include author/title); never exported.

@@ -1,4 +1,4 @@
-"""`mod_classify_language` — catalogue #3 (SDD §7.1, US-RES-LANG)."""
+"""`mod_classify_language` - catalogue #3 (SDD Sec. 7.1, US-RES-LANG)."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext,
 # inputs produce identical outputs (QA-TEST determinism, QA-REPRO).
 DetectorFactory.seed = 0
 
-MIN_CHARS = 200  # applicability threshold per SDD §7.2
-MAX_CHARS = 20_000  # the head is plenty for confident detection (≤ 500 ms budget)
+MIN_CHARS = 200  # applicability threshold per SDD Sec. 7.2
+MAX_CHARS = 20_000  # the head is plenty for confident detection (<= 500 ms budget)
 
 
 class ClassifyLanguage(Module):

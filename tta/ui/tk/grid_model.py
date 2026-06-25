@@ -1,7 +1,7 @@
-"""Pure data model behind the grid — no Tk imports, unit-testable.
+"""Pure data model behind the grid - no Tk imports, unit-testable.
 
-Maps repository state to per-cell render states (§9.9: ok / na / error /
-not-yet-run), computes IQR outlier bounds (§9.5), and sorts rows.
+Maps repository state to per-cell render states (Sec. 9.9: ok / na / error /
+not-yet-run), computes IQR outlier bounds (Sec. 9.5), and sorts rows.
 """
 
 from __future__ import annotations
@@ -18,13 +18,13 @@ OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
 @dataclass(frozen=True)
 class Cell:
-    status: str  # ok | na | error | missing (§9.9)
+    status: str  # ok | na | error | missing (Sec. 9.9)
     value: float | str | None = None
     reason: str | None = None
 
     def display(self) -> str:
         if self.status == ERROR:
-            return "⚠"
+            return "err"
         if self.status in (NA, MISSING) or self.value is None:
             return ""
         if isinstance(self.value, float):
@@ -72,8 +72,8 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
 
 
 def outlier_bounds(rows: list[ThesisRow], columns: list[MetricColumn]) -> dict[str, tuple[float, float]]:
-    """Per-metric IQR fences, 1.5 × IQR beyond Q1/Q3 — matplotlib's
-    boxplot default (§9.5). Metrics with < 4 numeric values are skipped."""
+    """Per-metric IQR fences, 1.5 x IQR beyond Q1/Q3 - matplotlib's
+    boxplot default (Sec. 9.5). Metrics with < 4 numeric values are skipped."""
     bounds = {}
     for column in columns:
         numbers = [
@@ -97,7 +97,7 @@ def is_outlier(cell: Cell, bounds: tuple[float, float] | None) -> bool:
 
 
 def sort_rows(rows: list[ThesisRow], metric: str | None, reverse: bool) -> list[ThesisRow]:
-    """Sort by a metric column (None → by filename). Missing values sort last."""
+    """Sort by a metric column (None -> by filename). Missing values sort last."""
     if metric is None:
         return sorted(rows, key=lambda r: r.thesis.pdf_filename.lower(), reverse=reverse)
 

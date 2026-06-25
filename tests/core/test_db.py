@@ -1,4 +1,4 @@
-"""Migrator + repository tests (SDD §8.1, ADR-0006)."""
+"""Migrator + repository tests (SDD Sec. 8.1, ADR-0006)."""
 
 import json
 import shutil
@@ -20,7 +20,7 @@ def test_migrate_is_idempotent(tmp_path):
     db_path = tmp_path / "tta.sqlite"
     assert migrator.migrate(db_path) == [1]
     assert migrator.migrate(db_path) == []
-    assert not list(tmp_path.glob("*.bak.*"))  # no pending work → no backup
+    assert not list(tmp_path.glob("*.bak.*"))  # no pending work -> no backup
 
 
 def test_migrate_existing_db_writes_defensive_backup(tmp_path):
@@ -50,7 +50,7 @@ def test_add_thesis_is_content_addressed(project, tmp_path):
     shutil.move(pdf, renamed)
     second = project.repo.add_thesis(renamed)
 
-    assert second.id == first.id  # same sha → same thesis, history preserved
+    assert second.id == first.id  # same sha -> same thesis, history preserved
     assert second.pdf_filename == "renamed.pdf"
     assert second.type == "bachelor"  # re-add does not clobber attributes
 

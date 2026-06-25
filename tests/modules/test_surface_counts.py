@@ -1,4 +1,4 @@
-"""Unit tests for mod_surface_counts (SDD §7.1 #5) — hand-computed values."""
+"""Unit tests for mod_surface_counts (SDD Sec. 7.1 #5) - hand-computed values."""
 
 import pytest
 

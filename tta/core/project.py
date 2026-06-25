@@ -1,4 +1,4 @@
-"""Project facade: one open project directory (SDD §5.4, ADR-0014).
+"""Project facade: one open project directory (SDD Sec. 5.4, ADR-0014).
 
 Both adapters bootstrap through this: migrate the DB (with defensive
 backup), open the connection, ensure the single local source. The
@@ -33,14 +33,14 @@ class Project:
         """Open (and migrate) the project at ``project_dir``.
 
         With ``create=False`` a directory without a ``tta.sqlite`` is
-        rejected — guards against silently creating projects in the
+        rejected - guards against silently creating projects in the
         wrong place (CLI: only `tta db init` and `tta run` create).
         """
         project_dir = Path(project_dir)
         db_path = project_dir / DB_FILENAME
         if not db_path.exists() and not create:
             raise FileNotFoundError(
-                f"no project at {project_dir} ({DB_FILENAME} missing) — run `tta db init` first"
+                f"no project at {project_dir} ({DB_FILENAME} missing) - run `tta db init` first"
             )
         project_dir.mkdir(parents=True, exist_ok=True)
         migrator.migrate(db_path)

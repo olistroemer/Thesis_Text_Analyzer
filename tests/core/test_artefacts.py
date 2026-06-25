@@ -1,4 +1,4 @@
-"""Artefact filesystem layout tests (SDD §5.4, §8.2)."""
+"""Artefact filesystem layout tests (SDD Sec. 5.4, Sec. 8.2)."""
 
 from tta.core import artefact_kinds
 from tta.core.artefacts import KIND_FILENAMES, ArtefactStore

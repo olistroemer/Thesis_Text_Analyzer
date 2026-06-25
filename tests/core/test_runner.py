@@ -181,7 +181,7 @@ def test_failure_cascades_na_to_dependents_and_is_replanned(project, tmp_path):
 
     # errored pairs are picked up again by the default plan; the na
     # dependent is also replanned (its last run carries the old version?
-    # no — na rows keep their version, but errored upstream re-runs)
+    # no - na rows keep their version, but errored upstream re-runs)
     replan = runner.plan()
     planned_names = {pm.name for tp in replan.theses for pm in tp.modules}
     assert "mod_fake_extract" in planned_names
@@ -242,7 +242,7 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
     assert values["language_code"][1] == "en"
     assert values["extraction_quality"][1] == "ok"
 
-    # module diagnostics travel from worker to DB, local-only (§8.3.1)
+    # module diagnostics travel from worker to DB, local-only (Sec. 8.3.1)
     quality_notes = project.conn.execute(
         "SELECT notes FROM module_runs WHERE module_name = 'mod_check_extraction_quality'"
     ).fetchone()["notes"]

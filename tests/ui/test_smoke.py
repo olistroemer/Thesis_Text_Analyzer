@@ -1,4 +1,4 @@
-"""GUI smoke test — needs a display; skipped headless.
+"""GUI smoke test - needs a display; skipped headless.
 
 Builds the real MainWindow over a populated project, pumps the Tk event
 loop once, exercises mode switch, grid render, and report render.
@@ -58,7 +58,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             window.root.update()
 
             # report button enabled (one ok run exists, ADR-0016)
-            assert str(window._toolbar_buttons["📊 Report"]["state"]) == "normal"
+            assert str(window._toolbar_buttons["Report"]["state"]) == "normal"
 
             # grid rendered the thesis row
             assert window.grid_view.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"

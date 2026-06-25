@@ -1,4 +1,4 @@
-"""`tta.toml` reader/writer (SDD §5.4).
+"""`tta.toml` reader/writer (SDD Sec. 5.4).
 
 Unknown keys are preserved on save so future versions and hand edits
 survive a round-trip.
@@ -19,9 +19,9 @@ UI_MODES = ("basic", "extended")
 
 @dataclass
 class Config:
-    workers: int | None = None  # None → runner default max(1, cpus - 1)
-    ui_mode: str = "basic"  # basic | extended (SDD §9.3)
-    outlier_scheme: str = "default"  # extended-mode highlighting scheme (§9.5)
+    workers: int | None = None  # None -> runner default max(1, cpus - 1)
+    ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
+    outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
     institution: str | None = None  # used in export filenames and sources row
     raw: dict | None = None  # full parsed file, for round-tripping
 

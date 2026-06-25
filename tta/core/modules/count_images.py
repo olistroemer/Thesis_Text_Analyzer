@@ -1,7 +1,7 @@
-"""`mod_count_images` — catalogue #9 (SDD §7.1).
+"""`mod_count_images` - catalogue #9 (SDD Sec. 7.1).
 
 Counts embedded image XObjects via pypdf. A POC for smarter figure
-analysis (SDD §12): fragments are not clustered, so vector-heavy theses
+analysis (SDD Sec. 12): fragments are not clustered, so vector-heavy theses
 under-count and tiled rasters over-count.
 """
 

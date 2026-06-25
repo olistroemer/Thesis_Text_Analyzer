@@ -1,4 +1,4 @@
-"""Report tab — the professor's reward (§9.8, ADR-0016, US-PROF-INSIGHTS).
+"""Report tab - the professor's reward (Sec. 9.8, ADR-0016, US-PROF-INSIGHTS).
 
 Aggregates over `v_current_metrics` filtered to local, non-excluded
 theses; garbled extractions are excluded from aggregates with a caption.
@@ -74,7 +74,7 @@ def collect(repo: Repository) -> ReportData:
     if years:
         data.year_range = (min(years), max(years))
 
-    # notable theses: IQR outlier on ≥ 2 trustworthy metrics (§9.8.3)
+    # notable theses: IQR outlier on >= 2 trustworthy metrics (Sec. 9.8.3)
     bounds = {}
     for metric in TRUSTWORTHY_METRICS:
         series = [v[metric] for v in usable.values() if isinstance(v.get(metric), (int, float))]
@@ -107,22 +107,22 @@ class ReportView(ttk.Frame):
 
     def render(self) -> None:
         data = collect(self.repo)
-        type_summary = " · ".join(f"{k}: {n}" for k, n in sorted(data.by_type.items()))
+        type_summary = " | ".join(f"{k}: {n}" for k, n in sorted(data.by_type.items()))
         language_summary = " ".join(f"{k}={n}" for k, n in sorted(data.by_language.items()))
-        years = f"{data.year_range[0]}–{data.year_range[1]}" if data.year_range else "—"
-        median = f"{data.median_words:.0f} words" if data.median_words is not None else "—"
-        caption = f" · {data.garbled} garbled excluded from aggregates" if data.garbled else ""
+        years = f"{data.year_range[0]}-{data.year_range[1]}" if data.year_range else "-"
+        median = f"{data.median_words:.0f} words" if data.median_words is not None else "-"
+        caption = f" | {data.garbled} garbled excluded from aggregates" if data.garbled else ""
         self.cards.configure(
             text=(
-                f"{data.theses} theses analysed · {data.excluded} excluded · "
-                f"Languages: {language_summary or '—'} · Years: {years}\n"
-                f"{type_summary or 'no type attributes'} · Median length: {median}{caption}"
+                f"{data.theses} theses analysed | {data.excluded} excluded | "
+                f"Languages: {language_summary or '-'} | Years: {years}\n"
+                f"{type_summary or 'no type attributes'} | Median length: {median}{caption}"
             )
         )
         self._draw_charts(data)
         if data.notable:
             lines = [
-                f"• {name} · outlier on: {', '.join(metrics)}" for name, metrics in data.notable[:10]
+                f"- {name} | outlier on: {', '.join(metrics)}" for name, metrics in data.notable[:10]
             ]
             self.notable.configure(text="Notable theses\n" + "\n".join(lines))
         else:
@@ -144,7 +144,7 @@ class ReportView(ttk.Frame):
         for thesis_type in sorted({t for _, _, t in data.words_by_year} | set()):
             points = [(y, w) for y, w, t in data.words_by_year if t == thesis_type]
             ax.scatter(*zip(*points), label=thesis_type, color=type_colors.get(thesis_type))
-        if len(data.words_by_year) >= 5:  # trend line only with ≥ 5 points (§9.8.3)
+        if len(data.words_by_year) >= 5:  # trend line only with >= 5 points (Sec. 9.8.3)
             xs = [y for y, _, _ in data.words_by_year]
             ys = [w for _, w, _ in data.words_by_year]
             slope, intercept = statistics.linear_regression(xs, ys)

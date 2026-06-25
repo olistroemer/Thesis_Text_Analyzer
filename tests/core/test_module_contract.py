@@ -1,4 +1,4 @@
-"""Contract tests for core.modules.base (SDD §6.2, ADR-0004)."""
+"""Contract tests for core.modules.base (SDD Sec. 6.2, ADR-0004)."""
 
 import dataclasses
 from pathlib import Path

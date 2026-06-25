@@ -1,4 +1,4 @@
-"""Shared helpers for `tokens`-consuming modules (SDD §6.4: kind format).
+"""Shared helpers for `tokens`-consuming modules (SDD Sec. 6.4: kind format).
 
 A *word token* is a token containing at least one letter; pure
 punctuation and number tokens are excluded from word-level metrics.

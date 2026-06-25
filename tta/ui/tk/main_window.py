@@ -1,4 +1,4 @@
-"""Main window (§9.2): menu bar, toolbar, Grid/Report tabs, status line.
+"""Main window (Sec. 9.2): menu bar, toolbar, Grid/Report tabs, status line.
 
 Runs execute on a background thread; domain events are marshalled into
 the Tk loop via a queue drained by ``root.after`` (ADR-0002 invariant 3).
@@ -26,7 +26,7 @@ POLL_MS = 100
 FIRST_LAUNCH_BANNER = (
     "Your project lives at {path}. All thesis data and analyses are stored here. "
     "To move or back up the project, copy this folder. To use a different "
-    "location, choose File → Open Project…"
+    "location, choose File -> Open Project..."
 )
 
 
@@ -35,7 +35,7 @@ class MainWindow:
         self.project = project
         self.registry = default_registry()
         self.root = tk.Tk()
-        self.root.title(f"Thesis Text Analyzer — {project.dir}")
+        self.root.title(f"Thesis Text Analyzer - {project.dir}")
         self.root.geometry("1100x700")
         self._event_queue: queue.Queue = queue.Queue()
         self._run_thread: threading.Thread | None = None
@@ -57,8 +57,8 @@ class MainWindow:
     def _build_menu(self) -> None:
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=False)
-        file_menu.add_command(label="Open Project…", command=self._open_project)
-        file_menu.add_command(label="Export…", command=self._export)
+        file_menu.add_command(label="Open Project...", command=self._open_project)
+        file_menu.add_command(label="Export...", command=self._export)
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.root.destroy)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -80,7 +80,7 @@ class MainWindow:
         banner = ttk.Frame(self.root, padding=8)
         text = FIRST_LAUNCH_BANNER.format(path=self.project.dir)
         ttk.Label(banner, text=text, wraplength=900, justify="left").pack(side="left")
-        ttk.Button(banner, text="✕", width=3, command=banner.destroy).pack(side="right")
+        ttk.Button(banner, text="X", width=3, command=banner.destroy).pack(side="right")
         banner.pack(fill="x")
 
     def _build_toolbar(self) -> None:
@@ -93,16 +93,16 @@ class MainWindow:
         for child in self.toolbar.winfo_children():
             child.destroy()
         extended = self._extended.get()
-        # §9.3: basic = Add files · Run all · Report · Export · Help
-        buttons = [("➕ Add files", self._add_files), ("▶ Run all", lambda: self._run(rerun=False))]
+        # Sec. 9.3: basic = Add files | Run all | Report | Export | Help
+        buttons = [("Add files", self._add_files), ("Run all", lambda: self._run(rerun=False))]
         if extended:
             buttons += [
-                ("↻ Re-run all", lambda: self._run(rerun=True)),
-                ("⟳ Update stale", lambda: self._run(rerun=False)),
+                ("Re-run all", lambda: self._run(rerun=True)),
+                ("Update stale", lambda: self._run(rerun=False)),
             ]
         buttons += [
-            ("📊 Report", self._show_report),
-            ("💾 Export", self._export),
+            ("Report", self._show_report),
+            ("Export", self._export),
             ("? Help", self._show_privacy),
         ]
         self._toolbar_buttons = {}
@@ -139,12 +139,12 @@ class MainWindow:
             ).fetchone()[0]
             > 0
         )
-        button = self._toolbar_buttons.get("📊 Report")
+        button = self._toolbar_buttons.get("Report")
         if button:
             button.configure(state="normal" if has_data else "disabled")
 
     def _set_status(self, prefix: str) -> None:
-        self.status.configure(text=f"{prefix} · {self.grid_view.status_text()}")
+        self.status.configure(text=f"{prefix} | {self.grid_view.status_text()}")
 
     def _mode_changed(self) -> None:
         self.project.config.ui_mode = "extended" if self._extended.get() else "basic"
@@ -158,13 +158,13 @@ class MainWindow:
         added = dialogs.add_files_flow(self.root, self.project)
         if added:
             self.refresh()
-            self._set_status(f"Added {added} theses — click Run all")
+            self._set_status(f"Added {added} theses - click Run all")
 
     def _run(self, rerun: bool) -> None:
         if self._run_thread and self._run_thread.is_alive():
             messagebox.showinfo("Run", "A run is already in progress.", parent=self.root)
             return
-        self._set_status("Planning…")
+        self._set_status("Planning...")
         self._run_thread = threading.Thread(
             target=self._run_worker, args=(rerun,), daemon=True
         )
@@ -194,7 +194,7 @@ class MainWindow:
                 event = self._event_queue.get_nowait()
                 if isinstance(event, events.ModuleCompleted):
                     self._set_status(
-                        f"Running… thesis {event.thesis_id}: {event.module_name} {event.status}"
+                        f"Running... thesis {event.thesis_id}: {event.module_name} {event.status}"
                     )
                 elif isinstance(event, events.ThesisCompleted):
                     self.grid_view.reload(
@@ -204,7 +204,7 @@ class MainWindow:
                 elif isinstance(event, (events.RunCompleted, events.RunCancelled)):
                     self.refresh()
                     self._set_status("Run finished")
-                    # §9.8.2: re-render while Report tab is active
+                    # Sec. 9.8.2: re-render while Report tab is active
                     if self.notebook.index("current") == 1:
                         self.report_view.render()
         except queue.Empty:
@@ -249,7 +249,7 @@ class MainWindow:
         messagebox.showinfo(
             "About",
             f"Thesis Text Analyzer {tta.__version__}\n"
-            "Data Science Project Group SS26 — FH Wedel",
+            "Data Science Project Group SS26 - FH Wedel",
             parent=self.root,
         )
 

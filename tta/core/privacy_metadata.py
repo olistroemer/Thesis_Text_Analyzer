@@ -1,10 +1,10 @@
-"""Privacy metadata as code — single source of truth (ADR-0009, QA-GDPR).
+"""Privacy metadata as code - single source of truth (ADR-0009, QA-GDPR).
 
 Every persisted user-originating value has an entry here; the technical
 sections of the GDPR Art. 13 statement are rendered from this registry
 by `tta privacy report`. A coverage gate (tests/core/test_privacy.py,
 CI) fails when a schema column, registered module, or artefact kind is
-missing — schema evolution and statement evolution cannot drift.
+missing - schema evolution and statement evolution cannot drift.
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ class Category(str, Enum):
     TECHNICAL = "technical"  # versions, durations, ids. No PII.
     CONTENT_HASH = "content_hash"  # cryptographic fingerprints. No PII.
     METRIC = "metric"  # numeric/textual analysis output.
-    CONTENT = "content"  # raw or near-raw text — high PII risk.
-    IDENTIFYING = "identifying"  # paths/filenames/notes — direct PII.
+    CONTENT = "content"  # raw or near-raw text - high PII risk.
+    IDENTIFYING = "identifying"  # paths/filenames/notes - direct PII.
 
 
 RETAIN_PROJECT = "until the user deletes the project folder"
@@ -152,10 +152,10 @@ _CATEGORY_LABELS = {
 
 
 def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
-    """Sections 1–5 are generated from the registry; 6–7 are reviewed stubs."""
+    """Sections 1-5 are generated from the registry; 6-7 are reviewed stubs."""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     lines = [
-        "# Privacy statement — Thesis Text Analyzer",
+        "# Privacy statement - Thesis Text Analyzer",
         "",
         f"*Generated {now} by tta {tta.__version__} from `core/privacy_metadata.py`.*",
         "",
@@ -204,7 +204,7 @@ def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
     ]
     for f in FIELDS:
         if f.exported:
-            lines.append(f"- `{f.table}.{f.column}` — {f.purpose}")
+            lines.append(f"- `{f.table}.{f.column}` - {f.purpose}")
     lines += [
         "",
         "Excluded theses, file paths and names, free-form notes and tags, raw text, "

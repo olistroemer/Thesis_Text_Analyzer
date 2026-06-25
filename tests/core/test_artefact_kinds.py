@@ -1,4 +1,4 @@
-"""Tests for the artefact-kind vocabulary (SDD §6.4)."""
+"""Tests for the artefact-kind vocabulary (SDD Sec. 6.4)."""
 
 import pytest
 

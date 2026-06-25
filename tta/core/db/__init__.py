@@ -1,4 +1,4 @@
-"""SQLite persistence: schema, migrations, repository (SDD §8.1, ADR-0006)."""
+"""SQLite persistence: schema, migrations, repository (SDD Sec. 8.1, ADR-0006)."""
 
 from __future__ import annotations
 

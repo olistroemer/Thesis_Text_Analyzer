@@ -1,8 +1,8 @@
-"""`mod_readability` — catalogue #7 (SDD §7.1).
+"""`mod_readability` - catalogue #7 (SDD Sec. 7.1).
 
 Language-aware Flesch reading ease via textstat: Flesch's formula for
 English [Flesch 1948], Amstad's German adaptation [Amstad 1978]; other
-languages are N/A (SDD §7.2).
+languages are N/A (SDD Sec. 7.2).
 """
 
 from __future__ import annotations

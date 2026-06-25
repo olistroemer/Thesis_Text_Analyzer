@@ -1,4 +1,4 @@
-"""Unit tests for mod_extract_pdf_metadata (SDD §7.1 #10, §7.4)."""
+"""Unit tests for mod_extract_pdf_metadata (SDD Sec. 7.1 #10, Sec. 7.4)."""
 
 import dataclasses
 import json
@@ -15,7 +15,7 @@ from tests.conftest import make_thesis
     [
         ("pdfTeX-1.40.25", "latex"),
         ("LaTeX with hyperref", "latex"),
-        ("Microsoft® Word 2019", "word"),
+        ("Microsoft\u00ae Word 2019", "word"),
         ("LibreOffice 7.4", "libreoffice"),
         ("OpenOffice.org 3.2", "openoffice"),
         ("Adobe InDesign 18.0", "indesign"),
@@ -30,7 +30,7 @@ def test_categorize_tool(raw, category):
 
 
 def test_curated_metrics_only_no_raw_strings(build_ctx, english_pdf):
-    """Raw Producer/Creator strings must never reach the DB (SDD §7.4)."""
+    """Raw Producer/Creator strings must never reach the DB (SDD Sec. 7.4)."""
     thesis = make_thesis(english_pdf)
     result = ExtractPdfMetadata().run(build_ctx(thesis=thesis))
 

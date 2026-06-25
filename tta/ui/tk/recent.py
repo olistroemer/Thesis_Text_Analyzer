@@ -1,4 +1,4 @@
-"""Recent-projects store — the only per-user state outside the project
+"""Recent-projects store - the only per-user state outside the project
 folder (ADR-0014): ``~/.config/tta/recent.json``."""
 
 from __future__ import annotations

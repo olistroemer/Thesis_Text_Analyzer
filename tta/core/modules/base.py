@@ -1,8 +1,8 @@
-"""Module contract — load-bearing public API (SDD §6.2, ADR-0004).
+"""Module contract - load-bearing public API (SDD Sec. 6.2, ADR-0004).
 
 External researchers build modules against exactly this surface; for MVP
 the git commit hash is the de-facto contract version (an explicit
-``CONTRACT_VERSION`` constant is deferred, SDD §12).
+``CONTRACT_VERSION`` constant is deferred, SDD Sec. 12).
 """
 
 from __future__ import annotations
@@ -56,8 +56,8 @@ class Applicability:
 
 class NotApplicable(Exception):
     """Raised from ``run()`` when applicability depends on consumed artefact
-    content (e.g. the detected language, SDD §7.2); the runner records an
-    ``na`` outcome with the exception message as reason (SDD §6.3).
+    content (e.g. the detected language, SDD Sec. 7.2); the runner records an
+    ``na`` outcome with the exception message as reason (SDD Sec. 6.3).
 
     ``applicable()`` remains the place for checks that need only the
     ``Thesis`` row, such as the file extension.
@@ -69,7 +69,7 @@ class Module(ABC):
 
     Subclasses set the ``spec`` class attribute and implement ``run``.
     A module returning ``Applicability(ok=False)`` records an ``na``
-    outcome that cascades to its dependents (SDD §6.3).
+    outcome that cascades to its dependents (SDD Sec. 6.3).
     """
 
     spec: ModuleSpec

@@ -70,9 +70,9 @@ def test_subset_keeps_topo_order_and_rejects_unknown():
 
 def test_default_registry_matches_catalogue():
     registry = default_registry()
-    assert len(registry.names()) == 10  # SDD §7.1 / ADR-0011
+    assert len(registry.names()) == 10  # SDD Sec. 7.1 / ADR-0011
     names = registry.names()
-    # DAG constraints from SDD §5.3
+    # DAG constraints from SDD Sec. 5.3
     assert names.index("mod_extract_pymupdf") < names.index("mod_classify_language")
     assert names.index("mod_classify_language") < names.index("mod_tokenize")
     assert names.index("mod_tokenize") < names.index("mod_surface_counts")

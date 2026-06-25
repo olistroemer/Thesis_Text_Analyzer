@@ -1,4 +1,4 @@
-"""Grid tab: tksheet widget over grid_model (§9.2, §9.9, ADR-0001)."""
+"""Grid tab: tksheet widget over grid_model (Sec. 9.2, Sec. 9.9, ADR-0001)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from tta.core.db.repository import Repository
 from tta.ui.tk import grid_model
 from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn
 
-# §9.9 render states / §9.5 outlier overlay
+# Sec. 9.9 render states / Sec. 9.5 outlier overlay
 COLOR_NA = "#e8e8e8"
 COLOR_ERROR = "#ffd0d0"
 COLOR_OUTLIER = "#ffe2b0"
@@ -72,9 +72,9 @@ class GridView(ttk.Frame):
         bounds = grid_model.outlier_bounds(self.rows, self.columns)
         data = []
         for row in self.rows:
-            file_label = ("⚠ " if row.garbled else "") + row.thesis.pdf_filename
+            file_label = ("[!] " if row.garbled else "") + row.thesis.pdf_filename
             line = [file_label, row.thesis.type]
-            line += ["📄" if kind in row.artefacts else "" for kind in self.artefact_kinds]
+            line += ["[x]" if kind in row.artefacts else "" for kind in self.artefact_kinds]
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)
         self.sheet.set_sheet_data(data, reset_col_positions=True, redraw=False)

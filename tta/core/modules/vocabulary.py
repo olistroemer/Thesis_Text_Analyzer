@@ -1,12 +1,12 @@
-"""`mod_vocabulary` — catalogue #6 (SDD §7.1). stdlib only.
+"""`mod_vocabulary` - catalogue #6 (SDD Sec. 7.1). stdlib only.
 
 Vocabulary richness over lowercased word tokens:
-- ``ttr`` — type-token ratio V/N (length-sensitive; kept for comparison)
-- ``root_ttr`` — Guiraud's index V/√N
-- ``hapax_token_ratio`` — hapax legomena per token, V1/N
-- ``hapax_type_ratio`` — share of the vocabulary occurring exactly once,
+- ``ttr`` - type-token ratio V/N (length-sensitive; kept for comparison)
+- ``root_ttr`` - Guiraud's index V/sqrt(N)
+- ``hapax_token_ratio`` - hapax legomena per token, V1/N
+- ``hapax_type_ratio`` - share of the vocabulary occurring exactly once,
   V1/V (both hapax variants ship so they can be compared on real cohorts)
-- ``yules_k`` — Yule's characteristic K = 10⁴·(Σᵢ i²·Vᵢ − N)/N²,
+- ``yules_k`` - Yule's characteristic K = 1e4 * (sum_i i^2 * V_i - N) / N^2,
   length-stable per the exploration findings [Yule 1944]
 """
 

@@ -803,6 +803,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0015](adr/0015-performance-budget.md) | Performance budget — concrete numbers, CI-enforced | Accepted |
 | [0016](adr/0016-report-view.md) | Report view — matplotlib-backed summary for the professor | Accepted |
 | [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
+| [0018](adr/0018-ascii-source.md) | ASCII-only Python source — non-ASCII string content via `\uXXXX` escapes | Accepted |
 
 ---
 
