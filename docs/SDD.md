@@ -502,11 +502,15 @@ erDiagram
         int id PK
         int source_id FK
         text pdf_sha256
+        int pdf_size_bytes
         text pdf_path "PII; local only"
         text pdf_filename "PII; local only"
         text type
         text language_hint
         int excluded
+        text notes "PII; stripped from export"
+        text tags "PII; stripped from export"
+        text added_at "exported at day precision"
     }
     module_runs {
         int id PK
@@ -515,6 +519,7 @@ erDiagram
         text module_version
         text status
         text reason
+        text error_traceback "may contain paths; never exported"
         text notes "JSON diagnostics; never exported"
         text started_at
         int duration_ms
@@ -535,7 +540,7 @@ erDiagram
 
 Decision: [ADR-006](adr/0006-schema.md). Single unified schema; `source.kind='local'` for the user's own data, `'imported'` for researcher merges. Append-only history on `module_runs` and `metric_values`; current state via the `v_current_metrics` view.
 
-Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql).
+Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql). The ERD above lists every persisted column; the domain `Thesis` class ([§6.1](#61-core-entities)) intentionally carries only the subset modules need at run time — persistence/PII columns (`pdf_size_bytes`, `notes`, `tags`, `added_at`) live on the table, not the dataclass.
 
 ### 8.1.1 Views
 
