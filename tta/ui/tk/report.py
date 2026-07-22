@@ -62,7 +62,9 @@ def collect(repo: Repository) -> ReportData:
         if isinstance(language, str):
             data.by_language[language] = data.by_language.get(language, 0) + 1
         word_count = v.get("word_count")
-        year = v.get("creation_year")
+        # length-over-time uses the fused publication_year (#17, SDD Sec. 9.8),
+        # not the raw PDF creation_year
+        year = v.get("publication_year")
         if isinstance(word_count, (int, float)):
             words.append(word_count)
             data.words_by_type.setdefault(thesis_type, []).append(word_count)

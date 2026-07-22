@@ -40,6 +40,8 @@ COLUMN_HELP: dict[str, str] = {
     "creator_category": "Category of the PDF 'Creator' tool (e.g. LaTeX, Word).",
     "creation_year": "Year the PDF was created, from its metadata.",
     "modification_year": "Year the PDF was last modified, from its metadata.",
+    "publication_year": "Best-estimate publication year (title-page year, else PDF dates).",
+    "publication_year_source": "Which signal set the publication year (title page vs PDF metadata).",
     "has_outline": "Whether the PDF carries a bookmarks/outline tree.",
     "extraction_quality": "Verdict on how reliable the extracted text is (ok vs garbled).",
     "thesis_type": "Detected degree from the title page: bachelor, master, or unspecified.",

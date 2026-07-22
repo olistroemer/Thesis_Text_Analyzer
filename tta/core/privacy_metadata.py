@@ -129,6 +129,8 @@ MODULES: tuple[ModuleEntry, ...] = (
                 "count embedded images in the PDF"),
     ModuleEntry("mod_extract_pdf_metadata", (Category.IDENTIFYING,), (Category.IDENTIFYING, Category.METRIC),
                 "read PDF tool metadata; only categorised, year-precision values become metrics"),
+    ModuleEntry("mod_determine_publication_year", (Category.CONTENT, Category.IDENTIFYING), (Category.METRIC,),
+                "fuse the title-page year and PDF metadata dates into a best-estimate publication year"),
 )
 
 
