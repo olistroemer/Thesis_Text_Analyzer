@@ -15,12 +15,20 @@ from tta.ui.tk.columns import MetricColumn
 
 OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
+# Sec. 9.9 tooltip copy (ASCII only, ADR-0018).
+NOT_YET_RUN_HINT = "Not yet analysed - click Run to compute."
+GARBLED_TOOLTIP = (
+    "Text extraction was flagged as garbled for this thesis; every metric in "
+    "this row may be unreliable (US-PROF-QUALITY)."
+)
+
 
 @dataclass(frozen=True)
 class Cell:
     status: str  # ok | na | error | missing (Sec. 9.9)
     value: float | str | None = None
     reason: str | None = None
+    detail: str | None = None  # error traceback / exception text (Sec. 9.9 error)
 
     def display(self) -> str:
         if self.status == ERROR:
@@ -40,6 +48,17 @@ class ThesisRow:
     garbled: bool = False
 
 
+def _error_details(repo: Repository) -> dict[tuple[int, str], str]:
+    """Current-run error tracebacks keyed by (thesis, module). Not carried by
+    ``v_current_metrics`` (Sec. 8.1.1), so read from the history view directly
+    to feed the folded error tooltip (Sec. 9.9)."""
+    rows = repo.conn.execute(
+        "SELECT thesis_id, module_name, error_traceback FROM v_module_run_history "
+        "WHERE recency_rank = 1 AND error_traceback IS NOT NULL"
+    ).fetchall()
+    return {(row["thesis_id"], row["module_name"]): row["error_traceback"] for row in rows}
+
+
 def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
     theses = repo.list_theses(local_only=True, include_excluded=True)
     run_status: dict[tuple[int, str], tuple[str, str | None]] = {}
@@ -49,6 +68,7 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
         if row["metric_name"] is not None:
             value = row["value_num"] if row["value_num"] is not None else row["value_text"]
             values[(row["thesis_id"], row["metric_name"])] = value
+    details = _error_details(repo)
 
     rows = []
     for thesis in theses:
@@ -59,6 +79,7 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
                 status=status,
                 value=values.get((thesis.id, column.metric)),
                 reason=reason,
+                detail=details.get((thesis.id, column.module)) if status == ERROR else None,
             )
         rows.append(
             ThesisRow(
@@ -110,3 +131,22 @@ def sort_rows(rows: list[ThesisRow], metric: str | None, reverse: bool) -> list[
         return (2, 0.0, "")
 
     return sorted(rows, key=key, reverse=reverse)
+
+
+def cell_tooltip(cell: Cell) -> str | None:
+    """Hover text for a metric cell, per its render state (Sec. 9.9).
+
+    ``ok`` cells have no tooltip. ``na`` surfaces the reason; ``error`` shows a
+    one-line reason and, folded below it, the exception text; ``missing`` shows
+    the not-yet-run hint. Returns None when there is nothing to show.
+    """
+    if cell.status == NA:
+        return cell.reason or "Not applicable for this thesis."
+    if cell.status == ERROR:
+        text = "Error: " + (cell.reason or "module raised an exception")
+        if cell.detail:
+            text += "\n\n" + cell.detail
+        return text
+    if cell.status == MISSING:
+        return NOT_YET_RUN_HINT
+    return None

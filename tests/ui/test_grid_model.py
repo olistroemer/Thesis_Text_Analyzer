@@ -47,6 +47,37 @@ def test_cell_states_cover_the_four_render_states(project, tmp_path):
     assert row.garbled is True  # US-PROF-QUALITY row flag
 
 
+def test_error_cell_carries_reason_and_traceback(project, tmp_path):
+    """Sec. 9.9 folded error tooltip: the cell keeps the one-line reason and
+    the exception text, and cell_tooltip surfaces both."""
+    pdf = tmp_path / "e.pdf"
+    pdf.write_bytes(b"%PDF-e")
+    thesis = project.repo.add_thesis(pdf, type="master")
+    with project.repo.transaction():
+        project.repo.record_run(
+            thesis.id, "mod_vocabulary", "0.2.0", "error",
+            reason="ValueError: boom",
+            error_traceback="Traceback (most recent call last):\n  ValueError: boom",
+        )
+    columns = [MetricColumn("yules_k", "mod_vocabulary")]
+    cell = grid_model.load_rows(project.repo, columns)[0].cells["yules_k"]
+    assert cell.status == "error"
+    assert cell.reason == "ValueError: boom"
+    assert cell.detail is not None and "Traceback" in cell.detail
+    tip = grid_model.cell_tooltip(cell)
+    assert "ValueError: boom" in tip  # one-line reason
+    assert "Traceback" in tip  # folded exception text
+
+
+def test_cell_tooltip_per_render_state():
+    Cell = grid_model.Cell
+    assert grid_model.cell_tooltip(Cell(status="ok", value=1.0)) is None
+    assert grid_model.cell_tooltip(Cell(status="na", reason="no formula: it")) == "no formula: it"
+    assert grid_model.cell_tooltip(Cell(status="missing")) == grid_model.NOT_YET_RUN_HINT
+    err = grid_model.cell_tooltip(Cell(status="error", reason="boom"))
+    assert err == "Error: boom"
+
+
 def test_outlier_bounds_iqr(project, tmp_path):
     rows = []
     for i, value in enumerate([10.0, 11.0, 12.0, 13.0, 100.0]):

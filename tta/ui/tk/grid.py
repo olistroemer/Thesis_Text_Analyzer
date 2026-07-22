@@ -6,12 +6,12 @@ import subprocess
 import sys
 from tkinter import ttk
 
-from tksheet import Sheet
+from tksheet import Sheet, num2alpha
 
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn
+from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
 
 # Sec. 9.9 render states / Sec. 9.5 outlier overlay
 COLOR_NA = "#e8e8e8"
@@ -41,6 +41,10 @@ class GridView(ttk.Frame):
         self._sort_metric: str | None = None
         self._sort_reverse = False
         self._sorted = False
+        # note keys set on the last render, cleared before the next one so a
+        # shrunk/re-ordered row set never leaves a stale hover tooltip (Sec. 9.9)
+        self._note_cells: set[tuple[int, int]] = set()
+        self._note_headers: set[int] = set()
         self.sheet = Sheet(self, headers=[], data=[])
         self.sheet.enable_bindings(
             "single_select",
@@ -50,6 +54,10 @@ class GridView(ttk.Frame):
             "copy",
             "arrowkeys",
         )
+        # Sec. 9.9: hover tooltips over cells and headers. tksheet surfaces a
+        # cell/header "note" as a hover popup when tooltips are enabled; the
+        # notes themselves are (re)set per render in ``_set_notes``.
+        self.sheet.set_options(tooltips=True, redraw=False)
         # Sort on a header click (#40). tksheet's "column_select" extra binding
         # fires only when the selected column *changes*, so a repeat click on
         # the already-sorted column emitted no event and DESC was unreachable.
@@ -121,7 +129,39 @@ class GridView(ttk.Frame):
                     color = COLOR_OUTLIER
                 if color:
                     self.sheet.highlight_cells(row=r, column=offset + i, bg=color)
+        self._set_notes()
         self.sheet.redraw()
+
+    def _set_notes(self) -> None:
+        """Attach the Sec. 9.9 hover tooltips: a per-metric explanation on each
+        column header, and per-cell text for na/error/not-yet-run cells plus the
+        garbled-row indicator. Notes set last render are cleared first."""
+        sheet = self.sheet
+        for r, c in self._note_cells:
+            sheet.note(sheet.span(r, c), note=None)
+        for c in self._note_headers:
+            sheet.note(sheet.span(num2alpha(c), header=True), note=None)
+        self._note_cells = set()
+        self._note_headers = set()
+
+        names = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+        for c, name in enumerate(names):
+            help_text = column_help(name)
+            if help_text:
+                sheet.note(sheet.span(num2alpha(c), header=True), note=help_text)
+                self._note_headers.add(c)
+
+        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
+        for r, row in enumerate(self.rows):
+            if row.garbled:
+                sheet.note(sheet.span(r, 0), note=grid_model.GARBLED_TOOLTIP)
+                self._note_cells.add((r, 0))
+            for i, column in enumerate(self.columns):
+                tip = grid_model.cell_tooltip(row.cells[column.metric])
+                if tip:
+                    col = offset + i
+                    sheet.note(sheet.span(r, col), note=tip)
+                    self._note_cells.add((r, col))
 
     # -- interactions ---------------------------------------------------------
 
