@@ -40,6 +40,7 @@ class GridView(ttk.Frame):
         self.rows: list[grid_model.ThesisRow] = []
         self._sort_metric: str | None = None
         self._sort_reverse = False
+        self._sorted = False
         self.sheet = Sheet(self, headers=[], data=[])
         self.sheet.enable_bindings(
             "single_select",
@@ -49,7 +50,19 @@ class GridView(ttk.Frame):
             "copy",
             "arrowkeys",
         )
-        self.sheet.extra_bindings("column_select", self._on_column_select)
+        # Sort on a header click (#40). tksheet's "column_select" extra binding
+        # fires only when the selected column *changes*, so a repeat click on
+        # the already-sorted column emitted no event and DESC was unreachable.
+        # Binding on the header widget with add="+" is not enough either:
+        # tksheet's own press handler runs first on the shared widget tag and
+        # returns "break" on a no-change re-click, which suppresses the appended
+        # callback. So install the handler on a private bindtag placed ahead of
+        # tksheet's - it fires first (before any "break") on every click and
+        # returns None, leaving tksheet's selection visuals intact.
+        header = self.sheet.CH
+        tag = f"gridHeaderClick{id(self)}"
+        header.bindtags((tag, *header.bindtags()))
+        header.bind_class(tag, "<Button-1>", self._on_header_click)
         self.sheet.bind("<Double-Button-1>", self._on_double_click)
         self.sheet.pack(fill="both", expand=True)
 
@@ -66,7 +79,22 @@ class GridView(ttk.Frame):
         self._render()
 
     def _header(self) -> list[str]:
-        return list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+        headers = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+        if self._sorted:
+            index = self._sorted_header_index()
+            if index is not None:
+                headers[index] += " (desc)" if self._sort_reverse else " (asc)"
+        return headers
+
+    def _sorted_header_index(self) -> int | None:
+        """Header position of the current sort column (ASCII indicator, #40)."""
+        if self._sort_metric is None:
+            return 0  # LEAD_COLUMNS[0] is the filename column
+        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
+        for i, column in enumerate(self.columns):
+            if column.metric == self._sort_metric:
+                return offset + i
+        return None
 
     def _render(self) -> None:
         bounds = grid_model.outlier_bounds(self.rows, self.columns)
@@ -97,18 +125,23 @@ class GridView(ttk.Frame):
 
     # -- interactions ---------------------------------------------------------
 
-    def _on_column_select(self, event) -> None:
-        """Header click sorts (US-PROF-SORT); repeated click flips order."""
-        try:
-            column = event["selected"].column
-        except Exception:
+    def _on_header_click(self, event) -> None:
+        """Header click sorts (US-PROF-SORT); a repeat click on the same
+        column flips ASC<->DESC (#40)."""
+        column = self.sheet.identify_column(event, allow_end=False)
+        if column is None:
             return
         offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        metric = self.columns[column - offset].metric if column >= offset else None
-        if metric == self._sort_metric:
+        metric = (
+            self.columns[column - offset].metric
+            if offset <= column < offset + len(self.columns)
+            else None
+        )
+        if self._sorted and metric == self._sort_metric:
             self._sort_reverse = not self._sort_reverse
         else:
             self._sort_metric, self._sort_reverse = metric, False
+        self._sorted = True
         self.rows = grid_model.sort_rows(self.rows, self._sort_metric, self._sort_reverse)
         self._render()
 

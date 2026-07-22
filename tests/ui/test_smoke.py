@@ -90,5 +90,16 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             window.root.update_idletasks()
             assert grid._sort_metric == "word_count"
             assert grid.sheet.get_sheet_data()[0][0] == "shorter_thesis.pdf"
+            assert grid.sheet.headers()[col] == "word_count (asc)"
+
+            # #40: a repeat click on the same column flips ASC->DESC, so the
+            # larger word_count (english_thesis) returns to the top and the
+            # header shows the ASCII descending indicator.
+            grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
+            grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
+            window.root.update_idletasks()
+            assert grid._sort_reverse is True
+            assert grid.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"
+            assert grid.sheet.headers()[col] == "word_count (desc)"
         finally:
             window.root.destroy()
