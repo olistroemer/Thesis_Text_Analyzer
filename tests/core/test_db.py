@@ -106,6 +106,95 @@ def test_excluded_filtering(project, tmp_path):
     assert len(project.repo.list_theses(include_excluded=True)) == 1
 
 
+def test_purge_analysis_scrubs_rows_and_disk_keeps_thesis(project, tmp_path):
+    """Excluding an already-analysed thesis scrubs its cached analysis
+    (US-PROF-EXCLUDE, ADR-0006 rev. 5, #11): the metric/run/artefact rows and
+    the on-disk artefacts/<id>/ tree go, the theses row stays excluded=1."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(
+            thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1}
+        )
+        src = tmp_path / "raw_text.txt"
+        src.write_text("secret extracted text", encoding="utf-8")
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+    tree = project.dir / "artefacts" / str(thesis.id)
+    assert tree.exists()
+
+    project.repo.set_excluded(thesis.id, True)
+    project.repo.purge_analysis(thesis.id, store=project.store)
+
+    # the three row-sets are gone
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM module_runs").fetchone()["n"] == 0
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM artefact_files").fetchone()["n"] == 0
+    assert project.repo.current_artefacts(thesis.id) == {}
+    # the on-disk artefact subtree is removed
+    assert not tree.exists()
+    # the theses row is kept with excluded=1 (identity remembered)
+    kept = project.repo.get_thesis(thesis.id)
+    assert kept.excluded is True
+    # the source PDF is untouched
+    assert pdf.exists() and pdf.read_bytes() == b"%PDF-content"
+
+
+def test_purge_analysis_is_robust_without_store_or_artefacts(project, tmp_path):
+    """purge_analysis works DB-only (no store) and when nothing was cached."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"x")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+    # no store passed, no artefacts dir on disk: must not raise
+    project.repo.purge_analysis(thesis.id)
+    assert project.repo.latest_runs() == {}
+    # a store call on a thesis whose subtree does not exist is a no-op
+    project.repo.purge_analysis(thesis.id, store=project.store)
+
+
+def test_module_duration_stats_mean_rate_per_module(project, tmp_path):
+    """The ETA history query returns mean(duration_ms / pdf_size_bytes) over ok
+    runs, per module, guarding NULL/zero sizes and non-ok runs (#39)."""
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"x" * 100)  # 100 bytes
+    b = tmp_path / "b.pdf"
+    b.write_bytes(b"x" * 50)  # 50 bytes
+    ta = project.repo.add_thesis(a)
+    tb = project.repo.add_thesis(b)
+    with project.repo.transaction():
+        # mod_a: 200ms/100B = 2.0 and 50ms/50B = 1.0 -> mean 1.5 ms/byte
+        project.repo.record_run(ta.id, "mod_a", "1.0.0", "ok", duration_ms=200)
+        project.repo.record_run(tb.id, "mod_a", "1.0.0", "ok", duration_ms=50)
+        # an errored run is ignored
+        project.repo.record_run(ta.id, "mod_a", "1.0.0", "error", duration_ms=999)
+        # a run without a duration is ignored
+        project.repo.record_run(tb.id, "mod_b", "1.0.0", "ok", duration_ms=None)
+
+    stats = project.repo.module_duration_stats()
+    assert stats["mod_a"] == pytest.approx(1.5)
+    assert "mod_b" not in stats  # only run had no duration
+
+
+def test_module_duration_stats_skips_zero_size(project, tmp_path):
+    """A zero-byte PDF (size 0) cannot form a rate; it is guarded out (#39)."""
+    empty = tmp_path / "empty.pdf"
+    empty.write_bytes(b"")
+    thesis = project.repo.add_thesis(empty)
+    with project.repo.transaction():
+        project.repo.record_run(thesis.id, "mod_a", "1.0.0", "ok", duration_ms=10)
+    assert project.repo.module_duration_stats() == {}
+
+
+def test_thesis_sizes_maps_id_to_bytes(project, tmp_path):
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"x" * 42)
+    thesis = project.repo.add_thesis(a)
+    assert project.repo.thesis_sizes()[thesis.id] == 42
+
+
 def test_record_run_metric_typing(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"x")

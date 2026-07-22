@@ -120,6 +120,20 @@ def test_plan_excludes_excluded_theses(project, tmp_path):
     assert runner.plan().theses == []
 
 
+def test_excluded_before_run_caches_no_artefacts(project, tmp_path):
+    """Excluding a thesis before any run means its text is never extracted or
+    cached at all - plan() skips it, so execute() writes no rows and no files
+    (US-PROF-EXCLUDE, QA-PRIV, #11)."""
+    thesis = add_fake_pdf(project, tmp_path)
+    project.repo.set_excluded(thesis.id, True)
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()])
+    summary = runner.execute(runner.plan())
+    assert summary.theses_total == 0 and summary.ok == 0
+    assert project.repo.latest_runs() == {}
+    assert project.repo.current_artefacts(thesis.id) == {}
+    assert not (project.dir / "artefacts" / str(thesis.id)).exists()
+
+
 def test_execute_happy_path_persists_everything(project, tmp_path):
     thesis = add_fake_pdf(project, tmp_path)
     runner, seen = make_runner(project, [FakeExtract(), FakeQuality()])

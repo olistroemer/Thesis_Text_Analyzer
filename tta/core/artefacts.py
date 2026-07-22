@@ -36,3 +36,11 @@ class ArtefactStore:
 
     def resolve(self, relative_path: str) -> Path:
         return self.project_dir / relative_path
+
+    def purge(self, thesis_id: int) -> None:
+        """Delete a thesis's entire on-disk artefact subtree
+        ``artefacts/<thesis_id>/`` (the PII-bearing files: raw_text, tokens,
+        pdf_metadata). Used by the excluded-thesis scrub (US-PROF-EXCLUDE,
+        ADR-0006 rev. 5, #11). Robust if the directory does not exist (a
+        thesis excluded before it was ever analysed cached nothing)."""
+        shutil.rmtree(self.project_dir / "artefacts" / str(thesis_id), ignore_errors=True)
