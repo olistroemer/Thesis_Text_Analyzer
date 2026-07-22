@@ -259,15 +259,15 @@ def test_multiple_theses_parallel_workers(project, tmp_path):
 
 @pytest.mark.slow
 def test_full_default_pipeline_end_to_end(project, english_pdf):
-    """All ten catalogue modules over a real PDF, through the real runner."""
-    thesis = project.repo.add_thesis(english_pdf, type="master")
+    """All catalogue modules over a real PDF, through the real runner."""
+    thesis = project.repo.add_thesis(english_pdf)
     runner = Runner(project.repo, project.store, default_registry(), workers=1)
     summary = runner.execute(runner.plan())
 
     assert summary.error == 0
     latest = project.repo.latest_runs()
     statuses = {name: row["status"] for (_, name), row in latest.items()}
-    assert len(statuses) == 10
+    assert len(statuses) == 12  # ADR-0011 (+mod_classify_thesis_type #9, +mod_determine_publication_year #17)
     assert all(s == "ok" for s in statuses.values()), statuses
 
     values = {
@@ -276,6 +276,15 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
     }
     assert values["language_code"][1] == "en"
     assert values["extraction_quality"][1] == "ok"
+    # english prose, no degree keyword on the "title page" -> unspecified (#9)
+    assert values["thesis_type"][1] == "unspecified"
+    # publication year fused; source is a PDF-metadata date or none (#17)
+    assert values["publication_year_source"][1] in {
+        "title_page", "pdf_creation", "pdf_modification", "none"
+    }
+
+    # lazy hash was computed and persisted at run time (#38, ADR-0006 rev. 4)
+    assert project.repo.get_thesis(thesis.id).pdf_sha256 is not None
 
     # module diagnostics travel from worker to DB, local-only (Sec. 8.3.1)
     quality_notes = project.conn.execute(

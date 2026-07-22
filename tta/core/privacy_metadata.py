@@ -74,12 +74,10 @@ FIELDS: tuple[Field, ...] = (
     # theses
     _f("theses", "id", Category.TECHNICAL, "internal key", True),
     _f("theses", "source_id", Category.TECHNICAL, "origin of the thesis row", True),
-    _f("theses", "pdf_sha256", Category.CONTENT_HASH, "content-addressed identity; survives renames; portable cross-export identifier", True),
+    _f("theses", "pdf_sha256", Category.CONTENT_HASH, "content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier", True),
     _f("theses", "pdf_size_bytes", Category.TECHNICAL, "coarse size statistics", True),
     _f("theses", "pdf_path", Category.IDENTIFYING, "re-open the file locally (may contain user/student names)", False),
     _f("theses", "pdf_filename", Category.IDENTIFYING, "display label in the grid (may contain student names)", False),
-    _f("theses", "type", Category.TECHNICAL, "bachelor/master grouping (US-PROF-ATTRS)", True),
-    _f("theses", "language_hint", Category.TECHNICAL, "user-provided language override", True),
     _f("theses", "excluded", Category.TECHNICAL, "confidential theses opt-out (US-PROF-EXCLUDE)", True),
     _f("theses", "notes", Category.IDENTIFYING, "free-form user notes", False),
     _f("theses", "tags", Category.IDENTIFYING, "free-form user tags", False),
@@ -115,6 +113,8 @@ MODULES: tuple[ModuleEntry, ...] = (
                 "flag garbled or sparse text extractions so bad data is visible"),
     ModuleEntry("mod_classify_language", (Category.CONTENT,), (Category.METRIC,),
                 "detect the thesis language to select language-aware analyses"),
+    ModuleEntry("mod_classify_thesis_type", (Category.CONTENT,), (Category.METRIC,),
+                "detect the degree (bachelor/master) from title-page keywords for grouping"),
     ModuleEntry("mod_tokenize", (Category.CONTENT,), (Category.CONTENT,),
                 "split the text into sentences and words for counting modules"),
     ModuleEntry("mod_surface_counts", (Category.CONTENT,), (Category.METRIC,),
@@ -129,6 +129,8 @@ MODULES: tuple[ModuleEntry, ...] = (
                 "count embedded images in the PDF"),
     ModuleEntry("mod_extract_pdf_metadata", (Category.IDENTIFYING,), (Category.IDENTIFYING, Category.METRIC),
                 "read PDF tool metadata; only categorised, year-precision values become metrics"),
+    ModuleEntry("mod_determine_publication_year", (Category.CONTENT, Category.IDENTIFYING), (Category.METRIC,),
+                "fuse the title-page year and PDF metadata dates into a best-estimate publication year"),
 )
 
 

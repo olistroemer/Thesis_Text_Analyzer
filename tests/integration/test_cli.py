@@ -30,7 +30,7 @@ def test_version_json_lists_all_modules():
     result = invoke("version", "--format", "json")
     payload = json.loads(result.stdout)
     assert payload["app"] == "0.1.0"
-    assert len(payload["modules"]) == 10
+    assert len(payload["modules"]) == 12
     assert payload["modules"]["mod_vocabulary"] == "0.2.0"
 
 
@@ -55,7 +55,7 @@ def test_usage_error_exits_64(project_dir):
 def test_module_list_and_show():
     payload = json.loads(invoke("module", "list", "--format", "json").stdout)
     assert [m["name"] for m in payload][0] in ("mod_extract_pymupdf", "mod_count_images", "mod_extract_pdf_metadata")
-    assert len(payload) == 10
+    assert len(payload) == 12
     result = invoke("module", "show", "mod_vocabulary")
     assert "hapax_token_ratio" in result.stdout
     invoke("module", "show", "mod_nope", expect_exit=64)
@@ -66,7 +66,7 @@ def test_privacy_report_renders(project_dir):
     assert "## 5. What leaves your machine" in md
     assert "Your rights under GDPR" in md
     payload = json.loads(invoke("privacy", "report", "--format", "json").stdout)
-    assert len(payload["modules"]) == 10
+    assert len(payload["modules"]) == 12
 
 
 def test_help_lists_topics():
@@ -118,23 +118,22 @@ def test_run_sigint_cancels_skip_pending_and_exits_partial(project_dir, english_
 @pytest.mark.slow
 def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
     """The researcher's five-step loop, headless: add+run -> list -> export -> import."""
-    # dry-run first: all ten modules planned
-    result = invoke("-C", project_dir, "run", english_pdf, "--type", "master", "--dry-run")
-    assert "10 (thesis x module) pairs planned" in result.stdout
+    # dry-run first: all catalogue modules planned (no --type: type is detected, #9)
+    result = invoke("-C", project_dir, "run", english_pdf, "--dry-run")
+    assert "12 (thesis x module) pairs planned" in result.stdout
 
     # run for real
-    result = invoke(
-        "-C", project_dir, "run", english_pdf, "--type", "master", "--format", "json"
-    )
+    result = invoke("-C", project_dir, "run", english_pdf, "--format", "json")
     summary = json.loads(result.stdout)
     assert summary["error"] == 0
-    assert summary["ok"] == 10
+    assert summary["ok"] == 12
     assert "[thesis 1]" in result.stderr  # progress went to stderr, not stdout
 
-    # list shows the analysed thesis
+    # list shows the analysed thesis; type is the detected metric (unspecified
+    # for this english prose fixture, which names no degree)
     rows = json.loads(invoke("-C", project_dir, "list", "--format", "json").stdout)
-    assert rows[0]["ok"] == 10 and rows[0]["missing"] == 0
-    assert rows[0]["type"] == "master"
+    assert rows[0]["ok"] == 12 and rows[0]["missing"] == 0
+    assert rows[0]["type"] == "unspecified"
 
     # second run: nothing to do (pause/resume property)
     result = invoke("-C", project_dir, "run", "--dry-run")

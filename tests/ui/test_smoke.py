@@ -30,7 +30,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
     from tta.ui.tk.main_window import MainWindow
 
     with Project.open(tmp_path / "proj", create=True) as project:
-        thesis = project.repo.add_thesis(english_pdf, type="master")
+        thesis = project.repo.add_thesis(english_pdf)
         with project.repo.transaction():
             project.repo.record_run(
                 thesis.id, "mod_surface_counts", "0.1.0", "ok", metrics={"word_count": 9000}
@@ -45,7 +45,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
         # distinct bytes so the content-addressed store treats it as a
         # separate thesis (otherwise it dedupes to the first)
         second.write_bytes(english_pdf.read_bytes() + b"\n% second\n")
-        second_thesis = project.repo.add_thesis(second, type="master")
+        second_thesis = project.repo.add_thesis(second)
         with project.repo.transaction():
             project.repo.record_run(
                 second_thesis.id, "mod_surface_counts", "0.1.0", "ok",

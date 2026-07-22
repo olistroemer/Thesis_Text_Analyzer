@@ -53,18 +53,23 @@ def collect(repo: Repository) -> ReportData:
     words = []
     years = []
     for tid, v in usable.items():
-        thesis = included[tid]
-        data.by_type[thesis.type] = data.by_type.get(thesis.type, 0) + 1
+        # thesis type is the detected `thesis_type` metric now (ADR-0019, #9);
+        # theses with no detected type group under "unspecified"
+        detected_type = v.get("thesis_type")
+        thesis_type = detected_type if isinstance(detected_type, str) else "unspecified"
+        data.by_type[thesis_type] = data.by_type.get(thesis_type, 0) + 1
         language = v.get("language_code")
         if isinstance(language, str):
             data.by_language[language] = data.by_language.get(language, 0) + 1
         word_count = v.get("word_count")
-        year = v.get("creation_year")
+        # length-over-time uses the fused publication_year (#17, SDD Sec. 9.8),
+        # not the raw PDF creation_year
+        year = v.get("publication_year")
         if isinstance(word_count, (int, float)):
             words.append(word_count)
-            data.words_by_type.setdefault(thesis.type, []).append(word_count)
+            data.words_by_type.setdefault(thesis_type, []).append(word_count)
             if isinstance(year, (int, float)):
-                data.words_by_year.append((int(year), word_count, thesis.type))
+                data.words_by_year.append((int(year), word_count, thesis_type))
                 years.append(int(year))
         fre = v.get("flesch_reading_ease")
         if isinstance(fre, (int, float)) and isinstance(language, str):

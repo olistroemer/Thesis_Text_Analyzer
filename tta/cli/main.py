@@ -31,7 +31,6 @@ from tta.core.export import ExportPolicy, export_database
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
-from tta.core.types import THESIS_TYPES
 
 stdout = Console()
 stderr = Console(stderr=True)
@@ -133,6 +132,13 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
         theses = project.repo.list_theses(local_only=True, include_excluded=True)
         latest = project.repo.latest_runs()
         module_count = len(default_registry().names())
+        # thesis type is the detected `thesis_type` metric now, not a column
+        # (ADR-0019, #9); blank until the thesis has been analysed
+        detected_type = {
+            row["thesis_id"]: row["value_text"]
+            for row in project.repo.current_metrics()
+            if row["metric_name"] == "thesis_type"
+        }
         rows = []
         for thesis in theses:
             counts = {"ok": 0, "na": 0, "error": 0}
@@ -143,7 +149,7 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
                 {
                     "id": thesis.id,
                     "filename": thesis.pdf_filename,
-                    "type": thesis.type,
+                    "type": detected_type.get(thesis.id, ""),
                     "excluded": thesis.excluded,
                     "ok": counts["ok"],
                     "na": counts["na"],
@@ -242,8 +248,6 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
 
 @cli.command()
 @click.argument("inputs", nargs=-1, type=click.Path(exists=True, path_type=Path))
-@click.option("--type", "thesis_type", type=click.Choice(THESIS_TYPES), default="unspecified",
-              help="Thesis type attribute for newly added files.")
 @click.option("--module", "-m", "modules", multiple=True,
               help="Restrict to specific modules (repeatable; US-PROF-SELECT).")
 @click.option("--rerun", is_flag=True, help="Re-run everything regardless of state.")
@@ -251,15 +255,16 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
 @click.option("--workers", type=int, default=None, help="Concurrent theses (default: cores - 1).")
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
-def run(ctx, inputs, thesis_type, modules, rerun, dry_run, workers, fmt) -> None:
+def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
     """Add INPUTS (PDF files or directories) and run analyses.
 
     Without INPUTS, runs on all known theses. Default mode runs missing,
-    stale, and previously-errored pairs; --rerun runs everything.
+    stale, and previously-errored pairs; --rerun runs everything. Thesis type
+    is detected during the run (mod_classify_thesis_type), not set on add.
     """
     with open_project(ctx, create=True) as project:
         for pdf in _collect_pdfs(inputs):
-            thesis = project.repo.add_thesis(pdf, type=thesis_type)
+            thesis = project.repo.add_thesis(pdf)
             stderr.print(f"added thesis {thesis.id}: {thesis.pdf_filename}")
 
         bus = events.EventBus()

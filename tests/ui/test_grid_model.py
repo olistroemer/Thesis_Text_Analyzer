@@ -8,7 +8,7 @@ from tta.core.modules.registry import default_registry
 def seed(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-a")
-    thesis = project.repo.add_thesis(pdf, type="master")
+    thesis = project.repo.add_thesis(pdf)
     with project.repo.transaction():
         project.repo.record_run(
             thesis.id, "mod_surface_counts", "0.1.0", "ok", metrics={"word_count": 1000}
@@ -52,7 +52,7 @@ def test_error_cell_carries_reason_and_traceback(project, tmp_path):
     the exception text, and cell_tooltip surfaces both."""
     pdf = tmp_path / "e.pdf"
     pdf.write_bytes(b"%PDF-e")
-    thesis = project.repo.add_thesis(pdf, type="master")
+    thesis = project.repo.add_thesis(pdf)
     with project.repo.transaction():
         project.repo.record_run(
             thesis.id, "mod_vocabulary", "0.2.0", "error",
@@ -67,6 +67,21 @@ def test_error_cell_carries_reason_and_traceback(project, tmp_path):
     tip = grid_model.cell_tooltip(cell)
     assert "ValueError: boom" in tip  # one-line reason
     assert "Traceback" in tip  # folded exception text
+
+
+def test_row_carries_detected_thesis_type(project, tmp_path):
+    """The 'type' lead column reads the detected thesis_type metric, not a
+    theses column (ADR-0019, #9); blank until the module has run."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-a")
+    thesis = project.repo.add_thesis(pdf)
+    assert grid_model.load_rows(project.repo, [])[0].thesis_type == ""
+    with project.repo.transaction():
+        project.repo.record_run(
+            thesis.id, "mod_classify_thesis_type", "0.1.0", "ok",
+            metrics={"thesis_type": "bachelor"},
+        )
+    assert grid_model.load_rows(project.repo, [])[0].thesis_type == "bachelor"
 
 
 def test_cell_tooltip_per_render_state():
@@ -119,5 +134,5 @@ def test_basic_mode_columns_are_a_curated_subset():
     basic = metric_columns(registry, extended=False)
     extended = metric_columns(registry, extended=True)
     assert [c.metric for c in basic] == list(BASIC_METRICS)
-    assert len(extended) == 26  # all catalogue metrics
+    assert len(extended) == 29  # all catalogue metrics (ADR-0011: +thesis_type, +publication_year, +publication_year_source)
     assert {c.metric for c in basic} < {c.metric for c in extended}

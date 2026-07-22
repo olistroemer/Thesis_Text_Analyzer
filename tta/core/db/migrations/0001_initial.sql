@@ -16,13 +16,13 @@ CREATE TABLE sources (
 CREATE TABLE theses (
     id             INTEGER PRIMARY KEY,
     source_id      INTEGER NOT NULL REFERENCES sources(id),
-    pdf_sha256     TEXT NOT NULL,
+    pdf_sha256     TEXT,    -- NULL until the first analysis run (ADR-0006 rev. 4, #38);
+                            -- content hash + content-dedup are applied at run time
     pdf_size_bytes INTEGER,
     pdf_path       TEXT,    -- PII; local only, stripped from exports (Sec. 8.3.1)
     pdf_filename   TEXT,    -- PII; local only, stripped from exports
-    type           TEXT NOT NULL DEFAULT 'unspecified'
-                   CHECK (type IN ('bachelor', 'master', 'unspecified')),
-    language_hint  TEXT,
+    -- thesis type is the detected `thesis_type` metric, not a column, and
+    -- language is the `language_code` metric (columns dropped, ADR-0019, #9)
     excluded       INTEGER NOT NULL DEFAULT 0,
     notes          TEXT,    -- PII; stripped from exports
     tags           TEXT,    -- PII; stripped from exports

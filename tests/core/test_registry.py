@@ -70,12 +70,19 @@ def test_subset_keeps_topo_order_and_rejects_unknown():
 
 def test_default_registry_matches_catalogue():
     registry = default_registry()
-    assert len(registry.names()) == 10  # SDD Sec. 7.1 / ADR-0011
+    assert len(registry.names()) == 12  # SDD Sec. 7.1 / ADR-0011 (+mod_classify_thesis_type #9, +mod_determine_publication_year #17)
     names = registry.names()
     # DAG constraints from SDD Sec. 5.3
     assert names.index("mod_extract_pymupdf") < names.index("mod_classify_language")
     assert names.index("mod_classify_language") < names.index("mod_tokenize")
     assert names.index("mod_tokenize") < names.index("mod_surface_counts")
-    # 26 metrics across the catalogue (ADR-0011 rev. 2)
+    # mod_classify_thesis_type sits off raw_text (#9, ADR-0019)
+    assert names.index("mod_extract_pymupdf") < names.index("mod_classify_thesis_type")
+    # mod_determine_publication_year fuses raw_text + pdf_metadata (#17)
+    assert names.index("mod_extract_pdf_metadata") < names.index(
+        "mod_determine_publication_year"
+    )
+    # 29 metrics across the catalogue (ADR-0011: +thesis_type, +publication_year,
+    # +publication_year_source)
     metric_count = sum(len(m.spec.produces_metrics) for m in registry.in_topological_order())
-    assert metric_count == 26
+    assert metric_count == 29

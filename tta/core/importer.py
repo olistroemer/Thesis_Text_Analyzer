@@ -72,14 +72,12 @@ def import_export(conn: sqlite3.Connection, export_path: Path | str, name: str) 
             thesis_ids: dict[int, int] = {}
             for row in conn.execute("SELECT * FROM src.theses"):
                 cur = conn.execute(
-                    "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes, type,"
-                    " language_hint, excluded, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes,"
+                    " excluded, added_at) VALUES (?, ?, ?, ?, ?)",
                     (
                         source_id,
                         row["pdf_sha256"],
                         row["pdf_size_bytes"],
-                        row["type"],
-                        row["language_hint"],
                         row["excluded"],
                         row["added_at"],
                     ),

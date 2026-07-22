@@ -1,12 +1,17 @@
-# ADR-0011: MVP module catalogue — 10 modules / 26 metrics
+# ADR-0011: MVP module catalogue — 12 modules / 29 metrics
 
-**Status:** Accepted (revision 2 — hapax measured as both token-ratio V1/N and type-ratio V1/V so the variants can be compared on real cohorts; 25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
-**Date:** 2026-06-03 (rev. 2: 2026-06-10)
-**Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
+**Status:** Accepted (revision 3 — two title-page modules added: `mod_classify_thesis_type` (#9, +1 metric `thesis_type`) and `mod_determine_publication_year` (#17, +2 metrics `publication_year`, `publication_year_source`); the `theses.type`/`theses.language_hint` override columns are dropped in favour of the detected `thesis_type` metric and the existing `language_code` metric — see [ADR-0019](0019-thesis-type-by-detection.md). 10 → 12 modules, 26 → 29 metrics). Rev. 2 measured hapax as both token-ratio V1/N and type-ratio V1/V (25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
+**Date:** 2026-06-03 (rev. 2: 2026-06-10; rev. 3: 2026-07-22)
+**Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); primary research goal (SDD §2.1 — length over publication date, #17); US-PROF-ATTRS / US-PROF-COMPARE (#9); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
 
 ## Decision
 
-MVP ships exactly the ten modules listed in SDD §7, producing 26 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
+MVP ships exactly the twelve modules listed in SDD §7, producing 29 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
+
+Two modules parse the **title page** of `raw_text` via a shared parser (`core/modules/_titlepage.py`):
+
+- `mod_classify_thesis_type` (#9, [ADR-0019](0019-thesis-type-by-detection.md)) — produces the `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`} by a keyword heuristic; replaces the dropped `theses.type` column and the add-time type dialog.
+- `mod_determine_publication_year` (#17) — produces the best-estimate `publication_year` (numeric) and `publication_year_source` (text) by fusing the in-text title-page year (primary) with the PDF-metadata `creation_year`/`modification_year` (fallback). `publication_year` — not `creation_year` — is the x-axis of the primary research goal (SDD §2.1, §9.8). Filesystem dates (#18) are out of scope. `mod_extract_pdf_metadata` still produces `creation_year`/`modification_year` as raw PDF signals.
 
 Module-name convention bakes the library into the identifier when the choice is provisional (`mod_extract_pymupdf`) so the producer-swap mechanism remains visible in the schema, privacy registry, and export.
 
