@@ -1,6 +1,6 @@
 # ADR-0017: Project license — copyleft FOSS (AGPL-3.0 or GPL-3.0)
 
-**Status:** Accepted — direction settled; the **AGPL-3.0 vs GPL-3.0** leaf choice is left open (see [§Open question](#open-question)) pending institutional sign-off.
+**Status:** Accepted. **Resolved (2026-06-25): GPL-3.0-or-later** — maintainer decision; no institutional sign-off required (sole contributor). Per-file SPDX headers declined; the root `LICENSE` file suffices.
 **Date:** 2026-06-24
 **Drivers:** QA-PRIV, QA-GDPR (transparency / auditability), QA-REPRO (guaranteed source availability), US-ALL-PRIVACY; SDD §2.1.1 (extractor licensing); the desire to remove the single hardest pre-distribution blocker. **Supersedes** the "AGPL release gate" portions of [ADR-0011](0011-mvp-module-catalogue.md) and [ADR-0014](0014-distribution.md); reverses the `feedback_agpl_pymupdf` constraint.
 
@@ -13,7 +13,7 @@ The application is released as **copyleft free software** with its source public
 3. **Source is conveyed with every binary.** The project's public Git repository at the tagged release commit is the Corresponding Source; distributing the binary alongside a link to that tag satisfies the obligation.
 4. **The library-comparison study (SDD §2.1.1) survives as research, not as a ship blocker.** Picking the best-quality extractor remains valuable; its "license compatibility with redistribution" axis becomes informative rather than decisive.
 
-The choice between **AGPL-3.0** and **GPL-3.0** is deferred to a follow-up decision; both are compatible with everything below.
+**Resolved: GPL-3.0-or-later** (see [§Open question](#open-question) for the rationale). Both were compatible; GPL was chosen because the fully-offline app makes AGPL's network clause moot, at less ecosystem friction.
 
 ## Context
 
@@ -36,7 +36,7 @@ Two facts make copyleft cheap here, and one tempers it:
 | Ecosystem stigma | highest; many orgs blocklist AGPL outright | lower; widely accepted |
 | Whole-project licensing story | uniform, simplest to explain | relies on the GPLv3↔AGPLv3 combination clause for the PyMuPDF part |
 
-Given §2.3 commits the project to offline operation, GPL-3.0 is "enough" and AGPL is belt-and-suspenders against a future the SDD says we will not build. AGPL is the stronger fit if there is any chance of a future hosted variant or if maximal copyleft is wanted on principle. **No recommendation is locked in here**; resolve once FH Wedel's policy on the license/IP of research work products is confirmed.
+Given §2.3 commits the project to offline operation, GPL-3.0 is "enough" and AGPL is belt-and-suspenders against a future the SDD says we will not build. AGPL is the stronger fit if there is any chance of a future hosted variant or if maximal copyleft is wanted on principle. **Resolved (2026-06-25): GPL-3.0-or-later**, decided by the maintainer (sole contributor); no institutional sign-off needed.
 
 ## Alternatives considered
 
@@ -54,7 +54,7 @@ Given §2.3 commits the project to offline operation, GPL-3.0 is "enough" and AG
 - ⚠️ **Copyleft constrains the future catalogue.** All future modules — including the §12 LM-based and citation modules, and especially **word-list-based vocabulary metrics** (word lists often carry non-commercial or bespoke licenses) — must be license-compatible. Flag in §12.
 - ⚠️ **AGPL (if chosen) carries adoption-policy risk** — some institutions/IT departments are AGPL-averse, a mild tension with US-RES-LOW-FRICTION / QA-PORT.
 - ⚠️ **Ongoing obligation:** the distributed binary's exact Corresponding Source must stay available; release-tag hygiene matters.
-- ℹ️ **Per-file license headers are not required** for the license to be valid — a single root `LICENSE` plus a stated project license suffices. The FSF *recommends* headers because files get copied out of context; given the contribute-via-PR model, lightweight **SPDX identifiers** (`SPDX-License-Identifier: …`) per file are a good compromise. Decided in the LICENSE ticket, not here.
+- ℹ️ **Per-file license headers: declined.** A single root `LICENSE` plus the `pyproject` `license = "GPL-3.0-or-later"` field is sufficient; the maintainer opted against per-file SPDX identifiers (#8). Third-party bundled licences ship as `THIRD_PARTY_LICENSES.txt` from the build (#4/#37).
 
 ## Revisit when
 
