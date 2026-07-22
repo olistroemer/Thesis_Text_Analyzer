@@ -41,18 +41,60 @@ def test_local_source_is_singleton(project):
     assert rows["n"] == 1
 
 
-def test_add_thesis_is_content_addressed(project, tmp_path):
+def test_add_is_instant_and_defers_hash(project, tmp_path):
+    """Add reads no bytes (ADR-0006 rev. 4, #38): pdf_sha256 stays NULL and
+    size comes from a cheap stat, until the first run assigns the hash."""
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-fake content")
-    first = project.repo.add_thesis(pdf, type="bachelor")
+    thesis = project.repo.add_thesis(pdf)
+    assert thesis.pdf_sha256 is None
+    row = project.conn.execute(
+        "SELECT pdf_sha256, pdf_size_bytes FROM theses WHERE id = ?", (thesis.id,)
+    ).fetchone()
+    assert row["pdf_sha256"] is None
+    assert row["pdf_size_bytes"] == len(b"%PDF-fake content")
+
+
+def test_add_thesis_is_path_addressed(project, tmp_path):
+    """Add-time dedup keys on path, not content (rev. 4): re-adding the same
+    path keeps identity + history; a moved/renamed file is a new row until
+    run-time content-dedup reunites them."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-fake content")
+    first = project.repo.add_thesis(pdf)
+    again = project.repo.add_thesis(pdf)  # same path -> same row
+    assert again.id == first.id
 
     renamed = tmp_path / "renamed.pdf"
     shutil.move(pdf, renamed)
-    second = project.repo.add_thesis(renamed)
+    moved = project.repo.add_thesis(renamed)  # new path -> new row (not yet hashed)
+    assert moved.id != first.id
+    assert len(project.repo.list_theses()) == 2
 
-    assert second.id == first.id  # same sha -> same thesis, history preserved
-    assert second.pdf_filename == "renamed.pdf"
-    assert second.type == "bachelor"  # re-add does not clobber attributes
+
+def test_assign_content_hash_sets_then_dedups(project, tmp_path):
+    """At run time the hash is computed once; a byte-identical sibling under a
+    different path is folded into the canonical (earlier) row (rev. 4, #38)."""
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"%PDF-identical")
+    b = tmp_path / "b.pdf"
+    b.write_bytes(b"%PDF-identical")
+    first = project.repo.add_thesis(a)
+    second = project.repo.add_thesis(b)
+
+    canonical = project.repo.assign_content_hash(first)
+    assert canonical == first.id
+    assert project.repo.get_thesis(first.id).pdf_sha256 is not None
+    # idempotent: a second call is a no-op once hashed
+    assert project.repo.assign_content_hash(project.repo.get_thesis(first.id)) == first.id
+
+    folded = project.repo.assign_content_hash(second)
+    assert folded == first.id  # identical content -> folded into the canonical
+    assert len(project.repo.list_theses()) == 1
+    with pytest.raises(KeyError):
+        project.repo.get_thesis(second.id)
+    # the canonical adopted the most-recently-seen path
+    assert project.repo.get_thesis(first.id).pdf_filename == "b.pdf"
 
 
 def test_add_thesis_rejects_unknown_type(project, tmp_path):

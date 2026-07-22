@@ -79,31 +79,36 @@ class Repository:
         type: str = "unspecified",
         language_hint: str | None = None,
     ) -> Thesis:
-        """Content-addressed add (ADR-0006): a re-added/moved PDF updates
-        its path but keeps its identity and run history."""
+        """Instant add (ADR-0006 rev. 4, #38): no file read, so adding a
+        folder of PDFs never feels like the app hung (US-RES-LOW-FRICTION).
+
+        ``pdf_sha256`` is left NULL; dedup keys on ``(source_id, pdf_path)``.
+        A re-added path updates its filename/size and keeps identity and run
+        history. The content hash and content-dedup are applied lazily at
+        run time (:meth:`assign_content_hash`)."""
         if type not in THESIS_TYPES:
             raise ValueError(f"thesis type must be one of {THESIS_TYPES}, got {type!r}")
         pdf_path = Path(pdf_path)
-        sha = sha256_of(pdf_path)
+        size = pdf_path.stat().st_size  # cheap: metadata only, not a full read
         source_id = self.ensure_local_source()
         existing = self.conn.execute(
-            "SELECT id FROM theses WHERE source_id = ? AND pdf_sha256 = ?", (source_id, sha)
+            "SELECT id FROM theses WHERE source_id = ? AND pdf_path = ?",
+            (source_id, str(pdf_path)),
         ).fetchone()
         if existing is not None:
             self.conn.execute(
-                "UPDATE theses SET pdf_path = ?, pdf_filename = ? WHERE id = ?",
-                (str(pdf_path), pdf_path.name, existing["id"]),
+                "UPDATE theses SET pdf_filename = ?, pdf_size_bytes = ? WHERE id = ?",
+                (pdf_path.name, size, existing["id"]),
             )
             self.conn.commit()
             return self.get_thesis(existing["id"])
         cur = self.conn.execute(
             "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes, pdf_path,"
             " pdf_filename, type, language_hint, added_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
             (
                 source_id,
-                sha,
-                pdf_path.stat().st_size,
+                size,
                 str(pdf_path),
                 pdf_path.name,
                 type,
@@ -113,6 +118,55 @@ class Repository:
         )
         self.conn.commit()
         return self.get_thesis(cur.lastrowid)
+
+    def assign_content_hash(self, thesis: Thesis) -> int:
+        """Lazily compute + persist ``pdf_sha256`` and apply content-dedup
+        (ADR-0006 rev. 4, #38). Called from the main process at run time
+        (workers never touch the DB, ADR-0013).
+
+        Returns the *canonical* thesis id: normally the thesis's own id;
+        but if the freshly-computed hash matches an already-hashed sibling
+        in the same source (two paths, byte-identical content), that sibling
+        is canonical and this row is folded into it - the canonical adopts
+        the most-recently-seen path and the duplicate's redundant runs,
+        metrics, artefact references and row are removed. No-op (returns the
+        id unchanged) when the hash is already set."""
+        row = self.conn.execute(
+            "SELECT id, source_id, pdf_sha256, pdf_path, pdf_filename, pdf_size_bytes"
+            " FROM theses WHERE id = ?",
+            (thesis.id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"no thesis with id {thesis.id}")
+        if row["pdf_sha256"] is not None:
+            return row["id"]
+        sha = sha256_of(Path(row["pdf_path"]))
+        sibling = self.conn.execute(
+            "SELECT id FROM theses WHERE source_id = ? AND pdf_sha256 = ? AND id <> ?",
+            (row["source_id"], sha, row["id"]),
+        ).fetchone()
+        if sibling is None:
+            self.conn.execute(
+                "UPDATE theses SET pdf_sha256 = ? WHERE id = ?", (sha, row["id"])
+            )
+            self.conn.commit()
+            return row["id"]
+        canonical = sibling["id"]
+        with self.transaction():
+            self.conn.execute(
+                "UPDATE theses SET pdf_path = ?, pdf_filename = ?, pdf_size_bytes = ?"
+                " WHERE id = ?",
+                (row["pdf_path"], row["pdf_filename"], row["pdf_size_bytes"], canonical),
+            )
+            self.conn.execute(
+                "DELETE FROM metric_values WHERE run_id IN"
+                " (SELECT id FROM module_runs WHERE thesis_id = ?)",
+                (row["id"],),
+            )
+            self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (row["id"],))
+            self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (row["id"],))
+            self.conn.execute("DELETE FROM theses WHERE id = ?", (row["id"],))
+        return canonical
 
     def get_thesis(self, thesis_id: int) -> Thesis:
         row = self.conn.execute("SELECT * FROM theses WHERE id = ?", (thesis_id,)).fetchone()

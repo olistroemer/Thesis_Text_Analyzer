@@ -55,7 +55,7 @@ CREATE TABLE export.sources (
 CREATE TABLE export.theses (
     id             INTEGER PRIMARY KEY,
     source_id      INTEGER NOT NULL,
-    pdf_sha256     TEXT NOT NULL,
+    pdf_sha256     TEXT,    -- NULL for a thesis added but never analysed (ADR-0006 rev. 4)
     pdf_size_bytes INTEGER,
     type           TEXT NOT NULL,
     language_hint  TEXT,

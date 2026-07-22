@@ -289,9 +289,39 @@ class Runner:
         """Skip-pending: in-flight theses complete; no new ones start."""
         self._cancelled = True
 
+    def _apply_lazy_hashing(self, plan: RunPlan) -> None:
+        """Compute + persist ``pdf_sha256`` for each planned thesis whose hash
+        is still NULL (deferred from add time, ADR-0006 rev. 4, #38), applying
+        content-dedup. Runs in the main process - the sole DB writer (ADR-0013);
+        the hash is not needed by workers (modules read ``pdf_path``). A thesis
+        folded into a byte-identical sibling is dropped from the plan; a file
+        that cannot be read is left un-hashed and still runs (its extractor
+        records the per-thesis error)."""
+        kept: list[ThesisPlan] = []
+        for tp in plan.theses:
+            try:
+                canonical_id = self.repo.assign_content_hash(tp.thesis)
+            except OSError:
+                logger.warning(
+                    "could not hash thesis %s (%s) - deferring", tp.thesis.id, tp.thesis.pdf_path
+                )
+                kept.append(tp)
+                continue
+            if canonical_id == tp.thesis.id:
+                tp.thesis = self.repo.get_thesis(canonical_id)  # carry the new hash/path
+                kept.append(tp)
+            else:
+                logger.info(
+                    "thesis %s has content identical to %s - folded (ADR-0006 rev. 4)",
+                    tp.thesis.id,
+                    canonical_id,
+                )
+        plan.theses = kept
+
     def execute(self, plan: RunPlan) -> RunSummary:
         t0 = time.monotonic()
         self._cancelled = False
+        self._apply_lazy_hashing(plan)
         summary = RunSummary(theses_total=len(plan.theses))
         self.bus.publish(events.RunStarted(plan))
 

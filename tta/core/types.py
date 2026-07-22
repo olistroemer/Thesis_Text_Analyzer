@@ -15,12 +15,14 @@ THESIS_TYPES = ("bachelor", "master", "unspecified")
 class Thesis:
     """A thesis under analysis (SDD Sec. 6.1).
 
-    Identity is content-addressed via ``pdf_sha256`` (ADR-0006): the path
-    and filename are mutable, PII-bearing, local-only attributes.
+    Identity is content-addressed via ``pdf_sha256`` (ADR-0006), but the
+    hash is computed lazily at first-run time (rev. 4, #38): it is ``None``
+    for a thesis that has been added but not yet analysed. The path and
+    filename are mutable, PII-bearing, local-only attributes.
     """
 
     id: int | None
-    pdf_sha256: str
+    pdf_sha256: str | None
     pdf_path: str
     pdf_filename: str
     type: str = "unspecified"
