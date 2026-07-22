@@ -88,5 +88,5 @@ def test_json_report_is_machine_readable():
     assert {f["table"] for f in payload["fields"]} == {
         "schema_version", "sources", "theses", "module_runs", "metric_values", "artefact_files"
     }
-    assert len(payload["modules"]) == 11
+    assert len(payload["modules"]) == 12
     assert len(payload["artefact_kinds"]) == 4
