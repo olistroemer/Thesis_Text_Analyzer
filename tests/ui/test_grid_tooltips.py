@@ -47,7 +47,7 @@ def _header_note(sheet, c):
 def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-a")
-    thesis = project.repo.add_thesis(pdf, type="master")
+    thesis = project.repo.add_thesis(pdf)
     with project.repo.transaction():
         project.repo.record_run(
             thesis.id, "mod_surface_counts", "0.1.0", "ok", metrics={"word_count": 1000}
@@ -105,7 +105,7 @@ def test_stale_notes_cleared_on_reload(project, tmp_path):
     for i in range(2):
         pdf = tmp_path / f"t{i}.pdf"
         pdf.write_bytes(b"%PDF" + str(i).encode())
-        thesis = project.repo.add_thesis(pdf, type="master")
+        thesis = project.repo.add_thesis(pdf)
         with project.repo.transaction():
             project.repo.record_run(
                 thesis.id, "mod_readability", "0.1.0", "na", reason=f"reason {i}"

@@ -109,7 +109,7 @@ class GridView(ttk.Frame):
         data = []
         for row in self.rows:
             file_label = ("[!] " if row.garbled else "") + row.thesis.pdf_filename
-            line = [file_label, row.thesis.type]
+            line = [file_label, row.thesis_type]
             line += ["[x]" if kind in row.artefacts else "" for kind in self.artefact_kinds]
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)

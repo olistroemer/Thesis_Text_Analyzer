@@ -13,8 +13,8 @@ def populate(project, tmp_path):
     pdf_a.write_bytes(b"%PDF-a")
     pdf_b = tmp_path / "secret_name_b.pdf"
     pdf_b.write_bytes(b"%PDF-b")
-    a = project.repo.add_thesis(pdf_a, type="bachelor")
-    b = project.repo.add_thesis(pdf_b, type="master")
+    a = project.repo.add_thesis(pdf_a)
+    b = project.repo.add_thesis(pdf_b)
     project.repo.set_excluded(b.id, True)
     project.conn.execute(
         "UPDATE theses SET notes = 'student X, confidential', tags = '[\"secret\"]' WHERE id = ?",

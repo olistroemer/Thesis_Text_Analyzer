@@ -57,8 +57,6 @@ CREATE TABLE export.theses (
     source_id      INTEGER NOT NULL,
     pdf_sha256     TEXT,    -- NULL for a thesis added but never analysed (ADR-0006 rev. 4)
     pdf_size_bytes INTEGER,
-    type           TEXT NOT NULL,
-    language_hint  TEXT,
     excluded       INTEGER NOT NULL,
     added_at       TEXT NOT NULL
 );
@@ -104,8 +102,8 @@ def export_database(
             conn.execute("INSERT INTO export.sources SELECT * FROM sources WHERE kind = 'local'")
             conn.execute(
                 "INSERT INTO export.theses"
-                " SELECT t.id, t.source_id, t.pdf_sha256, t.pdf_size_bytes, t.type,"
-                "        t.language_hint, t.excluded, date(t.added_at)"
+                " SELECT t.id, t.source_id, t.pdf_sha256, t.pdf_size_bytes,"
+                "        t.excluded, date(t.added_at)"
                 " FROM theses t JOIN sources s ON s.id = t.source_id"
                 " WHERE s.kind = 'local' AND t.excluded = 0"
             )

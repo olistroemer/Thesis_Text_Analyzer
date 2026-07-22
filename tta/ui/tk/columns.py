@@ -25,7 +25,7 @@ BASIC_METRICS = (
 COLUMN_HELP: dict[str, str] = {
     # lead columns
     "file": "File name of the thesis PDF. Double-click to open the PDF.",
-    "type": "Thesis type, e.g. bachelor or master.",
+    "type": "Detected thesis type (bachelor / master / unspecified); blank until analysed.",
     # artefact presence columns (extended mode)
     "raw_text": "Cached extracted plain text. Double-click to open it.",
     "language": "Cached language-detection artefact. Double-click to open it.",
@@ -42,6 +42,7 @@ COLUMN_HELP: dict[str, str] = {
     "modification_year": "Year the PDF was last modified, from its metadata.",
     "has_outline": "Whether the PDF carries a bookmarks/outline tree.",
     "extraction_quality": "Verdict on how reliable the extracted text is (ok vs garbled).",
+    "thesis_type": "Detected degree from the title page: bachelor, master, or unspecified.",
     "language_code": "Detected primary language as an ISO 639 code.",
     "language_confidence": "Confidence of the language detection, from 0 to 1.",
     "flesch_reading_ease": "Flesch Reading Ease; higher scores read more easily.",

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import tta
-from tta.core.types import THESIS_TYPES, Thesis
+from tta.core.types import Thesis
 
 
 def _now() -> str:
@@ -36,8 +36,6 @@ def _row_to_thesis(row: sqlite3.Row) -> Thesis:
         pdf_sha256=row["pdf_sha256"],
         pdf_path=row["pdf_path"],
         pdf_filename=row["pdf_filename"],
-        type=row["type"],
-        language_hint=row["language_hint"],
         excluded=bool(row["excluded"]),
     )
 
@@ -73,21 +71,15 @@ class Repository:
 
     # -- theses ----------------------------------------------------------
 
-    def add_thesis(
-        self,
-        pdf_path: Path | str,
-        type: str = "unspecified",
-        language_hint: str | None = None,
-    ) -> Thesis:
+    def add_thesis(self, pdf_path: Path | str) -> Thesis:
         """Instant add (ADR-0006 rev. 4, #38): no file read, so adding a
         folder of PDFs never feels like the app hung (US-RES-LOW-FRICTION).
 
         ``pdf_sha256`` is left NULL; dedup keys on ``(source_id, pdf_path)``.
         A re-added path updates its filename/size and keeps identity and run
         history. The content hash and content-dedup are applied lazily at
-        run time (:meth:`assign_content_hash`)."""
-        if type not in THESIS_TYPES:
-            raise ValueError(f"thesis type must be one of {THESIS_TYPES}, got {type!r}")
+        run time (:meth:`assign_content_hash`). Thesis type is a detected
+        metric, not an add-time attribute (ADR-0019, #9)."""
         pdf_path = Path(pdf_path)
         size = pdf_path.stat().st_size  # cheap: metadata only, not a full read
         source_id = self.ensure_local_source()
@@ -104,17 +96,9 @@ class Repository:
             return self.get_thesis(existing["id"])
         cur = self.conn.execute(
             "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes, pdf_path,"
-            " pdf_filename, type, language_hint, added_at)"
-            " VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
-            (
-                source_id,
-                size,
-                str(pdf_path),
-                pdf_path.name,
-                type,
-                language_hint,
-                _now(),
-            ),
+            " pdf_filename, added_at)"
+            " VALUES (?, NULL, ?, ?, ?, ?)",
+            (source_id, size, str(pdf_path), pdf_path.name, _now()),
         )
         self.conn.commit()
         return self.get_thesis(cur.lastrowid)

@@ -3,54 +3,26 @@ defaults, one decision per dialog)."""
 
 from __future__ import annotations
 
-import tkinter as tk
 from datetime import date
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 
 from tta.core.export import ExportPolicy, export_database
 from tta.core.project import Project
-from tta.core.types import THESIS_TYPES
-
-
-def ask_thesis_type(parent) -> str | None:
-    """Optional Type mini-dialog after file selection (US-PROF-ATTRS).
-    Returns None when cancelled, else a THESIS_TYPES value."""
-    dialog = tk.Toplevel(parent)
-    dialog.title("Thesis type")
-    dialog.transient(parent)
-    dialog.grab_set()
-    choice = tk.StringVar(value="unspecified")
-    ttk.Label(dialog, text="Type for the added theses:", padding=8).pack(anchor="w")
-    for value in THESIS_TYPES:
-        ttk.Radiobutton(dialog, text=value.capitalize(), variable=choice, value=value).pack(
-            anchor="w", padx=16
-        )
-    result: list[str | None] = [None]
-
-    def confirm():
-        result[0] = choice.get()
-        dialog.destroy()
-
-    buttons = ttk.Frame(dialog, padding=8)
-    buttons.pack(fill="x")
-    ttk.Button(buttons, text="OK", command=confirm).pack(side="right")
-    ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="right", padx=4)
-    parent.wait_window(dialog)
-    return result[0]
 
 
 def add_files_flow(parent, project: Project) -> int:
-    """Multi-select file dialog -> type mini-dialog -> add. Returns count."""
+    """Multi-select file dialog -> add immediately. Returns count.
+
+    No type mini-dialog (ADR-0019, #9): thesis type is detected at run time
+    by ``mod_classify_thesis_type``, and adding stays instant and dialog-free
+    (US-RES-LOW-FRICTION; ADR-0006 rev. 4 defers hashing to run time)."""
     filenames = filedialog.askopenfilenames(
         parent=parent, title="Add thesis PDFs", filetypes=[("PDF files", "*.pdf")]
     )
     if not filenames:
         return 0
-    thesis_type = ask_thesis_type(parent)
-    if thesis_type is None:
-        return 0
     for filename in filenames:
-        project.repo.add_thesis(filename, type=thesis_type)
+        project.repo.add_thesis(filename)
     return len(filenames)
 
 

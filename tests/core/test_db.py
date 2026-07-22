@@ -97,13 +97,6 @@ def test_assign_content_hash_sets_then_dedups(project, tmp_path):
     assert project.repo.get_thesis(first.id).pdf_filename == "b.pdf"
 
 
-def test_add_thesis_rejects_unknown_type(project, tmp_path):
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"x")
-    with pytest.raises(ValueError, match="thesis type"):
-        project.repo.add_thesis(pdf, type="diploma")
-
-
 def test_excluded_filtering(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"x")

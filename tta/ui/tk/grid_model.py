@@ -46,6 +46,7 @@ class ThesisRow:
     cells: dict[str, Cell] = field(default_factory=dict)  # metric -> Cell
     artefacts: dict[str, str] = field(default_factory=dict)  # kind -> relative path
     garbled: bool = False
+    thesis_type: str = ""  # detected `thesis_type` metric (ADR-0019, #9); "" until run
 
 
 def _error_details(repo: Repository) -> dict[tuple[int, str], str]:
@@ -81,12 +82,14 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
                 reason=reason,
                 detail=details.get((thesis.id, column.module)) if status == ERROR else None,
             )
+        detected_type = values.get((thesis.id, "thesis_type"))
         rows.append(
             ThesisRow(
                 thesis=thesis,
                 cells=cells,
                 artefacts=repo.current_artefacts(thesis.id),
                 garbled=values.get((thesis.id, "extraction_quality")) == "garbled",
+                thesis_type=detected_type if isinstance(detected_type, str) else "",
             )
         )
     return rows

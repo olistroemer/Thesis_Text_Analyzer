@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+#: The value set of the detected ``thesis_type`` metric (ADR-0019, #9). No
+#: longer a ``theses`` column; kept here as the shared vocabulary used by
+#: ``mod_classify_thesis_type`` and by the grid/report grouping.
 THESIS_TYPES = ("bachelor", "master", "unspecified")
 
 
@@ -18,13 +21,12 @@ class Thesis:
     Identity is content-addressed via ``pdf_sha256`` (ADR-0006), but the
     hash is computed lazily at first-run time (rev. 4, #38): it is ``None``
     for a thesis that has been added but not yet analysed. The path and
-    filename are mutable, PII-bearing, local-only attributes.
+    filename are mutable, PII-bearing, local-only attributes. Thesis type
+    and language are detected metrics, not attributes (ADR-0019, #9).
     """
 
     id: int | None
     pdf_sha256: str | None
     pdf_path: str
     pdf_filename: str
-    type: str = "unspecified"
-    language_hint: str | None = None
     excluded: bool = False
