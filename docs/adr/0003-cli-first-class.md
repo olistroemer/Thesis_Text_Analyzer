@@ -12,6 +12,8 @@ Ship a polished CLI as a peer of the GUI. Subcommand layout (Click or Typer):
 tta run         run analyses on inputs
 tta list        list known theses + status
 tta module      list / show module details
+tta exclude     exclude a thesis (scrub its cached analysis; --yes skips the prompt)
+tta include     re-include a previously excluded thesis
 tta export      produce researcher export
 tta import      import a researcher export
 tta db          init / migrate / vacuum
@@ -19,6 +21,8 @@ tta help        render help topics
 tta privacy     render GDPR statement
 tta version     version + module versions
 ```
+
+`tta exclude <id>` mirrors the GUI Excluded checkbox (US-PROF-EXCLUDE, #11): it sets `theses.excluded=1` and, for an already-analysed thesis, **scrubs** the cached analysis (`Repository.purge_analysis`, [ADR-0006](0006-schema.md) rev. 5). Because the scrub is destructive and irreversible (source PDF untouched), it prompts for confirmation; `--yes` skips the prompt for scripts. `tta include <id>` clears the flag, making the thesis eligible again.
 
 ## Output rules
 
