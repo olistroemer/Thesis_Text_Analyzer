@@ -203,6 +203,27 @@ def test_exclude_before_run_needs_no_confirmation(project_dir):
     assert excluded == 1 and runs == 0
 
 
+def test_exclude_scrub_disk_failure_is_surfaced(project_dir, monkeypatch):
+    """If the on-disk artefact removal fails, exclude does not claim a clean
+    scrub (#11 review): the DB analysis is still removed (excluded=1, rows gone,
+    DB-first ordering), but a warning is emitted and it exits EX_PARTIAL."""
+    thesis_id = _seed_thesis(project_dir, analysed=True)
+
+    def _boom(self, tid):
+        raise PermissionError("file is locked")
+
+    monkeypatch.setattr("tta.core.artefacts.ArtefactStore.purge", _boom)
+
+    result = invoke("-C", project_dir, "exclude", thesis_id, "--yes", expect_exit=1)
+    # DB scrub still happened despite the disk failure
+    excluded, runs = _state(project_dir, thesis_id)
+    assert excluded == 1 and runs == 0
+    # failure surfaced on stderr (rich word-wraps; normalise whitespace),
+    # not a false "scrubbed" on stdout
+    assert "could not be deleted" in " ".join(result.stderr.split())
+    assert "scrubbed" not in result.stdout
+
+
 def test_include_clears_the_flag(project_dir):
     thesis_id = _seed_thesis(project_dir, analysed=False)
     invoke("-C", project_dir, "exclude", thesis_id)

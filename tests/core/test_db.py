@@ -155,6 +155,36 @@ def test_purge_analysis_is_robust_without_store_or_artefacts(project, tmp_path):
     project.repo.purge_analysis(thesis.id, store=project.store)
 
 
+def test_purge_analysis_surfaces_disk_failure_after_db_scrub(project, tmp_path, monkeypatch):
+    """A filesystem failure during the scrub is not swallowed (#11 review):
+    purge_analysis raises so the caller can warn. The DB scrub commits first,
+    so the rows are already gone; the residual files never leave the machine."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+        src = tmp_path / "raw_text.txt"
+        src.write_text("secret", encoding="utf-8")
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+
+    def _boom(self, thesis_id):
+        raise PermissionError("file is locked")
+
+    monkeypatch.setattr("tta.core.artefacts.ArtefactStore.purge", _boom)
+
+    project.repo.set_excluded(thesis.id, True)
+    with pytest.raises(OSError):
+        project.repo.purge_analysis(thesis.id, store=project.store)
+
+    # DB scrub committed before the (failed) disk step: rows already gone
+    assert project.repo.latest_runs() == {}
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
+    # theses row kept with the exclusion persisted
+    assert project.repo.get_thesis(thesis.id).excluded is True
+
+
 def test_module_duration_stats_mean_rate_per_module(project, tmp_path):
     """The ETA history query returns mean(duration_ms / pdf_size_bytes) over ok
     runs, per module, guarding NULL/zero sizes and non-ok runs (#39)."""

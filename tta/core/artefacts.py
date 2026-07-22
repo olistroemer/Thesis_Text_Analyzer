@@ -41,6 +41,15 @@ class ArtefactStore:
         """Delete a thesis's entire on-disk artefact subtree
         ``artefacts/<thesis_id>/`` (the PII-bearing files: raw_text, tokens,
         pdf_metadata). Used by the excluded-thesis scrub (US-PROF-EXCLUDE,
-        ADR-0006 rev. 5, #11). Robust if the directory does not exist (a
-        thesis excluded before it was ever analysed cached nothing)."""
-        shutil.rmtree(self.project_dir / "artefacts" / str(thesis_id), ignore_errors=True)
+        ADR-0006 rev. 5, #11).
+
+        A no-op if the subtree does not exist (a thesis excluded before it was
+        ever analysed cached nothing). A failure to remove existing files (e.g.
+        a locked or permission-denied file on Windows) is deliberately NOT
+        swallowed - it raises so the caller can surface that the local scrub was
+        incomplete, rather than report a false success (#11 review). The files
+        never leave this machine (ADR-0007), so an incomplete scrub is a
+        local-only defence-in-depth warning, not a disclosure."""
+        target = self.project_dir / "artefacts" / str(thesis_id)
+        if target.exists():
+            shutil.rmtree(target)

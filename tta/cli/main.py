@@ -214,12 +214,27 @@ def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
                 stdout.print("aborted; no changes made")
                 return
         project.repo.set_excluded(thesis_id, True)
+        scrub_error: OSError | None = None
         if has_analysis:
-            project.repo.purge_analysis(thesis_id, store=project.store)
-    if has_analysis:
+            try:
+                project.repo.purge_analysis(thesis_id, store=project.store)
+            except OSError as exc:
+                scrub_error = exc
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+    if not has_analysis:
+        stdout.print(f"excluded thesis {thesis_id}")
+    elif scrub_error is None:
         stdout.print(f"excluded thesis {thesis_id}; cached analysis scrubbed")
     else:
-        stdout.print(f"excluded thesis {thesis_id}")
+        # DB analysis removed, but the local files could not be fully deleted;
+        # they never leave the machine (ADR-0007) - warn rather than claim a
+        # clean scrub, and exit partial so scripts notice (#11 review).
+        stderr.print(
+            f"excluded thesis {thesis_id}; analysis records removed, but some "
+            f"cached files could not be deleted: {artefacts_dir} ({scrub_error}). "
+            "They are never exported; delete that folder manually to remove them."
+        )
+        ctx.exit(EX_PARTIAL)
 
 
 @cli.command()

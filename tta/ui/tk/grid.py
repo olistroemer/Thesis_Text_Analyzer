@@ -243,7 +243,22 @@ class GridView(ttk.Frame):
                 return
         self.repo.set_excluded(row.thesis.id, new_excluded)
         if new_excluded and row.has_analysis:
-            self.repo.purge_analysis(row.thesis.id, store=self.store)
+            try:
+                self.repo.purge_analysis(row.thesis.id, store=self.store)
+            except OSError:
+                # The DB analysis is gone, but some local artefact files could
+                # not be removed (e.g. a locked file). They never leave this
+                # machine (ADR-0007) - say so rather than imply a clean scrub.
+                folder = self.store.resolve(f"artefacts/{row.thesis.id}")
+                messagebox.showwarning(
+                    "Scrub incomplete",
+                    f'"{row.thesis.pdf_filename}" was excluded and its analysis '
+                    "records were removed, but some cached files could not be "
+                    f"deleted:\n\n{folder}\n\nThey remain on this machine only and "
+                    "are never exported. Delete that folder manually to remove "
+                    "them.",
+                    parent=self,
+                )
         self._reload_current()
 
     def _reload_current(self) -> None:

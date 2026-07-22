@@ -191,8 +191,11 @@ class Repository:
 
         Delete order respects the ``run_id`` foreign keys: ``metric_values``
         and ``artefact_files`` reference ``module_runs(id)``, so they go first.
-        The filesystem removal follows the DB commit: if it fails, the DB is
-        already consistent and the orphaned directory is harmlessly re-purgeable.
+        The filesystem removal follows the DB commit; if ``store.purge`` raises
+        (e.g. a locked file), the DB scrub has already committed - state is
+        consistent - and the error propagates so the caller can warn that the
+        local artefact files were not fully removed. Those files never leave the
+        machine (ADR-0007), so an incomplete scrub is a local-only warning.
         """
         with self.transaction():
             self.conn.execute(
