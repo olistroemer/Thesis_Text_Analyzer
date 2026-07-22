@@ -658,7 +658,9 @@ Cells outside the IQR range are coloured according to a small palette; the palet
 
 ## 9.6 i18n posture
 
-MVP ships English-only UI. Strings are wrapped in `_(...)` (gettext) so adding a German translation is an `.po`-file exercise. Date and number formatting goes through locale-aware helpers. RTL languages are not supported in MVP; the layout is built with `pack()`/`grid()` rather than fixed coordinates so a future RTL pass is mechanical. See [§12](#12-out-of-mvp-scope).
+MVP ships **German-first**: the default UI locale is German (`de`), with English still available. All user-facing strings are wrapped in `_(...)` (gettext); the source msgids are English and the `de` catalog is the default translation shipped and selected on first run. The **help corpus** ([ADR-0012](adr/0012-help-content.md)) is authored **German-only** for MVP (it does not exist yet, so it is written directly in German). The **GDPR statement** ([ADR-0009](adr/0009-privacy-as-code.md)) renders in the active locale, German by default, with German legal stubs. Date and number formatting goes through locale-aware helpers. RTL languages are not supported in MVP; layouts use `pack()`/`grid()` so a future RTL pass is mechanical. Additional UI languages, RTL, and a non-German help corpus remain deferred ([§12](#12-out-of-mvp-scope)).
+
+*German-first supersedes the project's initial English-only MVP posture (a requirement added before distribution). Tracked by #29 (gettext foundation), #28 (`de` UI catalog), #2 (German help corpus), #6 (German GDPR statement), #16 (German metric labels).*
 
 ## 9.7 Happy path walkthrough
 

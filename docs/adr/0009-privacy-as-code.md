@@ -54,7 +54,7 @@ Sections 1–5 regenerate every release. Sections 6–7 are reviewed legal stubs
 - ✅ Researchers, IT staff, and ethics boards can run one command to see exactly what the app does with data.
 - ✅ Export rules and the statement's "what leaves your machine" section can be cross-checked against the same registry.
 - ⚠️ Legal stubs still need human review.
-- ⚠️ Statement is in English in MVP; localisation deferred via the i18n pipeline.
+- ⚠️ ~~Statement is in English in MVP; localisation deferred via the i18n pipeline.~~ **Superseded:** the MVP is now **German-first** (SDD §9.6) — the statement renders in the active locale (German by default) and the legal stubs need German versions (#6).
 
 ## Revisit when
 

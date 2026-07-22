@@ -57,5 +57,5 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 
 ## Revisit when
 
-- A non-English partner institution requires localised help content.
+- A language beyond the MVP's **German-only** help corpus is needed (e.g. an English or third-language corpus). The MVP help is authored German-first per SDD §9.6; ADR-0012's authoring conventions are language-agnostic and unchanged.
 - Mathematical content becomes load-bearing enough in the GUI that plain-text math is insufficient.
