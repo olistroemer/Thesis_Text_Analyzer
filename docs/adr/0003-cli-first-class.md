@@ -26,6 +26,7 @@ tta version     version + module versions
 - `--format {human, json, csv}` toggles machine-readable output. JSON is the contract for any scripting; human output may change between versions.
 - Logs / progress go to stderr (Unix convention) so `tta run … | jq …` stays clean.
 - Exit codes follow `sysexits.h`: 0 success, 1 partial (some theses failed), 64 misuse, 65 data error, 70 internal error.
+- `Ctrl-C` during `tta run` installs a SIGINT handler that calls `Runner.cancel()` (skip-pending, ADR-0013): no new theses are submitted, in-flight ones finish, then the command exits with the partial code (1).
 
 ## Context
 

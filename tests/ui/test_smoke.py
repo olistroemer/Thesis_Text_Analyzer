@@ -101,5 +101,18 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             assert grid._sort_reverse is True
             assert grid.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (desc)"
+
+            # #33: while a run is in progress the run buttons are replaced by a
+            # single Cancel control; cancelling with no active runner is a
+            # no-op, and the normal toolbar returns afterwards.
+            window._show_cancel_control()
+            window.root.update_idletasks()
+            assert "Cancel run" in window._toolbar_buttons
+            assert "Run all" not in window._toolbar_buttons
+            window._cancel_run()  # _runner is None here: must not raise
+            window._render_toolbar()
+            window.root.update_idletasks()
+            assert "Run all" in window._toolbar_buttons
+            assert "Cancel run" not in window._toolbar_buttons
         finally:
             window.root.destroy()

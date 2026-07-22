@@ -46,7 +46,7 @@ Published from the main process to a small in-process `EventBus`:
 - `RunCompleted(summary)`
 - `RunCancelled(completed, skipped)`
 
-Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI via direct stderr render).
+Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI via direct stderr render). Both adapters expose `cancel()`: the GUI swaps its run buttons for a **Cancel** control while a run is in progress; the CLI installs a SIGINT handler so `Ctrl-C` cancels skip-pending and exits with the partial code (ADR-0003).
 
 ## Alternatives considered
 

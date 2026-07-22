@@ -621,6 +621,7 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 The toolbar's Report button sits to the right of "Update stale" so the two batch-action buttons (Update stale, Report) are visually adjacent. The Report button is disabled until at least one successful module run exists; tooltip "Run analyses on at least one thesis to view the report."
 
 - Toolbar buttons are icon + text.
+- While a run is in progress the run buttons are hidden and a single **Cancel** button takes their place; clicking it calls `Runner.cancel()` (skip-pending, [ADR-013](adr/0013-runner-orchestration.md)). The normal toolbar is restored on `RunCompleted`/`RunCancelled`.
 - Grid is sortable by clicking column headers.
 - Fuzzy search per column (extended mode).
 - Double-click an artefact cell opens the underlying file with the system default application.
@@ -830,7 +831,7 @@ Items captured because they will eventually be revisited or because they impose 
 | **In-app auto-update** | Module versions stored in DB so cross-cohort version differences are visible. | Probably never (violates fully-offline principle). |
 | **A/B comparison view in the grid** | DB stores per-metric `module_name` + `module_version`, so cross-pivot is already feasible. | When the comparison study finishes and we want it in-app. |
 | **Multivariate outlier detection** (Mahalanobis, isolation forest) | Single-metric IQR is enough; outlier strategy interface is pluggable. | Researcher feedback that single-metric misses cross-metric weirdness. |
-| **Live progress UI / run cancellation** | Runner exposes progress via domain events; UI may show a coarse busy indicator in MVP. | First report of "I thought it had hung". |
+| **Rich live progress UI** (per-thesis progress bars, ETA) | Runner exposes progress via domain events; UI shows a coarse status line in MVP. Run cancellation is wired up (GUI Cancel button, CLI `Ctrl-C`); only the richer visual progress affordance is deferred. | First report of "I thought it had hung". |
 | **Anonymous-aggregate-only export mode** | Export module parameterised by `ExportPolicy` enum even in MVP. | Strictness requirement from an institution's ethics board. |
 | **Word-list-based vocabulary metrics** | None; new word-list-based modules slot in. | Word list of choice identified and licence-cleared. |
 | **macOS look polish** (sv-ttk theme or Qt switch) | None; document the cosmetic limitation. | Adoption blocker in practice. |

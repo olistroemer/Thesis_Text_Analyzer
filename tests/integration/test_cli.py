@@ -75,6 +75,46 @@ def test_help_lists_topics():
     invoke("help", "does_not_exist", expect_exit=65)
 
 
+def test_run_sigint_cancels_skip_pending_and_exits_partial(project_dir, english_pdf, monkeypatch):
+    """Ctrl-C during `tta run` installs a SIGINT handler that calls
+    Runner.cancel() (skip-pending); the command then exits with the partial
+    code and restores the previous handler (ADR-0003 / ADR-0013, #33)."""
+    import signal
+
+    from tta.core.runner import RunSummary, Runner
+
+    cancel_calls: list[bool] = []
+    real_cancel = Runner.cancel
+
+    def spy_cancel(self):
+        cancel_calls.append(True)
+        return real_cancel(self)
+
+    def fake_execute(self, plan):
+        # Stand in for a real run: fire whatever handler the CLI installed
+        # for SIGINT (as a Ctrl-C would), then return as if the in-flight
+        # thesis finished and the pending ones were skipped.
+        handler = signal.getsignal(signal.SIGINT)
+        handler(signal.SIGINT, None)
+        return RunSummary(theses_total=2, theses_completed=1, ok=1, cancelled=True)
+
+    monkeypatch.setattr(Runner, "cancel", spy_cancel)
+    monkeypatch.setattr(Runner, "execute", fake_execute)
+
+    before = signal.getsignal(signal.SIGINT)
+    result = runner.invoke(
+        cli, ["-C", str(project_dir), "run", str(english_pdf), "--format", "json"]
+    )
+
+    assert result.exit_code == 1, result.output  # EX_PARTIAL
+    assert cancel_calls, "the SIGINT handler did not call runner.cancel()"
+    payload = json.loads(result.stdout)
+    assert payload["cancelled"] is True
+    assert payload["theses_completed"] == 1
+    # the previous SIGINT handler is restored on the way out
+    assert signal.getsignal(signal.SIGINT) is before
+
+
 @pytest.mark.slow
 def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
     """The researcher's five-step loop, headless: add+run -> list -> export -> import."""

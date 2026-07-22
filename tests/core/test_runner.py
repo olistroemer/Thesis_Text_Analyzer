@@ -213,6 +213,41 @@ def test_module_timeout_kills_worker_and_cascades(project, tmp_path):
     assert cascaded["status"] == "na"
 
 
+def test_cancel_is_skip_pending_and_reports_cancelled(project, tmp_path):
+    """cancel() stops new theses from starting; the in-flight one finishes
+    and the rest are skipped, with a RunCancelled event (ADR-0013)."""
+    for i in range(3):
+        add_fake_pdf(project, tmp_path, name=f"t{i}.pdf")
+    runner, seen = make_runner(project, [FakeExtract()], workers=1)
+
+    # Cancel the moment the first thesis starts: with a single worker no
+    # other thesis is in flight, so exactly one completes and two are skipped.
+    started: list[int] = []
+
+    def _on_start(evt):
+        started.append(evt.thesis_id)
+        if len(started) == 1:
+            runner.cancel()
+
+    runner.bus.subscribe(events.ThesisStarted, _on_start)
+
+    summary = runner.execute(runner.plan())
+
+    assert summary.cancelled is True
+    assert summary.theses_completed == 1
+    assert summary.theses_skipped == 2
+    assert summary.ok == 1
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[-1] == "RunCancelled"
+    assert "RunCompleted" not in kinds
+    cancelled_evt = seen[-1]
+    assert cancelled_evt.completed == 1 and cancelled_evt.skipped == 2
+
+    # skip-pending, not abort: the one thesis that ran persisted its row
+    assert len(project.repo.latest_runs()) == 1
+
+
 def test_multiple_theses_parallel_workers(project, tmp_path):
     for i in range(3):
         add_fake_pdf(project, tmp_path, name=f"t{i}.pdf")

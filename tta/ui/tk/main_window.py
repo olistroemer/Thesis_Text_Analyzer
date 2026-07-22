@@ -165,10 +165,33 @@ class MainWindow:
             messagebox.showinfo("Run", "A run is already in progress.", parent=self.root)
             return
         self._set_status("Planning...")
+        self._show_cancel_control()
         self._run_thread = threading.Thread(
             target=self._run_worker, args=(rerun,), daemon=True
         )
         self._run_thread.start()
+
+    def _show_cancel_control(self) -> None:
+        """Swap the run toolbar for a single Cancel button while a run is in
+        progress (skip-pending cancellation, ADR-0013). The normal toolbar is
+        restored on RunCompleted/RunCancelled by ``_render_toolbar``."""
+        for child in self.toolbar.winfo_children():
+            child.destroy()
+        self._toolbar_buttons = {}
+        button = ttk.Button(self.toolbar, text="Cancel run", command=self._cancel_run)
+        button.pack(side="left", padx=2)
+        self._toolbar_buttons["Cancel run"] = button
+
+    def _cancel_run(self) -> None:
+        """Tell the active runner to stop submitting new theses. In-flight
+        theses finish; the toolbar is restored when the run reports done."""
+        runner = self._runner
+        if runner is not None:
+            runner.cancel()
+        button = self._toolbar_buttons.get("Cancel run")
+        if button:
+            button.configure(state="disabled")
+        self._set_status("Cancelling - finishing in-flight theses...")
 
     def _run_worker(self, rerun: bool) -> None:
         """Background run: own the DB connection here, since sqlite3
@@ -202,8 +225,10 @@ class MainWindow:
                         show_artefacts=self._extended.get(),
                     )
                 elif isinstance(event, (events.RunCompleted, events.RunCancelled)):
+                    self._render_toolbar()  # restore normal run controls
                     self.refresh()
-                    self._set_status("Run finished")
+                    cancelled = isinstance(event, events.RunCancelled)
+                    self._set_status("Run cancelled" if cancelled else "Run finished")
                     # Sec. 9.8.2: re-render while Report tab is active
                     if self.notebook.index("current") == 1:
                         self.report_view.render()

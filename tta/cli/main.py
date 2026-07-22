@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import signal
 import sys
 import traceback
 from datetime import date
@@ -285,23 +286,40 @@ def run(ctx, inputs, thesis_type, modules, rerun, dry_run, workers, fmt) -> None
             click.echo(f"{plan.pair_count} (thesis x module) pairs planned")
             return
 
-        summary = runner.execute(plan)
+        # Ctrl-C is skip-pending cancellation (ADR-0013): the handler tells
+        # the runner to stop submitting new theses; in-flight ones finish and
+        # execute() returns normally, then we exit with the partial code
+        # (ADR-0003). signal.signal must run on the main thread, which is where
+        # the CLI executes (the GUI, running execute() off-thread, uses a
+        # Cancel button instead).
+        def _on_sigint(signum, frame) -> None:
+            stderr.print("cancelling - finishing in-flight theses (Ctrl-C again to force)...")
+            runner.cancel()
+
+        previous_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, _on_sigint)
+        try:
+            summary = runner.execute(plan)
+        finally:
+            signal.signal(signal.SIGINT, previous_handler)
 
     payload = {
         "theses_completed": summary.theses_completed,
         "ok": summary.ok,
         "na": summary.na,
         "error": summary.error,
+        "cancelled": summary.cancelled,
         "duration_s": round(summary.duration_s, 2),
     }
     if fmt == "json":
         click.echo(json.dumps(payload, indent=2))
     else:
+        cancelled_note = " | cancelled" if summary.cancelled else ""
         stdout.print(
             f"{summary.theses_completed} theses | {summary.ok} ok | "
-            f"{summary.na} na | {summary.error} errors | {payload['duration_s']} s"
+            f"{summary.na} na | {summary.error} errors | {payload['duration_s']} s{cancelled_note}"
         )
-    if summary.error:
+    if summary.error or summary.cancelled:
         ctx.exit(EX_PARTIAL)
 
 
