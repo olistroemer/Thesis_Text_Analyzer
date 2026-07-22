@@ -51,7 +51,7 @@ Internal: ADR documents under [`adr/`](adr/); user-story catalogue at [`user-sto
 
 In priority order:
 
-1. **Primary** — Trace how thesis length has evolved across publication dates.
+1. **Primary** — Trace how thesis length has evolved across publication dates. The publication date is the **`publication_year` metric** — a best estimate fused by `mod_determine_publication_year` (#17) from the in-text title-page year and the PDF-metadata dates — **not** the raw PDF `creation_year`, which re-saves and repository processing make unreliable. `publication_year` is the x-axis of the report's length-over-time chart (§9.8).
 2. **Secondary** — Trace and correlate other text metrics (vocabulary richness, readability, redundancy, structural features) against publication date and against each other, in support of the primary question.
 3. **Tertiary** — Whether the public availability of generative AI tools (Nov 2022) coincides with any acceleration of the above trends.
 
@@ -126,13 +126,13 @@ What the researcher needs the professor to be able to do, in five low-friction s
 ```mermaid
 flowchart LR
     S1[1. Start app] -->|"auto-opens last project"| S2[2. Select theses]
-    S2 -->|"optional type attribute"| S3[3. Run all]
+    S2 -->|"no dialog: add is instant, type is detected"| S3[3. Run all]
     S3 -->|"toolbar button, progress bar"| S4[4. Export]
     S4 -->|"save dialog, no extra choices"| S5[5. Send back]
     S5 -.->|"outside the app"| END[email / shared drive]
 ```
 
-This is what motivates the **low-friction** design choices: auto-open the last project, sensible defaults, basic-mode toolbar with four core buttons, no extra checkboxes in the export dialog. Every design choice gets reviewed against this: *does this add a step to the contribute loop?*
+This is what motivates the **low-friction** design choices: auto-open the last project, sensible defaults, basic-mode toolbar with four core buttons, no extra checkboxes in the export dialog. Adding files is **instant and dialog-free** — the SHA-256 hash is deferred to first-run time ([ADR-0006](adr/0006-schema.md) rev. 4, #38) and the thesis type is **detected**, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md), #9). Every design choice gets reviewed against this: *does this add a step to the contribute loop?*
 
 ### 3.3.2 The professor's insights journey (US-PROF-INSIGHTS)
 
@@ -164,7 +164,7 @@ Headline stories driving load-bearing decisions:
 | US-PROF-TRENDS | See how text characteristics evolved over years | Report → length-over-time chart |
 | US-PROF-COMPARE | Compare bachelor vs master theses side-by-side | Report → length-by-type box plots |
 | US-PROF-NOTICE | Have unusual theses surfaced | Report → outlier list |
-| US-PROF-ATTRS | Add attributes when adding files (bachelor/master) | Schema, UI |
+| US-PROF-ATTRS | Group by thesis type (bachelor/master) | `mod_classify_thesis_type` (detected, [ADR-0019](adr/0019-thesis-type-by-detection.md)); correction via editable metrics (#10) |
 | US-PROF-EXCLUDE | Exclude confidential theses | Schema, runner |
 | US-PROF-EXPLAIN | Read explanations of metrics | Help system ([ADR-012](adr/0012-help-content.md)) |
 | US-PROF-EXPORT | Export results into a single file | Export format ([ADR-007](adr/0007-export-format.md)) |
@@ -264,9 +264,12 @@ flowchart TD
     M4 -->|tokens| M5[mod_surface_counts]
     M4 -->|tokens| M6[mod_vocabulary]
     M4 -->|tokens| M8[mod_redundancy]
+    M1 -->|raw_text| M11[mod_classify_thesis_type]
+    M1 -->|raw_text| M12[mod_determine_publication_year]
+    M10 -->|pdf_metadata| M12
 ```
 
-Three "root" modules read the PDF directly; everything else flows downstream from `mod_extract_pymupdf` and `mod_classify_language`. Detailed module specs in [§7](#7-module-catalogue).
+Three "root" modules read the PDF directly; everything else flows downstream from `mod_extract_pymupdf` and `mod_classify_language`. `mod_classify_thesis_type` (#9) sits off `raw_text` next to `mod_check_extraction_quality`; `mod_determine_publication_year` (#17) fuses two upstreams — `raw_text` (in-text title-page year) and the `pdf_metadata` artefact (PDF `creation_year`/`modification_year`). Detailed module specs in [§7](#7-module-catalogue).
 
 ## 5.4 Persistence
 
@@ -309,11 +312,9 @@ On first launch the app creates `~/TTA-Theses/` (or platform equivalent) as the 
 classDiagram
     class Thesis {
         +int id
-        +str pdf_sha256
+        +Optional~str~ pdf_sha256
         +str pdf_path
         +str pdf_filename
-        +str type
-        +str language_hint
         +bool excluded
     }
     class Source {
@@ -433,7 +434,7 @@ Artefact files are stored under the filesystem layout in [§5.4](#54-persistence
 
 # 7. Module Catalogue
 
-Ten modules, twenty-six metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
+Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
 
 ## 7.1 Overview
 
@@ -449,6 +450,8 @@ Ten modules, twenty-six metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md)
 | 8 | `mod_redundancy` | `tokens` | — | `bigram_repetition_rate`, `trigram_repetition_rate` | stdlib |
 | 9 | `mod_count_images` | — (PDF directly) | — | `n_images` | pypdf |
 | 10 | `mod_extract_pdf_metadata` | — (PDF directly) | `pdf_metadata` | `page_count_meta`, `producer_category`, `creator_category`, `creation_year`, `modification_year`, `has_outline` | pypdf |
+| 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`unspecified`) | title-page keyword heuristic (#9, ADR-0019); evidence in `notes` |
+| 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `notes` |
 
 ## 7.2 Applicability matrix
 
@@ -462,6 +465,8 @@ Ten modules, twenty-six metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md)
 | `mod_readability` | `language.code` ∈ {`en`, `de`} | no Flesch formula for language |
 | `mod_count_images` | file is a PDF | not a PDF |
 | `mod_extract_pdf_metadata` | file is a PDF | not a PDF |
+| `mod_classify_thesis_type` | `raw_text` exists | upstream extraction failed (garbled/sparse text still yields `unspecified`, never `na`) |
+| `mod_determine_publication_year` | `raw_text` and `pdf_metadata` exist | upstream NA cascade (no title-page year and no PDF date still yields an `ok` run with `publication_year` NULL and `publication_year_source='none'`) |
 
 ## 7.3 Library comparison study placement
 
@@ -474,6 +479,10 @@ Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf
 **`mod_check_extraction_quality`** flags but does NOT block downstream modules. A thesis flagged `garbled` still has all subsequent metrics computed; the grid renders the row with a warning glyph and a tooltip.
 
 **`mod_extract_pdf_metadata`** writes the full PDF metadata (including potentially-identifying Author/Title) to a local-only artefact, but stores only a curated set of six safe metrics. Producer and Creator strings are mapped to a small categorical (`latex`/`word`/`openoffice`/…) — the raw strings never reach the DB. Dates are stored to year precision only. Additional PDF-technical fields (encryption flag, form-data flags, etc.) are kept in the local artefact but not promoted to metrics; see §12. See the module's help page for the full rationale.
+
+**`mod_classify_thesis_type`** (#9, [ADR-0019](adr/0019-thesis-type-by-detection.md)) detects the degree from the title page of `raw_text` by a case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English degree terms), producing the single `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`}. It replaces the removed add-time type dialog and the dropped `theses.type` column; correction of a detected value is deferred to editable metrics (#10). Garbled or sparse text yields `unspecified`, never `na`, so the metric is always present. Detection evidence (matched keywords) is written to the run's local-only `notes`.
+
+**`mod_determine_publication_year`** (#17) fuses date signals into a best-estimate `publication_year` for the primary research goal (§2.1). Precedence: (1) the in-text **title-page year** parsed from `raw_text` (most reliable — the submission year printed on the page), then (2) the PDF-metadata **`creation_year`**, then (3) **`modification_year`** (both read from the `pdf_metadata` artefact). The winning signal is recorded in the `publication_year_source` metric (`title_page`/`pdf_creation`/`pdf_modification`/`none`); fusion detail goes in `notes`. When no signal is available the run is still `ok` with `publication_year` NULL and source `none`. Filesystem dates (#18) are a possible future last-resort signal, out of scope here. Both title-page modules share `core/modules/_titlepage.py` so the leading-window extraction and normalisation stay consistent.
 
 ---
 
@@ -501,12 +510,10 @@ erDiagram
     theses {
         int id PK
         int source_id FK
-        text pdf_sha256
+        text pdf_sha256 "NULL until first run (ADR-0006 rev.4)"
         int pdf_size_bytes
         text pdf_path "PII; local only"
         text pdf_filename "PII; local only"
-        text type
-        text language_hint
         int excluded
         text notes "PII; stripped from export"
         text tags "PII; stripped from export"
@@ -540,7 +547,7 @@ erDiagram
 
 Decision: [ADR-006](adr/0006-schema.md). Single unified schema; `source.kind='local'` for the user's own data, `'imported'` for researcher merges. Append-only history on `module_runs` and `metric_values`; current state via the `v_current_metrics` view.
 
-Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql). The ERD above lists every persisted column; the domain `Thesis` class ([§6.1](#61-core-entities)) intentionally carries only the subset modules need at run time — persistence/PII columns (`pdf_size_bytes`, `notes`, `tags`, `added_at`) live on the table, not the dataclass.
+Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql). The ERD above lists every persisted column; the domain `Thesis` class ([§6.1](#61-core-entities)) intentionally carries only the subset modules need at run time — persistence/PII columns (`pdf_size_bytes`, `notes`, `tags`, `added_at`) live on the table, not the dataclass. `pdf_sha256` is nullable and stays NULL until a thesis is first analysed ([ADR-0006](adr/0006-schema.md) rev. 4, #38). The former `type`/`language_hint` override columns are gone — thesis type is the detected `thesis_type` metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)) and language is the `language_code` metric.
 
 ### 8.1.1 Views
 
@@ -574,7 +581,7 @@ Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; 
 
 | Source table | What ships | What's stripped |
 |---|---|---|
-| `theses` | `id`, `pdf_sha256`, `pdf_size_bytes`, `type`, `language_hint`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, rows where `excluded=1` |
+| `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `excluded`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
 | `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `notes` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `notes` |
 | `metric_values` | All | — |
 | `producer_chains` | n/a (no producer-chain table in MVP) | — |
@@ -670,7 +677,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 | Step | Screen / dialog | Defaults |
 |---|---|---|
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened); nothing stored outside it (US-PROF-NO-TRACES). |
-| 2. Add | "Add files" toolbar button → multi-select file dialog → optional "Type" mini-dialog (Bachelor / Master / Unspecified). | Default Type = Unspecified. |
+| 2. Add | "Add files" toolbar button → multi-select file dialog → added immediately (no further dialog). | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
 | 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → switches to the Report tab → charts + summary cards + outlier list. | Re-renders on `RunCompleted` while the tab is active. |
 | 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
@@ -715,6 +722,8 @@ Decision: [ADR-016](adr/0016-report-view.md). Matplotlib-backed summary of the l
 ### 9.8.2 Data sources
 
 The report reads from `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`. Aggregates are computed in-process at tab-open time (cheap — tens of thousands of metric rows in milliseconds). The view re-renders on `RunCompleted` events while it is the active tab so the professor sees the picture update as a batch completes.
+
+The **length-over-time** chart plots word count against the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year` (SDD §2.1, [ADR-0016](adr/0016-report-view.md)). Grouping by thesis type (by-type counts, length-by-type box plots) uses the detected **`thesis_type`** metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)); theses with no detected type group under `unspecified`.
 
 ### 9.8.3 Behaviour
 
@@ -799,12 +808,12 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0003](adr/0003-cli-first-class.md) | CLI as first-class primary adapter | Accepted |
 | [0004](adr/0004-module-contract.md) | Module contract — `ModuleSpec` + ABC, tag-based artefact kinds | Accepted |
 | [0005](adr/0005-producer-swap-deferred.md) | Producer swap deferred; comparison via separate runs | Accepted |
-| [0006](adr/0006-schema.md) | Database schema — unified, source-aware, append-only history | Accepted (rev. 3) |
+| [0006](adr/0006-schema.md) | Database schema — unified, source-aware, append-only history | Accepted (rev. 4 — lazy SHA-256; instant add) |
 | [0007](adr/0007-export-format.md) | Export format — SQLite, PII-stripped, history by default | Accepted |
 | 0008 | (retired — separate researcher schema; superseded by ADR-006) | Superseded |
 | [0009](adr/0009-privacy-as-code.md) | Privacy metadata as code; statement is rendered | Accepted |
 | [0010](adr/0010-sdd-authoring.md) | SDD authoring — markdown + Mermaid + pandoc/xelatex | Accepted |
-| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 10 modules / 26 metrics | Accepted (rev. 2; AGPL gate superseded by 0017) |
+| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 12 modules / 29 metrics | Accepted (rev. 3; AGPL gate superseded by 0017) |
 | [0012](adr/0012-help-content.md) | Help-content authoring conventions | Accepted |
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |
@@ -812,6 +821,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0016](adr/0016-report-view.md) | Report view — matplotlib-backed summary for the professor | Accepted |
 | [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
 | [0018](adr/0018-ascii-source.md) | ASCII-only Python source — non-ASCII string content via `\uXXXX` escapes | Accepted |
+| [0019](adr/0019-thesis-type-by-detection.md) | Thesis type by detection — add-time dialog removed, override columns dropped | Accepted |
 
 ---
 
@@ -842,6 +852,8 @@ Items captured because they will eventually be revisited or because they impose 
 | **`CONTRACT_VERSION` constant on the module ABC** (tracks the contract version itself; bumped if `ModuleSpec`'s shape ever changes) | None — adding a constant is non-breaking; for MVP the git commit hash IS the contract version. | First external contributor wants to depend on the contract version programmatically. |
 | **Producer-swap configuration** (`tta.toml [producers]` table, `--producer KIND=MODULE` CLI override, three-layer selection resolution) | None — exactly one producer per kind is registered in MVP; the runner resolves it from the registry with no config knob. The future design is documented in ADR-005's "Future selection mechanism" section. | Alternative extractors land for the library-comparison study and we want runtime selection. |
 | **Additional PDF-technical metrics** (`pdf_version`, `is_encrypted`, `is_linearized`, `xmp_present`, `has_acroform`, `has_xfa`) — low research value, kept in the local-only `pdf_metadata` artefact instead of promoted to DB metrics. | None — already extracted into the artefact JSON; promotion is purely additive. | A specific research question requires one of them. |
+| **Filesystem dates as a publication-date signal (#18)** — file mtime/ctime as a last-resort input to `mod_determine_publication_year`. Unreliable (reset on copy/download), so out of scope for the #17 lane. | None — the fusion module (§7.4) already ranks its signals; adding a lowest-priority filesystem signal is additive. | The in-text and PDF-metadata signals prove insufficient on the real cohort. |
+| **Type/publication-year classifier validation (F1 / confusion matrix)** against the labeled exploration-harvest dataset. That dataset is not part of this repo, so the #9/#17 lane ships example-based unit tests only. | None — modules are deterministic and testable; validation is a measurement, not a code change. | The labeled set is available in a harness and an acceptable F1 threshold is agreed. |
 
 ---
 
