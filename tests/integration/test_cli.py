@@ -26,6 +26,44 @@ def project_dir(tmp_path):
     return tmp_path / "proj"
 
 
+def _seed_thesis(project_dir, *, analysed: bool):
+    """Add a thesis directly (fast), optionally with a cached run + artefact,
+    so exclude/include can be exercised without a real multiprocessing run."""
+    from tta.core import db
+    from tta.core.artefacts import ArtefactStore
+    from tta.core.db.repository import Repository
+
+    pdf = project_dir / "seed.pdf"
+    pdf.write_bytes(b"%PDF-seed content")
+    conn = db.connect(project_dir / "tta.sqlite")
+    repo = Repository(conn)
+    thesis = repo.add_thesis(pdf)
+    if analysed:
+        store = ArtefactStore(project_dir)
+        with repo.transaction():
+            run_id = repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+            src = project_dir / "raw.txt"
+            src.write_text("secret extracted text", encoding="utf-8")
+            rel = store.store(thesis.id, run_id, "raw_text", src)
+            repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+    conn.close()
+    return thesis.id
+
+
+def _state(project_dir, thesis_id):
+    from tta.core import db
+
+    conn = db.connect(project_dir / "tta.sqlite")
+    excluded = conn.execute(
+        "SELECT excluded FROM theses WHERE id = ?", (thesis_id,)
+    ).fetchone()["excluded"]
+    runs = conn.execute(
+        "SELECT COUNT(*) AS n FROM module_runs WHERE thesis_id = ?", (thesis_id,)
+    ).fetchone()["n"]
+    conn.close()
+    return excluded, runs
+
+
 def test_version_json_lists_all_modules():
     result = invoke("version", "--format", "json")
     payload = json.loads(result.stdout)
@@ -113,6 +151,71 @@ def test_run_sigint_cancels_skip_pending_and_exits_partial(project_dir, english_
     assert payload["theses_completed"] == 1
     # the previous SIGINT handler is restored on the way out
     assert signal.getsignal(signal.SIGINT) is before
+
+
+def test_exclude_yes_scrubs_analysis(project_dir):
+    """`tta exclude <id> --yes` sets excluded=1 and scrubs the cached analysis
+    (rows + on-disk artefacts) without prompting (ADR-0003, #11)."""
+    thesis_id = _seed_thesis(project_dir, analysed=True)
+    tree = project_dir / "artefacts" / str(thesis_id)
+    assert tree.exists()
+
+    result = invoke("-C", project_dir, "exclude", thesis_id, "--yes")
+    assert "scrubbed" in result.stdout
+    excluded, runs = _state(project_dir, thesis_id)
+    assert excluded == 1 and runs == 0
+    assert not tree.exists()  # PII artefacts gone from disk
+    # list reflects the excluded flag
+    rows = json.loads(invoke("-C", project_dir, "list", "--format", "json").stdout)
+    assert rows[0]["excluded"] is True
+
+
+def test_exclude_confirm_yes_and_no(project_dir):
+    """Without --yes the scrub is gated by a confirmation prompt: 'y' proceeds,
+    'n' aborts with no changes (ADR-0003, #11)."""
+    thesis_id = _seed_thesis(project_dir, analysed=True)
+
+    # decline: nothing changes, exits 0
+    declined = runner.invoke(
+        cli, ["-C", str(project_dir), "exclude", str(thesis_id)], input="n\n"
+    )
+    assert declined.exit_code == 0, declined.output
+    assert "aborted" in declined.output
+    excluded, runs = _state(project_dir, thesis_id)
+    assert excluded == 0 and runs == 1  # untouched
+
+    # confirm: scrub proceeds
+    confirmed = runner.invoke(
+        cli, ["-C", str(project_dir), "exclude", str(thesis_id)], input="y\n"
+    )
+    assert confirmed.exit_code == 0, confirmed.output
+    excluded, runs = _state(project_dir, thesis_id)
+    assert excluded == 1 and runs == 0
+
+
+def test_exclude_before_run_needs_no_confirmation(project_dir):
+    """A never-analysed thesis has nothing to scrub, so exclude just sets the
+    flag with no prompt (#11)."""
+    thesis_id = _seed_thesis(project_dir, analysed=False)
+    result = invoke("-C", project_dir, "exclude", thesis_id)  # no input needed
+    assert "excluded thesis" in result.stdout and "scrubbed" not in result.stdout
+    excluded, runs = _state(project_dir, thesis_id)
+    assert excluded == 1 and runs == 0
+
+
+def test_include_clears_the_flag(project_dir):
+    thesis_id = _seed_thesis(project_dir, analysed=False)
+    invoke("-C", project_dir, "exclude", thesis_id)
+    assert _state(project_dir, thesis_id)[0] == 1
+    invoke("-C", project_dir, "include", thesis_id)
+    assert _state(project_dir, thesis_id)[0] == 0
+
+
+def test_exclude_unknown_id_exits_65(project_dir):
+    result = runner.invoke(cli, ["-C", str(project_dir), "exclude", "999", "--yes"])
+    assert result.exit_code == 65
+    result = runner.invoke(cli, ["-C", str(project_dir), "include", "999"])
+    assert result.exit_code == 65
 
 
 @pytest.mark.slow

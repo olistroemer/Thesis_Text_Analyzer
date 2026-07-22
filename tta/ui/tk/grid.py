@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from tksheet import Sheet, num2alpha
 
@@ -17,6 +17,13 @@ from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
 COLOR_NA = "#e8e8e8"
 COLOR_ERROR = "#ffd0d0"
 COLOR_OUTLIER = "#ffe2b0"
+# Sec. 9.2: excluded rows render greyed (US-PROF-EXCLUDE, #11).
+COLOR_EXCLUDED = "#c8c8c8"
+COLOR_EXCLUDED_FG = "#707070"
+
+# Lead-column positions (LEAD_COLUMNS = "excluded", "file", "type").
+EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
+FILE_COL = LEAD_COLUMNS.index("file")
 
 
 def open_with_default_app(path) -> None:
@@ -97,7 +104,7 @@ class GridView(ttk.Frame):
     def _sorted_header_index(self) -> int | None:
         """Header position of the current sort column (ASCII indicator, #40)."""
         if self._sort_metric is None:
-            return 0  # LEAD_COLUMNS[0] is the filename column
+            return FILE_COL  # default sort is by filename
         offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
         for i, column in enumerate(self.columns):
             if column.metric == self._sort_metric:
@@ -109,7 +116,8 @@ class GridView(ttk.Frame):
         data = []
         for row in self.rows:
             file_label = ("[!] " if row.garbled else "") + row.thesis.pdf_filename
-            line = [file_label, row.thesis_type]
+            # LEAD_COLUMNS order: excluded (bool -> tksheet checkbox), file, type
+            line = [bool(row.thesis.excluded), file_label, row.thesis_type]
             line += ["[x]" if kind in row.artefacts else "" for kind in self.artefact_kinds]
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)
@@ -129,8 +137,26 @@ class GridView(ttk.Frame):
                     color = COLOR_OUTLIER
                 if color:
                     self.sheet.highlight_cells(row=r, column=offset + i, bg=color)
+        self._apply_excluded_column()
         self._set_notes()
         self.sheet.redraw()
+
+    def _apply_excluded_column(self) -> None:
+        """Register the lead Excluded column as a tksheet checkbox bound to the
+        toggle handler, and grey excluded rows (Sec. 9.2, #11). Re-applied each
+        render because ``set_sheet_data`` resets column options."""
+        self.sheet.checkbox(
+            self.sheet.span(num2alpha(EXCLUDED_COL)),
+            edit_data=False,  # keep the per-row bool already in the cell data
+            check_function=self._on_excluded_toggle,
+            text="",
+            redraw=False,
+        )
+        excluded_rows = [r for r, row in enumerate(self.rows) if row.thesis.excluded]
+        if excluded_rows:
+            self.sheet.highlight_rows(
+                rows=excluded_rows, bg=COLOR_EXCLUDED, fg=COLOR_EXCLUDED_FG, redraw=False
+            )
 
     def _set_notes(self) -> None:
         """Attach the Sec. 9.9 hover tooltips: a per-metric explanation on each
@@ -154,8 +180,8 @@ class GridView(ttk.Frame):
         offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
         for r, row in enumerate(self.rows):
             if row.garbled:
-                sheet.note(sheet.span(r, 0), note=grid_model.GARBLED_TOOLTIP)
-                self._note_cells.add((r, 0))
+                sheet.note(sheet.span(r, FILE_COL), note=grid_model.GARBLED_TOOLTIP)
+                self._note_cells.add((r, FILE_COL))
             for i, column in enumerate(self.columns):
                 tip = grid_model.cell_tooltip(row.cells[column.metric])
                 if tip:
@@ -185,6 +211,46 @@ class GridView(ttk.Frame):
         self.rows = grid_model.sort_rows(self.rows, self._sort_metric, self._sort_reverse)
         self._render()
 
+    def _on_excluded_toggle(self, event) -> None:
+        """Excluded checkbox toggled (US-PROF-EXCLUDE, #11). Excluding an
+        already-analysed thesis prompts a destructive-scrub confirmation and
+        then calls ``purge_analysis``; declining reverts the checkbox.
+        Un-excluding (or excluding a never-analysed thesis) just flips the flag
+        so the thesis re-runs as 'missing' on the next Run.
+
+        ``event.row`` is the data-row index (rows are not tksheet-reordered) and
+        ``event.value`` is the new checked state (tksheet flipped it before this
+        callback)."""
+        r = event.row
+        if not (0 <= r < len(self.rows)):
+            return
+        row = self.rows[r]
+        new_excluded = bool(event.value)
+        if grid_model.exclude_toggle_needs_confirmation(row, new_excluded):
+            confirmed = messagebox.askyesno(
+                "Exclude thesis",
+                f'Exclude "{row.thesis.pdf_filename}" and permanently delete its '
+                "cached analysis from this machine (extracted text, tokens, PDF "
+                "metadata and all metric values)?\n\n"
+                "This is destructive and cannot be undone. The source PDF file is "
+                "not touched.",
+                icon="warning",
+                default="no",
+                parent=self,
+            )
+            if not confirmed:
+                self._reload_current()  # revert the checkbox to the stored state
+                return
+        self.repo.set_excluded(row.thesis.id, new_excluded)
+        if new_excluded and row.has_analysis:
+            self.repo.purge_analysis(row.thesis.id, store=self.store)
+        self._reload_current()
+
+    def _reload_current(self) -> None:
+        """Reload the grid keeping the current columns and mode (used to apply or
+        revert an Excluded toggle without the parent window's help)."""
+        self.reload(self.columns, show_artefacts=bool(self.artefact_kinds))
+
     def _on_double_click(self, _event) -> None:
         """Double-click: artefact cell opens the cached file, file cell the
         PDF (US-PROF-DOUBLECLICK)."""
@@ -195,7 +261,7 @@ class GridView(ttk.Frame):
         if not (0 <= r < len(self.rows)):
             return
         row = self.rows[r]
-        if c == 0:
+        if c == FILE_COL:
             open_with_default_app(row.thesis.pdf_path)
         elif 0 < len(self.artefact_kinds) and len(LEAD_COLUMNS) <= c < len(LEAD_COLUMNS) + len(self.artefact_kinds):
             kind = self.artefact_kinds[c - len(LEAD_COLUMNS)]

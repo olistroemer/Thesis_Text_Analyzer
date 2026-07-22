@@ -10,6 +10,11 @@ import tkinter
 import pytest
 
 from tta.core.project import Project
+from tta.ui.tk.columns import LEAD_COLUMNS
+
+# The filename lives in the "file" lead column, no longer column 0 (the
+# Excluded checkbox is now the first lead column, #11).
+FILE_COL = LEAD_COLUMNS.index("file")
 
 
 def _display_available() -> bool:
@@ -61,7 +66,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             assert str(window._toolbar_buttons["Report"]["state"]) == "normal"
 
             # grid rendered the thesis row
-            assert window.grid_view.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"
+            assert window.grid_view.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
 
             # extended mode: more columns appear
             basic_cols = len(window.grid_view.sheet.headers())
@@ -83,13 +88,13 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             window.root.update_idletasks()
             headers = grid.sheet.headers()
             col = headers.index("word_count")
-            assert grid.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"
+            assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
             x = grid.sheet.MT.col_positions[col] + 5
             grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
             grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
             window.root.update_idletasks()
             assert grid._sort_metric == "word_count"
-            assert grid.sheet.get_sheet_data()[0][0] == "shorter_thesis.pdf"
+            assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (asc)"
 
             # #40: a repeat click on the same column flips ASC->DESC, so the
@@ -99,7 +104,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
             window.root.update_idletasks()
             assert grid._sort_reverse is True
-            assert grid.sheet.get_sheet_data()[0][0] == "english_thesis.pdf"
+            assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (desc)"
 
             # #33: while a run is in progress the run buttons are replaced by a

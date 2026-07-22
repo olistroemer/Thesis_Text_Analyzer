@@ -3,6 +3,7 @@
 from tta.ui.tk import grid_model
 from tta.ui.tk.columns import BASIC_METRICS, MetricColumn, metric_columns
 from tta.core.modules.registry import default_registry
+from tta.core.types import Thesis
 
 
 def seed(project, tmp_path):
@@ -127,6 +128,30 @@ def test_sort_rows_numeric_missing_last(project, tmp_path):
     columns = [MetricColumn("word_count", "mod_surface_counts")]
     rows = grid_model.sort_rows(grid_model.load_rows(project.repo, columns), "word_count", False)
     assert [r.cells["word_count"].value for r in rows] == [10.0, 30.0, None]
+
+
+def test_has_analysis_reflects_presence_of_runs(project, tmp_path):
+    """A row carries has_analysis=True when the thesis has any cached run (so
+    excluding it must scrub), and False for a never-analysed thesis (#11)."""
+    analysed = seed(project, tmp_path)  # four recorded runs
+    fresh = tmp_path / "fresh.pdf"
+    fresh.write_bytes(b"%PDF-fresh")
+    fresh_thesis = project.repo.add_thesis(fresh)  # no runs
+    rows = {r.thesis.id: r for r in grid_model.load_rows(project.repo, COLUMNS)}
+    assert rows[analysed.id].has_analysis is True
+    assert rows[fresh_thesis.id].has_analysis is False
+
+
+def test_exclude_toggle_needs_confirmation_only_for_analysed_exclude():
+    """Confirmation is required only when *excluding* a thesis that has cached
+    analysis to scrub; un-excluding or excluding a fresh thesis is silent (#11)."""
+    thesis = Thesis(id=1, pdf_sha256=None, pdf_path="/x.pdf", pdf_filename="x.pdf")
+    analysed = grid_model.ThesisRow(thesis=thesis, has_analysis=True)
+    fresh = grid_model.ThesisRow(thesis=thesis, has_analysis=False)
+    assert grid_model.exclude_toggle_needs_confirmation(analysed, True) is True
+    assert grid_model.exclude_toggle_needs_confirmation(analysed, False) is False
+    assert grid_model.exclude_toggle_needs_confirmation(fresh, True) is False
+    assert grid_model.exclude_toggle_needs_confirmation(fresh, False) is False
 
 
 def test_basic_mode_columns_are_a_curated_subset():

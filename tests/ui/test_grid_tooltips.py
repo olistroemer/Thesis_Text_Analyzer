@@ -10,7 +10,10 @@ import tkinter
 import pytest
 
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import MetricColumn, column_help
+from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
+
+LEAD = len(LEAD_COLUMNS)
+FILE_COL = LEAD_COLUMNS.index("file")
 
 
 def _display_available() -> bool:
@@ -73,7 +76,7 @@ def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
         root.update_idletasks()
 
         sheet = grid.sheet
-        offset = 2  # LEAD_COLUMNS = (file, type)
+        offset = LEAD  # LEAD_COLUMNS = (excluded, file, type)
         col = {c.metric: offset + i for i, c in enumerate(COLUMNS)}
 
         # na cell surfaces the reason string verbatim
@@ -89,12 +92,12 @@ def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
         # ok cell carries no note
         assert _cell_note(sheet, 0, col["word_count"]) is None
 
-        # garbled row explains itself on the leftmost (file) cell
-        assert _cell_note(sheet, 0, 0) == grid_model.GARBLED_TOOLTIP
+        # garbled row explains itself on the file cell (glyph is prefixed there)
+        assert _cell_note(sheet, 0, FILE_COL) == grid_model.GARBLED_TOOLTIP
 
-        # column headers explain their metric
+        # column headers explain their metric / lead column
         assert _header_note(sheet, col["yules_k"]) == column_help("yules_k")
-        assert _header_note(sheet, 0) == column_help("file")
+        assert _header_note(sheet, FILE_COL) == column_help("file")
     finally:
         root.destroy()
 
@@ -119,12 +122,12 @@ def test_stale_notes_cleared_on_reload(project, tmp_path):
         grid = GridView(root, project.repo, project.store)
         grid.reload(columns, show_artefacts=False)
         root.update_idletasks()
-        assert _cell_note(grid.sheet, 1, 2) is not None
+        assert _cell_note(grid.sheet, 1, LEAD) is not None
 
         # drop to a single row and re-render; row index 1 must be clear again
         grid.rows = grid.rows[:1]
         grid._render()
         root.update_idletasks()
-        assert _cell_note(grid.sheet, 1, 2) is None
+        assert _cell_note(grid.sheet, 1, LEAD) is None
     finally:
         root.destroy()
