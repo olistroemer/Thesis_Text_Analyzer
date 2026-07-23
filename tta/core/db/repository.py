@@ -12,10 +12,13 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import tta
 from tta.core.types import Thesis
+
+if TYPE_CHECKING:
+    from tta.core.artefacts import ArtefactStore
 
 
 def _now() -> str:
@@ -174,6 +177,37 @@ class Repository:
         )
         self.conn.commit()
 
+    def purge_analysis(self, thesis_id: int, store: "ArtefactStore | None" = None) -> None:
+        """Scrub an excluded thesis's cached analysis (US-PROF-EXCLUDE, #11).
+
+        The one sanctioned break in append-only history (ADR-0006 rev. 5): in
+        a single transaction, delete this thesis's ``metric_values`` (joined
+        via its ``module_runs``), ``artefact_files`` and ``module_runs`` rows
+        - keeping the ``theses`` row (with ``excluded=1``) so its content-
+        addressed identity is remembered and it is never silently re-analysed.
+        The on-disk ``artefacts/<thesis_id>/`` tree (the PII-bearing files) is
+        removed afterwards via ``store.purge`` when a ``store`` is supplied.
+        The source PDF is untouched.
+
+        Delete order respects the ``run_id`` foreign keys: ``metric_values``
+        and ``artefact_files`` reference ``module_runs(id)``, so they go first.
+        The filesystem removal follows the DB commit; if ``store.purge`` raises
+        (e.g. a locked file), the DB scrub has already committed - state is
+        consistent - and the error propagates so the caller can warn that the
+        local artefact files were not fully removed. Those files never leave the
+        machine (ADR-0007), so an incomplete scrub is a local-only warning.
+        """
+        with self.transaction():
+            self.conn.execute(
+                "DELETE FROM metric_values WHERE run_id IN"
+                " (SELECT id FROM module_runs WHERE thesis_id = ?)",
+                (thesis_id,),
+            )
+            self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (thesis_id,))
+            self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (thesis_id,))
+        if store is not None:
+            store.purge(thesis_id)
+
     # -- runs and metrics --------------------------------------------------
 
     def latest_runs(self) -> dict[tuple[int, str], sqlite3.Row]:
@@ -182,6 +216,39 @@ class Repository:
             "SELECT * FROM v_module_run_history WHERE recency_rank = 1"
         ).fetchall()
         return {(r["thesis_id"], r["module_name"]): r for r in rows}
+
+    def module_duration_stats(self) -> dict[str, float]:
+        """Per-module cost rate for the size-weighted ETA (#39, SDD Sec. 5.5).
+
+        Returns, per module, the mean over past **successful** (``ok``) runs of
+        ``duration_ms / pdf_size_bytes`` - a rate in milliseconds per byte.
+        Only runs with a recorded ``duration_ms`` and a **positive** PDF size
+        contribute (guards divide-by-zero and NULL sizes); a module with no
+        such history is simply absent from the result (the estimator then
+        falls back to the rate observed so far in the current run)."""
+        rows = self.conn.execute(
+            "SELECT mr.module_name AS name, mr.duration_ms AS dur, t.pdf_size_bytes AS size"
+            " FROM module_runs mr JOIN theses t ON t.id = mr.thesis_id"
+            " WHERE mr.status = 'ok' AND mr.duration_ms IS NOT NULL"
+            " AND t.pdf_size_bytes IS NOT NULL AND t.pdf_size_bytes > 0"
+        ).fetchall()
+        sums: dict[str, float] = {}
+        counts: dict[str, int] = {}
+        for row in rows:
+            rate = row["dur"] / row["size"]
+            sums[row["name"]] = sums.get(row["name"], 0.0) + rate
+            counts[row["name"]] = counts.get(row["name"], 0) + 1
+        return {name: sums[name] / counts[name] for name in sums}
+
+    def thesis_sizes(self) -> dict[int, int]:
+        """Thesis id -> PDF size in bytes, for weighting the ETA by the size of
+        the theses still to process (#39). Theses whose size is unknown (NULL)
+        are omitted; ``add_thesis`` records the size (a cheap ``stat``), so this
+        is populated from add time even before a thesis is analysed."""
+        rows = self.conn.execute(
+            "SELECT id, pdf_size_bytes FROM theses WHERE pdf_size_bytes IS NOT NULL"
+        ).fetchall()
+        return {row["id"]: row["pdf_size_bytes"] for row in rows}
 
     def record_run(
         self,

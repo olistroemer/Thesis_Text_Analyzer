@@ -7,7 +7,10 @@ from dataclasses import dataclass
 
 from tta.core.modules.registry import ModuleRegistry
 
-LEAD_COLUMNS = ("file", "type")
+# The Excluded checkbox is the first lead column in BOTH modes - it is a
+# professor-facing privacy control, not a power-user feature (US-PROF-EXCLUDE,
+# SDD Sec. 9.2, #11).
+LEAD_COLUMNS = ("excluded", "file", "type")
 
 #: Curated basic-mode metric subset (Sec. 9.3 "limited columns visible by default").
 BASIC_METRICS = (
@@ -24,6 +27,11 @@ BASIC_METRICS = (
 #: grid appends to headers (" (asc)"/" (desc)") is irrelevant here.
 COLUMN_HELP: dict[str, str] = {
     # lead columns
+    "excluded": (
+        "Exclude this thesis from analysis and exports. Excluding an already-"
+        "analysed thesis deletes its cached analysis (artefacts + metrics) from "
+        "this machine after a confirmation; the source PDF is not touched."
+    ),
     "file": "File name of the thesis PDF. Double-click to open the PDF.",
     "type": "Detected thesis type (bachelor / master / unspecified); blank until analysed.",
     # artefact presence columns (extended mode)

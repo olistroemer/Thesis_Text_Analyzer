@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from tta.core import events
+from tta.core import events, progress
 from tta.core.config import save_config
 from tta.core.modules.registry import default_registry
 from tta.core.privacy_metadata import render_report_md
@@ -40,6 +41,11 @@ class MainWindow:
         self._event_queue: queue.Queue = queue.Queue()
         self._run_thread: threading.Thread | None = None
         self._runner = None
+        # Live progress + size-weighted ETA (#39); widgets live in the run area
+        # next to the Cancel control, state is reset between runs.
+        self._progress_bar: ttk.Progressbar | None = None
+        self._progress_label: ttk.Label | None = None
+        self._reset_progress_state()
 
         self._build_menu()
         if first_launch:
@@ -172,8 +178,9 @@ class MainWindow:
         self._run_thread.start()
 
     def _show_cancel_control(self) -> None:
-        """Swap the run toolbar for a single Cancel button while a run is in
-        progress (skip-pending cancellation, ADR-0013). The normal toolbar is
+        """Swap the run toolbar for a Cancel button plus an inline determinate
+        progress bar + ETA label while a run is in progress (skip-pending
+        cancellation, ADR-0013; live progress, #39). The normal toolbar is
         restored on RunCompleted/RunCancelled by ``_render_toolbar``."""
         for child in self.toolbar.winfo_children():
             child.destroy()
@@ -181,6 +188,12 @@ class MainWindow:
         button = ttk.Button(self.toolbar, text="Cancel run", command=self._cancel_run)
         button.pack(side="left", padx=2)
         self._toolbar_buttons["Cancel run"] = button
+        self._progress_bar = ttk.Progressbar(
+            self.toolbar, mode="determinate", length=240, maximum=1, value=0
+        )
+        self._progress_bar.pack(side="left", padx=(12, 4))
+        self._progress_label = ttk.Label(self.toolbar, text="Planning...")
+        self._progress_label.pack(side="left", padx=2)
 
     def _cancel_run(self) -> None:
         """Tell the active runner to stop submitting new theses. In-flight
@@ -215,7 +228,10 @@ class MainWindow:
         try:
             while True:
                 event = self._event_queue.get_nowait()
-                if isinstance(event, events.ModuleCompleted):
+                if isinstance(event, events.RunStarted):
+                    self._begin_progress(event.plan)
+                elif isinstance(event, events.ModuleCompleted):
+                    self._advance_progress(event)
                     self._set_status(
                         f"Running... thesis {event.thesis_id}: {event.module_name} {event.status}"
                     )
@@ -226,6 +242,7 @@ class MainWindow:
                     )
                 elif isinstance(event, (events.RunCompleted, events.RunCancelled)):
                     self._render_toolbar()  # restore normal run controls
+                    self._reset_progress_state()  # drop the (now destroyed) bar refs
                     self.refresh()
                     cancelled = isinstance(event, events.RunCancelled)
                     self._set_status("Run cancelled" if cancelled else "Run finished")
@@ -235,6 +252,85 @@ class MainWindow:
         except queue.Empty:
             pass
         self.root.after(POLL_MS, self._drain_events)
+
+    # -- live progress + size-weighted ETA (#39) --------------------------------
+
+    def _reset_progress_state(self) -> None:
+        """Clear the per-run estimator state. The progress widgets are owned by
+        the run toolbar and destroyed by ``_render_toolbar``, so only the
+        references are dropped here."""
+        self._progress_bar = None
+        self._progress_label = None
+        self._run_total = 0
+        self._run_done = 0
+        self._run_remaining: list[tuple[int, str]] = []  # (thesis_id, module_name)
+        self._run_sizes: dict[int, int] = {}
+        self._run_rates: dict[str, float] = {}  # historical ms/byte at run start
+        self._run_obs: dict[str, list[float]] = {}  # module -> [sum_ms, sum_bytes]
+        self._run_start = 0.0
+
+    def _begin_progress(self, plan) -> None:
+        """Initialise the determinate bar + ETA from the run plan (RunStarted).
+
+        The per-module historical rates and thesis sizes come from the main-
+        thread repository (reads only; the runner writes on its own connection,
+        #27). In-run observations are folded in as pairs complete."""
+        self._run_total = plan.pair_count
+        self._run_done = 0
+        self._run_remaining = [
+            (tp.thesis.id, pm.name) for tp in plan.theses for pm in tp.modules
+        ]
+        self._run_sizes = self.project.repo.thesis_sizes()
+        self._run_rates = self.project.repo.module_duration_stats()
+        self._run_obs = {}
+        self._run_start = time.monotonic()
+        if self._progress_bar is not None:
+            self._progress_bar.configure(maximum=max(self._run_total, 1), value=0)
+        self._render_progress()
+
+    def _advance_progress(self, event: events.ModuleCompleted) -> None:
+        """Advance one (thesis x module) pair on ModuleCompleted and recompute
+        the ETA, folding this module's observed cost into the in-run rate."""
+        pair = (event.thesis_id, event.module_name)
+        if pair in self._run_remaining:
+            self._run_remaining.remove(pair)
+        self._run_done += 1
+        size = self._run_sizes.get(event.thesis_id, 0)
+        if event.status == "ok" and event.duration_ms and size > 0:
+            acc = self._run_obs.setdefault(event.module_name, [0.0, 0.0])
+            acc[0] += event.duration_ms
+            acc[1] += size
+        if self._progress_bar is not None:
+            self._progress_bar.configure(value=self._run_done)
+        self._render_progress()
+
+    def _merged_rates(self) -> dict[str, float]:
+        """History rates overlaid with the rate observed so far this run
+        (mean ms/byte over this run's ok pairs of each module)."""
+        rates = dict(self._run_rates)
+        for module, (sum_ms, sum_bytes) in self._run_obs.items():
+            if sum_bytes > 0:
+                rates[module] = sum_ms / sum_bytes
+        return rates
+
+    def _render_progress(self) -> None:
+        if self._progress_label is None:
+            return
+        remaining = [(module, self._run_sizes.get(tid, 0)) for tid, module in self._run_remaining]
+        est = progress.estimate(
+            self._run_done,
+            self._run_total,
+            remaining,
+            self._merged_rates(),
+            time.monotonic() - self._run_start,
+        )
+        if not est.total:
+            text = ""
+        elif est.eta_seconds is None:
+            text = f"{est.done}/{est.total} pairs - estimating..."
+        else:
+            text = f"{est.done}/{est.total} pairs - ~{progress.format_eta(est.eta_seconds)} left"
+        self._progress_label.configure(text=text)
 
     def _show_report(self) -> None:
         self.report_view.render()

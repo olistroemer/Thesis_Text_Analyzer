@@ -1,7 +1,7 @@
 # ADR-0006: Database schema — unified, source-aware, append-only history
 
-**Status:** Accepted (revision 4 — SHA-256 hashing deferred from add time to first-run time; `pdf_sha256` is NULL until a thesis is first analysed; add-time identity/dedup keys on path, content identity/dedup applies at run time. See #38.)
-**Date:** 2026-06-03 (rev. 4: 2026-07-22)
+**Status:** Accepted (revision 5 — SHA-256 hashing deferred from add time to first-run time (rev. 4, #38); excluding an already-analysed thesis **scrubs** its cached analysis via `purge_analysis`, an intentional, documented exception to append-only history (#11). See below.)
+**Date:** 2026-06-03 (rev. 4: 2026-07-22; rev. 5: 2026-07-23)
 **Drivers:** ADR-0004 (modules + versions), ADR-0005 (producer swap deferred), US-PROF-EXCLUDE, US-PROF-ATTRS, US-RES-IMPORT, US-RES-LOCAL-RERUN, US-RES-LOW-FRICTION (rev. 4: instant add), QA-TEST, QA-PRIV.
 
 ## Decision
@@ -30,6 +30,18 @@ The former `theses.type` and `theses.language_hint` override columns were **drop
 
 Exactly one row in `sources` with `kind='local'` on a freshly-initialised DB. Imported exports add rows with `kind='imported'`. The runner filter at SDD §5.3 ensures only `kind='local'` theses are re-run; imported data is read-only context.
 
+## Excluded-thesis scrub — an intentional append-only exception (rev. 5, #11)
+
+Toggling `excluded` **on** for a thesis that has already been analysed **deletes its cached analysis** (US-PROF-EXCLUDE, QA-PRIV): `Repository.purge_analysis(thesis_id)` removes, in **one transaction**, the thesis's `metric_values` (joined via its `module_runs.run_id`), its `module_runs`, and its `artefact_files` rows, then removes the on-disk `artefacts/<thesis_id>/` tree via `ArtefactStore.purge`. The `theses` row is **kept** with `excluded=1` so the content-addressed identity is remembered and the thesis is never silently re-analysed. Toggling `excluded` **off** clears the flag and the thesis becomes eligible again (it re-runs as "missing").
+
+This **deliberately breaks the append-only-history guarantee** (QA-AUDIT) for that one thesis. The tension is accepted:
+
+- Excluded theses are **already absent** from every export ([ADR-0007](0007-export-format.md): rows where `excluded=1` are stripped, and the whole `artefact_files`/artefact tree never leaves the machine) and from report aggregates ([ADR-0016]). So the scrub changes nothing about what leaves the machine or what a downstream auditor sees.
+- The value it adds is **local defence-in-depth**: "I changed my mind — remove the raw text and tokens for this document from my disk now," rather than leaving PII-bearing artefacts cached until the next vacuum. The artefacts (`raw_text`, `tokens`, `pdf_metadata`) are the real PII (`CONTENT`/`IDENTIFYING`, [ADR-0009](0009-privacy-as-code.md)); metrics are non-PII but are scrubbed too for a clean, unambiguous "this thesis carries no analysis" state.
+- Excluding **before** any run needs no scrub: the runner's `plan()` already skips excluded theses, so no `raw_text`/tokens are ever extracted or cached in the first place.
+
+The scrub is destructive and irreversible (locally), but the **source PDF is untouched** — re-including and re-running reconstructs the analysis from scratch. Both adapters reach it after a confirmation step (GUI dialog; CLI `tta exclude` prompt, `--yes` to skip). This is the only sanctioned deletion path in an otherwise append-only schema; `purge_analysis` is the single method that performs it. If the on-disk file removal fails (e.g. a locked file), the DB scrub has already committed and the failure is **surfaced** (GUI warning; CLI stderr + `EX_PARTIAL` exit) rather than silently reported as a clean scrub; the residual files never leave the machine ([ADR-0007](0007-export-format.md)), so this is a local-only warning, not a disclosure.
+
 ## Why content-addressed identity (`pdf_sha256`)
 
 Content-addressing means a thesis keeps its history across renames/moves and gives a portable cross-export identifier. **The hash is not computed on add** (rev. 4, #38): reading every file to hash it made adding a folder of PDFs feel like the app had hung, which the low-friction contribute loop (US-RES-LOW-FRICTION) cannot afford. Instead:
@@ -52,6 +64,7 @@ The tradeoff: between add and first run, a moved/renamed file added under a new 
 - ✅ Adding theses is instant regardless of file size or count (rev. 4, #38): no file is read until analysis.
 - ⚠️ `pdf_sha256` is NULL for a thesis added but never analysed; any code relying on it (export identity, content-dedup) must tolerate NULL until the first run. Export keeps the column nullable and never fabricates a hash.
 - ✅ Append-only history surfaces stale-row detection (`module_runs.module_version` vs live module version) and supports module-version diagnosis.
+- ⚠️ Append-only history has exactly one sanctioned exception: `purge_analysis` deletes an excluded thesis's cached analysis (rev. 5, #11). Scoped, confirmed, and privacy-motivated; documented above.
 - ✅ Single schema serves both modes; if we ever split the tools, no schema migration needed.
 - ✅ Views isolate query complexity from caller code.
 - ✅ Migrations testable from scratch every test run.

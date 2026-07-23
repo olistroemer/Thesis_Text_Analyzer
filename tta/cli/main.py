@@ -176,6 +176,86 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
         stdout.print(table)
 
 
+# -- exclude / include -------------------------------------------------------
+
+
+@cli.command()
+@click.argument("thesis_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt (for scripts).")
+@click.pass_context
+def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
+    """Exclude thesis THESIS_ID from analysis and exports (US-PROF-EXCLUDE).
+
+    Mirrors the GUI Excluded checkbox (ADR-0003, #11). If the thesis has
+    already been analysed, its cached analysis is scrubbed: the on-disk
+    artefacts (raw text, tokens, PDF metadata) plus its metric and run-history
+    rows are deleted from this machine (ADR-0006 rev. 5). This is destructive
+    and irreversible; the source PDF is not touched. Excluding before a run
+    simply prevents any analysis from ever being cached.
+    """
+    with open_project(ctx) as project:
+        try:
+            project.repo.get_thesis(thesis_id)
+        except KeyError as exc:
+            raise DataError(str(exc)) from exc
+        has_analysis = bool(
+            project.repo.conn.execute(
+                "SELECT 1 FROM module_runs WHERE thesis_id = ? LIMIT 1", (thesis_id,)
+            ).fetchone()
+        )
+        if has_analysis and not yes:
+            confirmed = click.confirm(
+                f"Exclude thesis {thesis_id} and permanently delete its cached "
+                "analysis from this machine (artefacts, metrics, run history)? "
+                "This is destructive and cannot be undone. The source PDF is "
+                "not touched.",
+            )
+            if not confirmed:
+                stdout.print("aborted; no changes made")
+                return
+        project.repo.set_excluded(thesis_id, True)
+        scrub_error: OSError | None = None
+        if has_analysis:
+            try:
+                project.repo.purge_analysis(thesis_id, store=project.store)
+            except OSError as exc:
+                scrub_error = exc
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+    if not has_analysis:
+        stdout.print(f"excluded thesis {thesis_id}")
+    elif scrub_error is None:
+        stdout.print(f"excluded thesis {thesis_id}; cached analysis scrubbed")
+    else:
+        # DB analysis removed, but the local files could not be fully deleted;
+        # they never leave the machine (ADR-0007) - warn rather than claim a
+        # clean scrub, and exit partial so scripts notice (#11 review).
+        stderr.print(
+            f"excluded thesis {thesis_id}; analysis records removed, but some "
+            f"cached files could not be deleted: {artefacts_dir} ({scrub_error}). "
+            "They are never exported; delete that folder manually to remove them."
+        )
+        ctx.exit(EX_PARTIAL)
+
+
+@cli.command()
+@click.argument("thesis_id", type=int)
+@click.pass_context
+def include(ctx: click.Context, thesis_id: int) -> None:
+    """Re-include a previously excluded thesis (clears the excluded flag).
+
+    The thesis becomes eligible again and re-runs as "missing" on the next
+    run (ADR-0003, #11). Analysis scrubbed at exclude time is not restored;
+    re-run to recompute it.
+    """
+    with open_project(ctx) as project:
+        try:
+            project.repo.get_thesis(thesis_id)
+        except KeyError as exc:
+            raise DataError(str(exc)) from exc
+        project.repo.set_excluded(thesis_id, False)
+    stdout.print(f"included thesis {thesis_id}")
+
+
 # -- module ----------------------------------------------------------------
 
 

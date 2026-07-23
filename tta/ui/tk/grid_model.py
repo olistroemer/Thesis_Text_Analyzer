@@ -47,6 +47,20 @@ class ThesisRow:
     artefacts: dict[str, str] = field(default_factory=dict)  # kind -> relative path
     garbled: bool = False
     thesis_type: str = ""  # detected `thesis_type` metric (ADR-0019, #9); "" until run
+    has_analysis: bool = False  # any module_runs row exists (there is cached
+    # analysis to scrub when excluding, #11)
+
+
+def exclude_toggle_needs_confirmation(row: ThesisRow, new_excluded: bool) -> bool:
+    """Whether flipping ``excluded`` to ``new_excluded`` for ``row`` must prompt
+    a destructive-scrub confirmation (US-PROF-EXCLUDE, #11).
+
+    Only when *excluding* a thesis that has a cached analysis to delete: that
+    triggers ``purge_analysis`` (irreversible local deletion of artefacts +
+    metrics + run history). Un-excluding, or excluding a never-analysed thesis
+    (nothing cached yet), needs no confirmation. Pure - unit-testable without
+    Tk."""
+    return new_excluded and row.has_analysis
 
 
 def _error_details(repo: Repository) -> dict[tuple[int, str], str]:
@@ -70,6 +84,10 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
             value = row["value_num"] if row["value_num"] is not None else row["value_text"]
             values[(row["thesis_id"], row["metric_name"])] = value
     details = _error_details(repo)
+    # theses that carry any run row -> there is cached analysis to scrub when
+    # excluding (#11). run_status spans every status (ok/na/error), so this is
+    # "has any module_runs row" regardless of outcome.
+    analysed_ids = {thesis_id for (thesis_id, _module) in run_status}
 
     rows = []
     for thesis in theses:
@@ -83,13 +101,15 @@ def load_rows(repo: Repository, columns: list[MetricColumn]) -> list[ThesisRow]:
                 detail=details.get((thesis.id, column.module)) if status == ERROR else None,
             )
         detected_type = values.get((thesis.id, "thesis_type"))
+        artefacts = repo.current_artefacts(thesis.id)
         rows.append(
             ThesisRow(
                 thesis=thesis,
                 cells=cells,
-                artefacts=repo.current_artefacts(thesis.id),
+                artefacts=artefacts,
                 garbled=values.get((thesis.id, "extraction_quality")) == "garbled",
                 thesis_type=detected_type if isinstance(detected_type, str) else "",
+                has_analysis=thesis.id in analysed_ids or bool(artefacts),
             )
         )
     return rows

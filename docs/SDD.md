@@ -288,6 +288,7 @@ Decision: [ADR-013](adr/0013-runner-orchestration.md). The runner splits into a 
 - Failures cascade as `na` to dependents.
 - Default workers: `max(1, os.cpu_count() - 1)`.
 - Events: `RunStarted`, `ThesisStarted`, `ModuleStarted`, `ModuleCompleted`, `ThesisCompleted`, `RunCompleted`, `RunCancelled`. Adapters subscribe; main process publishes (workers do not).
+- **Progress + size-weighted ETA (#39).** From the event stream an adapter drives a determinate progress bar (advance per `(thesis × module)` pair) and a remaining-time estimate. The estimate is computed by a pure, toolkit-free function in `core/progress.py` (`estimate`), reusable by GUI and CLI and unit-tested without a display. It models each module's cost as a **rate** = mean(`duration_ms` / `pdf_size_bytes`) over that module's past **successful (`ok`)** runs (`Repository.module_duration_stats`), and estimates remaining time as the **sum over the remaining `(thesis × module)` pairs of** `rate[module] × that thesis's pdf_size_bytes`. This accounts for the **size** of the theses still to process, not just their count. With no history for a module, the rate observed so far **in the current run** is used; before any pair completes, the bar advances with no ETA number ("estimating..."). The GUI renders this inline in the run area beside the Cancel control ([§9.2](#92-main-window-layout)); the CLI's progress goes to stderr.
 
 Two run modes for MVP:
 
@@ -569,7 +570,7 @@ Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`
                 pdf_metadata.json
 ```
 
-`<thesis_id>` and `<run_id>` are integers; the layout is filesystem-safe on all OSes.
+`<thesis_id>` and `<run_id>` are integers; the layout is filesystem-safe on all OSes. These artefact files (`raw_text`, `tokens`, `pdf_metadata`) are the PII-bearing outputs ([ADR-0009](adr/0009-privacy-as-code.md)) and never leave the machine ([§8.3.1](#831-anonymisation-rules)). **Excluding an already-analysed thesis** deletes its entire `artefacts/<thesis_id>/` subtree locally, together with its DB analysis rows, via `Repository.purge_analysis` / `ArtefactStore.purge` (US-PROF-EXCLUDE, [ADR-0006](adr/0006-schema.md) rev. 5, #11) — the source PDF is untouched.
 
 ## 8.3 Export format
 
@@ -629,7 +630,9 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 
 - Toolbar buttons are icon + text.
 - While a run is in progress the run buttons are hidden and a single **Cancel** button takes their place; clicking it calls `Runner.cancel()` (skip-pending, [ADR-013](adr/0013-runner-orchestration.md)). The normal toolbar is restored on `RunCompleted`/`RunCancelled`.
+- Alongside the Cancel control, a **determinate progress bar** with a `"<done>/<total> pairs - ~<eta> left"` label reports run progress (#39, [§5.5](#55-runner-orchestration)). It advances per `(thesis × module)` pair on each `ModuleCompleted` event; the ETA is **size-weighted** (see [§5.5](#55-runner-orchestration)). It is hidden/reset on `RunCompleted`/`RunCancelled`.
 - Grid is sortable by clicking column headers.
+- The first lead column is an **Excluded** checkbox (both basic and extended modes — it is a professor-facing privacy control, not a power-user feature; US-PROF-EXCLUDE). Ticking it marks the thesis `excluded` (`repository.set_excluded`); excluded rows render **greyed**. Ticking it for an **already-analysed** thesis prompts a destructive-and-irreversible confirmation, then scrubs the cached analysis via `purge_analysis` ([§8.2](#82-filesystem-layout), [ADR-0006](adr/0006-schema.md) rev. 5); the source PDF is untouched. Un-ticking clears the flag and the thesis re-runs as "missing" on the next Run. Excluding **before** a run means no `raw_text`/tokens are ever cached (the runner's `plan()` skips excluded theses).
 - Fuzzy search per column (extended mode).
 - Double-click an artefact cell opens the underlying file with the system default application.
 - Cells are coloured by outlier highlighting (see [§9.5](#95-outlier-highlighting)).
@@ -753,7 +756,7 @@ Whole-row indicator: theses with `extraction_quality = garbled` get a warning gl
 
 - The application runs fully offline. No network access.
 - Identifying fields (path, filename, notes, tags) are stripped from any export ([§8.3.1](#831-anonymisation-rules)).
-- Artefact files (raw text, tokens, full PDF metadata) never leave the user's machine.
+- Artefact files (raw text, tokens, full PDF metadata) never leave the user's machine. Excluding an already-analysed thesis additionally **deletes** these files (and its metric/run rows) from disk locally (`purge_analysis`, [ADR-0006](adr/0006-schema.md) rev. 5, #11) — local defence-in-depth; the source PDF is untouched.
 - Excluded theses do not appear in exports.
 - The pre-export dialog shows the professor exactly what will leave the machine.
 
@@ -808,7 +811,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0003](adr/0003-cli-first-class.md) | CLI as first-class primary adapter | Accepted |
 | [0004](adr/0004-module-contract.md) | Module contract — `ModuleSpec` + ABC, tag-based artefact kinds | Accepted |
 | [0005](adr/0005-producer-swap-deferred.md) | Producer swap deferred; comparison via separate runs | Accepted |
-| [0006](adr/0006-schema.md) | Database schema — unified, source-aware, append-only history | Accepted (rev. 4 — lazy SHA-256; instant add) |
+| [0006](adr/0006-schema.md) | Database schema — unified, source-aware, append-only history | Accepted (rev. 5 — lazy SHA-256; instant add; excluded-thesis scrub) |
 | [0007](adr/0007-export-format.md) | Export format — SQLite, PII-stripped, history by default | Accepted |
 | 0008 | (retired — separate researcher schema; superseded by ADR-006) | Superseded |
 | [0009](adr/0009-privacy-as-code.md) | Privacy metadata as code; statement is rendered | Accepted |
@@ -841,7 +844,7 @@ Items captured because they will eventually be revisited or because they impose 
 | **In-app auto-update** | Module versions stored in DB so cross-cohort version differences are visible. | Probably never (violates fully-offline principle). |
 | **A/B comparison view in the grid** | DB stores per-metric `module_name` + `module_version`, so cross-pivot is already feasible. | When the comparison study finishes and we want it in-app. |
 | **Multivariate outlier detection** (Mahalanobis, isolation forest) | Single-metric IQR is enough; outlier strategy interface is pluggable. | Researcher feedback that single-metric misses cross-metric weirdness. |
-| **Rich live progress UI** (per-thesis progress bars, ETA) | Runner exposes progress via domain events; UI shows a coarse status line in MVP. Run cancellation is wired up (GUI Cancel button, CLI `Ctrl-C`); only the richer visual progress affordance is deferred. | First report of "I thought it had hung". |
+| ~~**Rich live progress UI** (per-thesis progress bars, ETA)~~ **Delivered (#39).** A determinate progress bar advancing per `(thesis × module)` pair, with a **size-weighted** remaining-time estimate, now sits inline beside the Cancel control ([§5.5](#55-runner-orchestration), [§9.2](#92-main-window-layout)); the ETA maths is a pure, unit-tested function in `core/progress.py`. Only per-thesis sub-bars remain out of scope. | Per-thesis sub-progress requested. |
 | **Anonymous-aggregate-only export mode** | Export module parameterised by `ExportPolicy` enum even in MVP. | Strictness requirement from an institution's ethics board. |
 | **Word-list-based vocabulary metrics** | None; new word-list-based modules slot in. | Word list of choice identified and licence-cleared. |
 | **macOS look polish** (sv-ttk theme or Qt switch) | None; document the cosmetic limitation. | Adoption blocker in practice. |
