@@ -55,7 +55,7 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 
 | target | ceiling (per executable) | basis |
 |---|---|---|
-| Linux x86_64 | **150 MB** | measured: 94.4 MiB CLI / 105.1 MiB GUI (below) |
+| Linux x86_64 | **150 MB** | measured: 93.0 MiB CLI / 104.8 MiB GUI (below) |
 | Windows x86_64 | **200 MB** | **provisional** — no measurement yet |
 | macOS arm64 | **200 MB** | **provisional** — no measurement yet |
 | macOS x86_64 | **200 MB** | **provisional** — no measurement yet |
@@ -67,8 +67,8 @@ Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0
 | | `tta` (CLI) | `tta-gui` (GUI) |
 |---|---|---|
 | contaminated build (before) | 212,788,216 B / 202.9 MiB | 212,005,368 B / 202.2 MiB |
-| clean build + excludes (after) | **99,033,064 B / 94.4 MiB** | **110,169,728 B / 105.1 MiB** |
-| **saved** | **-113.8 MB (-53.5 %)** | **-101.8 MB (-48.0 %)** |
+| clean build + excludes (after) | **97,539,152 B / 93.0 MiB** | **109,881,080 B / 104.8 MiB** |
+| **saved** | **-114.9 MB (-54.1 %)** | **-101.8 MB (-48.1 %)** |
 
 The dependency graphs behind those numbers, uncompressed, per binary:
 
@@ -77,9 +77,11 @@ The dependency graphs behind those numbers, uncompressed, per binary:
 | CLI (`Analysis-00.toc`) | 591.3 MB / 4734 entries | 264.5 MB / 2642 entries | llvmlite 168.04, scipy 84.60, pandas 26.07, numba 9.66 (undeclared) + matplotlib 18.36, kiwisolver 5.74, tksheet 1.18, contourpy 1.03, mpl_toolkits 0.24 (GUI-only), in MB |
 | GUI (`Analysis-01.toc`) | 589.6 MB / 4562 entries | 291.3 MB / 2830 entries | the undeclared numeric stack only — the plotting and grid stack stays, because the report view executes it |
 
+**On reproducing these numbers.** The "after" figures above were re-measured independently on 2026-08-26 in a throwaway `python -m venv` with `PYTHONNOUSERSITE=1`, via `python packaging/gen_third_party_licenses.py && pyinstaller packaging/tta.spec`. They came out 1.5 MB (CLI) and 0.3 MB (GUI) below the first recorded measurement. Exact byte counts are a function of the resolved wheel versions in the build environment, so they will drift between builds and between builders and are recorded here as evidence, not as a contract. **The contract is the ceiling table above**, which is why the gate in `packaging/check_build.py` asserts a ceiling and the absence of undeclared packages rather than an exact size.
+
 **345 files in each "before" graph were collected from `~/.local/lib/python3.12/site-packages`** (llvmlite and numba). The "after" graphs collect nothing from a user site directory; `packaging/check_build.py` gates on exactly that, and on the absence of the four undeclared packages.
 
-Note the ordering flip, which is what the per-binary scoping buys: before the fix the CLI was the *larger* of the two binaries; after it the CLI is 11.1 MB *smaller* than the GUI, and the difference is precisely the plotting and grid stack that only the GUI runs.
+Note the ordering flip, which is what the per-binary scoping buys: before the fix the CLI was the *larger* of the two binaries; after it the CLI is 12.3 MB *smaller* than the GUI, and the difference is precisely the plotting and grid stack that only the GUI runs.
 
 No feature was removed and no dependency was dropped to get there. The Linux ceiling sits ~43 % above the larger measured binary, which absorbs ordinary dependency drift while leaving no room for the numeric stack to return (`scipy` alone is 85 MB uncompressed, and a re-contaminated build lands at ~203 MiB, well over the ceiling). Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
 
