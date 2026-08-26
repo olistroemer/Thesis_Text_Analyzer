@@ -218,94 +218,6 @@ def test_add_theses_empty_batch_is_a_noop(project):
     assert project.repo.add_theses([]) == []
 
 
-def test_excluded_filtering(project, tmp_path):
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"x")
-    thesis = project.repo.add_thesis(pdf)
-    project.repo.set_excluded(thesis.id, True)
-    assert project.repo.list_theses(include_excluded=False) == []
-    assert len(project.repo.list_theses(include_excluded=True)) == 1
-
-
-def test_purge_analysis_scrubs_rows_and_disk_keeps_thesis(project, tmp_path):
-    """Excluding an already-analysed thesis scrubs its cached analysis
-    (US-PROF-EXCLUDE, ADR-0006 rev. 5, #11): the metric/run/artefact rows and
-    the on-disk artefacts/<id>/ tree go, the theses row stays excluded=1."""
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"%PDF-content")
-    thesis = project.repo.add_thesis(pdf)
-    with project.repo.transaction():
-        run_id = project.repo.record_run(
-            thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1}
-        )
-        src = tmp_path / "raw_text.txt"
-        src.write_text("secret extracted text", encoding="utf-8")
-        rel = project.store.store(thesis.id, run_id, "raw_text", src)
-        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
-    tree = project.dir / "artefacts" / str(thesis.id)
-    assert tree.exists()
-
-    project.repo.set_excluded(thesis.id, True)
-    project.repo.purge_analysis(thesis.id, store=project.store)
-
-    # the three row-sets are gone
-    assert project.conn.execute("SELECT COUNT(*) AS n FROM module_runs").fetchone()["n"] == 0
-    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
-    assert project.conn.execute("SELECT COUNT(*) AS n FROM artefact_files").fetchone()["n"] == 0
-    assert project.repo.current_artefacts(thesis.id) == {}
-    # the on-disk artefact subtree is removed
-    assert not tree.exists()
-    # the theses row is kept with excluded=1 (identity remembered)
-    kept = project.repo.get_thesis(thesis.id)
-    assert kept.excluded is True
-    # the source PDF is untouched
-    assert pdf.exists() and pdf.read_bytes() == b"%PDF-content"
-
-
-def test_purge_analysis_is_robust_without_store_or_artefacts(project, tmp_path):
-    """purge_analysis works DB-only (no store) and when nothing was cached."""
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"x")
-    thesis = project.repo.add_thesis(pdf)
-    with project.repo.transaction():
-        project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
-    # no store passed, no artefacts dir on disk: must not raise
-    project.repo.purge_analysis(thesis.id)
-    assert project.repo.latest_runs() == {}
-    # a store call on a thesis whose subtree does not exist is a no-op
-    project.repo.purge_analysis(thesis.id, store=project.store)
-
-
-def test_purge_analysis_surfaces_disk_failure_after_db_scrub(project, tmp_path, monkeypatch):
-    """A filesystem failure during the scrub is not swallowed (#11 review):
-    purge_analysis raises so the caller can warn. The DB scrub commits first,
-    so the rows are already gone; the residual files never leave the machine."""
-    pdf = tmp_path / "a.pdf"
-    pdf.write_bytes(b"%PDF-content")
-    thesis = project.repo.add_thesis(pdf)
-    with project.repo.transaction():
-        run_id = project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
-        src = tmp_path / "raw_text.txt"
-        src.write_text("secret", encoding="utf-8")
-        rel = project.store.store(thesis.id, run_id, "raw_text", src)
-        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
-
-    def _boom(self, thesis_id):
-        raise PermissionError("file is locked")
-
-    monkeypatch.setattr("tta.core.artefacts.ArtefactStore.purge", _boom)
-
-    project.repo.set_excluded(thesis.id, True)
-    with pytest.raises(OSError):
-        project.repo.purge_analysis(thesis.id, store=project.store)
-
-    # DB scrub committed before the (failed) disk step: rows already gone
-    assert project.repo.latest_runs() == {}
-    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
-    # theses row kept with the exclusion persisted
-    assert project.repo.get_thesis(thesis.id).excluded is True
-
-
 def _analyse(project, thesis, tmp_path, text=b"secret extracted text"):
     """Give a thesis one cached run with an on-disk artefact."""
     with project.repo.transaction():
@@ -420,29 +332,6 @@ def test_delete_thesis_surfaces_disk_failure_after_db_delete(project, tmp_path, 
     assert project.repo.latest_runs() == {}
 
 
-def test_dedup_fold_uses_the_shared_delete_implementation(project, tmp_path, monkeypatch):
-    """One delete implementation, not two (#63): the content-dedup fold - until
-    now the only place executing DELETE FROM theses - calls the same helper."""
-    a = tmp_path / "a.pdf"
-    a.write_bytes(b"%PDF-identical")
-    b = tmp_path / "b.pdf"
-    b.write_bytes(b"%PDF-identical")
-    first, second = project.repo.add_theses([a, b])
-    project.repo.assign_content_hash(first)
-
-    deleted: list[int] = []
-    real = Repository._delete_thesis_rows
-
-    def spy(self, thesis_id):
-        deleted.append(thesis_id)
-        return real(self, thesis_id)
-
-    monkeypatch.setattr(Repository, "_delete_thesis_rows", spy)
-    assert project.repo.assign_content_hash(second) == first.id
-    assert deleted == [second.id]
-    assert len(project.repo.list_theses()) == 1
-
-
 def test_theses_row_delete_exists_in_exactly_one_place():
     """Structural guard for #63's "one delete implementation" criterion.
 
@@ -468,6 +357,117 @@ def test_theses_row_delete_exists_in_exactly_one_place():
         "DELETE FROM theses must live in _delete_thesis_rows alone (#63); "
         f"found it in: {owners or ['nowhere']}"
     )
+
+
+def test_dedup_fold_uses_the_shared_delete_implementation(project, tmp_path, monkeypatch):
+    """One delete implementation, not two (#63): the content-dedup fold - until
+    now the only place executing DELETE FROM theses - calls the same helper."""
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"%PDF-identical")
+    b = tmp_path / "b.pdf"
+    b.write_bytes(b"%PDF-identical")
+    first, second = project.repo.add_theses([a, b])
+    project.repo.assign_content_hash(first)
+
+    deleted: list[int] = []
+    real = Repository._delete_thesis_rows
+
+    def spy(self, thesis_id):
+        deleted.append(thesis_id)
+        return real(self, thesis_id)
+
+    monkeypatch.setattr(Repository, "_delete_thesis_rows", spy)
+    assert project.repo.assign_content_hash(second) == first.id
+    assert deleted == [second.id]
+    assert len(project.repo.list_theses()) == 1
+
+
+def test_excluded_filtering(project, tmp_path):
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"x")
+    thesis = project.repo.add_thesis(pdf)
+    project.repo.set_excluded(thesis.id, True)
+    assert project.repo.list_theses(include_excluded=False) == []
+    assert len(project.repo.list_theses(include_excluded=True)) == 1
+
+
+def test_purge_analysis_scrubs_rows_and_disk_keeps_thesis(project, tmp_path):
+    """Excluding an already-analysed thesis scrubs its cached analysis
+    (US-PROF-EXCLUDE, ADR-0006 rev. 5, #11): the metric/run/artefact rows and
+    the on-disk artefacts/<id>/ tree go, the theses row stays excluded=1."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(
+            thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1}
+        )
+        src = tmp_path / "raw_text.txt"
+        src.write_text("secret extracted text", encoding="utf-8")
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+    tree = project.dir / "artefacts" / str(thesis.id)
+    assert tree.exists()
+
+    project.repo.set_excluded(thesis.id, True)
+    project.repo.purge_analysis(thesis.id, store=project.store)
+
+    # the three row-sets are gone
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM module_runs").fetchone()["n"] == 0
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM artefact_files").fetchone()["n"] == 0
+    assert project.repo.current_artefacts(thesis.id) == {}
+    # the on-disk artefact subtree is removed
+    assert not tree.exists()
+    # the theses row is kept with excluded=1 (identity remembered)
+    kept = project.repo.get_thesis(thesis.id)
+    assert kept.excluded is True
+    # the source PDF is untouched
+    assert pdf.exists() and pdf.read_bytes() == b"%PDF-content"
+
+
+def test_purge_analysis_is_robust_without_store_or_artefacts(project, tmp_path):
+    """purge_analysis works DB-only (no store) and when nothing was cached."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"x")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+    # no store passed, no artefacts dir on disk: must not raise
+    project.repo.purge_analysis(thesis.id)
+    assert project.repo.latest_runs() == {}
+    # a store call on a thesis whose subtree does not exist is a no-op
+    project.repo.purge_analysis(thesis.id, store=project.store)
+
+
+def test_purge_analysis_surfaces_disk_failure_after_db_scrub(project, tmp_path, monkeypatch):
+    """A filesystem failure during the scrub is not swallowed (#11 review):
+    purge_analysis raises so the caller can warn. The DB scrub commits first,
+    so the rows are already gone; the residual files never leave the machine."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+        src = tmp_path / "raw_text.txt"
+        src.write_text("secret", encoding="utf-8")
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+
+    def _boom(self, thesis_id):
+        raise PermissionError("file is locked")
+
+    monkeypatch.setattr("tta.core.artefacts.ArtefactStore.purge", _boom)
+
+    project.repo.set_excluded(thesis.id, True)
+    with pytest.raises(OSError):
+        project.repo.purge_analysis(thesis.id, store=project.store)
+
+    # DB scrub committed before the (failed) disk step: rows already gone
+    assert project.repo.latest_runs() == {}
+    assert project.conn.execute("SELECT COUNT(*) AS n FROM metric_values").fetchone()["n"] == 0
+    # theses row kept with the exclusion persisted
+    assert project.repo.get_thesis(thesis.id).excluded is True
 
 
 def test_module_duration_stats_mean_rate_per_module(project, tmp_path):
