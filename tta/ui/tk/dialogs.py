@@ -62,6 +62,53 @@ def add_folder_flow(parent, project: Project) -> int:
         return 0
     return len(project.repo.add_theses(pdfs))
 
+def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
+    """Confirm, then remove one thesis from the project. Returns True if it was.
+
+    The harder version of the Excluded checkbox (#63, ADR-0006 rev. 7). The
+    wording has to carry the two things that distinguish it from excluding:
+    the cached analysis is destroyed, and the thesis row itself is forgotten -
+    so nothing can re-include it, and the same PDF adds again as a fresh
+    thesis. The source PDF is untouched.
+
+    An incomplete artefact removal is surfaced rather than swallowed (as in
+    ``export_flow``'s sibling path for exclude, #11): the rows are already
+    gone, the residual files never leave the machine (ADR-0007), and the user
+    is told where they are."""
+    try:
+        thesis = project.repo.get_thesis(thesis_id)
+    except KeyError:
+        messagebox.showerror(
+            "Remove thesis", f"Thesis {thesis_id} is no longer in this project.", parent=parent
+        )
+        return False
+    if not messagebox.askyesno(
+        "Remove thesis",
+        f"Remove {thesis.pdf_filename} from the project?\n\n"
+        "Its analysis results (cached text, tokens, metrics and run history) "
+        "are permanently deleted from this machine, and the thesis is "
+        "forgotten entirely - unlike excluding it, there is nothing left to "
+        "re-include. Adding the same file again later creates a new thesis "
+        "with no history.\n\nThe PDF itself is not touched. "
+        "This cannot be undone.",
+        parent=parent,
+        icon="warning",
+        default="no",
+    ):
+        return False
+    try:
+        project.repo.delete_thesis(thesis_id, store=project.store)
+    except OSError as exc:
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+        messagebox.showwarning(
+            "Remove thesis",
+            f"{thesis.pdf_filename} was removed from the project, but some "
+            f"cached files could not be deleted:\n{artefacts_dir}\n({exc})\n\n"
+            "They are never exported. Delete that folder manually to remove them.",
+            parent=parent,
+        )
+    return True
+
 def export_flow(parent, project: Project) -> None:
     """Pre-export confirmation (Sec. 8.3, QA-PRIV): row count + path, one
     Export button, no further choices."""

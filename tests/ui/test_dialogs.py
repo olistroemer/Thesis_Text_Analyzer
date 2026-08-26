@@ -105,3 +105,86 @@ def test_add_files_flow_cancelled(gui_project, monkeypatch):
     assert dialogs.add_files_flow(None, gui_project) == 0
     assert gui_project.repo.list_theses() == []
 
+
+
+# -- remove_thesis_flow (#63) ------------------------------------------------
+
+
+def _analysed(project, pdf_name="mistake.pdf", tmp_path=None):
+    pdf = project.dir / pdf_name
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+        src = project.dir / "raw.txt"
+        src.write_text("secret extracted text", encoding="utf-8")
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+    return thesis
+
+
+def _capture(monkeypatch, *, confirm):
+    seen = SimpleNamespace(asked=[], warned=[], errored=[])
+    monkeypatch.setattr(
+        dialogs.messagebox, "askyesno",
+        lambda title, message, **kw: (seen.asked.append(message), confirm)[1],
+    )
+    monkeypatch.setattr(
+        dialogs.messagebox, "showwarning",
+        lambda title, message, **kw: seen.warned.append(message),
+    )
+    monkeypatch.setattr(
+        dialogs.messagebox, "showerror",
+        lambda title, message, **kw: seen.errored.append(message),
+    )
+    return seen
+
+
+def test_remove_thesis_flow_confirms_then_forgets(gui_project, monkeypatch):
+    thesis = _analysed(gui_project)
+    tree = gui_project.dir / "artefacts" / str(thesis.id)
+    seen = _capture(monkeypatch, confirm=True)
+
+    assert dialogs.remove_thesis_flow(None, gui_project, thesis.id) is True
+
+    assert gui_project.repo.list_theses() == []
+    assert not tree.exists()
+    # the wording must carry both consequences, not just "deleted"
+    message = seen.asked[0]
+    assert "mistake.pdf" in message
+    assert "forgotten" in message and "re-include" in message
+    assert "cannot be undone" in message
+
+
+def test_remove_thesis_flow_declined_changes_nothing(gui_project, monkeypatch):
+    thesis = _analysed(gui_project)
+    _capture(monkeypatch, confirm=False)
+    assert dialogs.remove_thesis_flow(None, gui_project, thesis.id) is False
+    assert len(gui_project.repo.list_theses()) == 1
+    assert (gui_project.dir / "artefacts" / str(thesis.id)).exists()
+
+
+def test_remove_thesis_flow_reports_a_vanished_thesis(gui_project, monkeypatch):
+    """A stale grid selection must not raise out of the flow."""
+    seen = _capture(monkeypatch, confirm=True)
+    assert dialogs.remove_thesis_flow(None, gui_project, 999) is False
+    assert len(seen.errored) == 1
+    assert seen.asked == []  # nothing to confirm
+
+
+def test_remove_thesis_flow_warns_on_an_incomplete_artefact_removal(gui_project, monkeypatch):
+    """The rows are gone either way; a failed file removal is surfaced, not
+    swallowed, and the flow still reports success for the DB half (#11 review
+    contract, reused for #63)."""
+    thesis = _analysed(gui_project)
+    seen = _capture(monkeypatch, confirm=True)
+    monkeypatch.setattr(
+        "tta.core.artefacts.ArtefactStore.purge",
+        lambda self, tid: (_ for _ in ()).throw(PermissionError("file is locked")),
+    )
+
+    assert dialogs.remove_thesis_flow(None, gui_project, thesis.id) is True
+
+    assert gui_project.repo.list_theses() == []
+    assert len(seen.warned) == 1
+    assert "could not be deleted" in seen.warned[0]

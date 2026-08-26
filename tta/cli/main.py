@@ -257,6 +257,57 @@ def include(ctx: click.Context, thesis_id: int) -> None:
     stdout.print(f"included thesis {thesis_id}")
 
 
+@cli.command()
+@click.argument("thesis_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt (for scripts).")
+@click.pass_context
+def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
+    """Remove thesis THESIS_ID from the project entirely (#63).
+
+    The harder version of `exclude`, for a PDF added by accident. Exclude
+    keeps the thesis row so its identity is remembered and it is never
+    silently re-analysed; remove deletes the row as well, because a mis-added
+    thesis has no identity worth keeping - so the same PDF can afterwards be
+    added again as a fresh thesis. Its cached analysis (artefacts, metrics,
+    run history) goes with it. Destructive and irreversible; nothing restores
+    it and there is no row left to `include`. The source PDF is not touched.
+    """
+    with open_project(ctx) as project:
+        try:
+            thesis = project.repo.get_thesis(thesis_id)
+        except KeyError as exc:
+            raise DataError(str(exc)) from exc
+        if not yes:
+            confirmed = click.confirm(
+                f"Remove thesis {thesis_id} ({thesis.pdf_filename}) from the project "
+                "and permanently delete its cached analysis from this machine "
+                "(artefacts, metrics, run history)? The thesis is forgotten "
+                "entirely - this cannot be undone, and the source PDF is not "
+                "touched.",
+            )
+            if not confirmed:
+                stdout.print("aborted; no changes made")
+                return
+        remove_error: OSError | None = None
+        try:
+            project.repo.delete_thesis(thesis_id, store=project.store)
+        except OSError as exc:
+            remove_error = exc
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+    if remove_error is None:
+        stdout.print(f"removed thesis {thesis_id}")
+    else:
+        # The rows are gone (DB-first ordering) but the local files are not;
+        # they never leave the machine (ADR-0007) - warn rather than claim a
+        # clean removal, and exit partial so scripts notice.
+        stderr.print(
+            f"removed thesis {thesis_id}; database rows deleted, but some cached "
+            f"files could not be deleted: {artefacts_dir} ({remove_error}). "
+            "They are never exported; delete that folder manually to remove them."
+        )
+        ctx.exit(EX_PARTIAL)
+
+
 # -- module ----------------------------------------------------------------
 
 

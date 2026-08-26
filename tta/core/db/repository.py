@@ -214,14 +214,13 @@ class Repository:
                 " WHERE id = ?",
                 (row["pdf_path"], row["pdf_filename"], row["pdf_size_bytes"], canonical),
             )
-            self.conn.execute(
-                "DELETE FROM metric_values WHERE run_id IN"
-                " (SELECT id FROM module_runs WHERE thesis_id = ?)",
-                (row["id"],),
-            )
-            self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (row["id"],))
-            self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (row["id"],))
-            self.conn.execute("DELETE FROM theses WHERE id = ?", (row["id"],))
+            # One delete implementation, shared with delete_thesis (#63). The
+            # inner helper is called rather than delete_thesis itself because
+            # the canonical row's path update and the duplicate's removal must
+            # land in this one transaction. No disk purge is needed: the folded
+            # row has a NULL hash, so it was never run and cached nothing - the
+            # row deletes below are defensive.
+            self._delete_thesis_rows(row["id"])
         return canonical
 
     def get_thesis(self, thesis_id: int) -> Thesis:
@@ -274,6 +273,60 @@ class Repository:
             )
             self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (thesis_id,))
             self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (thesis_id,))
+        if store is not None:
+            store.purge(thesis_id)
+
+    def _delete_thesis_rows(self, thesis_id: int) -> None:
+        """Every row belonging to one thesis, the `theses` row included.
+
+        The single delete implementation (ADR-0006 rev. 7, #63): shared by
+        :meth:`delete_thesis` and by the content-dedup fold in
+        :meth:`assign_content_hash`, which needs the deletes inside its own
+        transaction. Caller owns the transaction and the filesystem step.
+
+        Delete order respects the ``run_id`` foreign keys: ``metric_values``
+        and ``artefact_files`` reference ``module_runs(id)``, so they go first,
+        and ``theses`` goes last."""
+        self.conn.execute(
+            "DELETE FROM metric_values WHERE run_id IN"
+            " (SELECT id FROM module_runs WHERE thesis_id = ?)",
+            (thesis_id,),
+        )
+        self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (thesis_id,))
+        self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (thesis_id,))
+        self.conn.execute("DELETE FROM theses WHERE id = ?", (thesis_id,))
+
+    def delete_thesis(self, thesis_id: int, store: "ArtefactStore | None" = None) -> None:
+        """Forget a thesis entirely - the harder version of exclude (#63).
+
+        The second sanctioned break in append-only history (ADR-0006 rev. 7).
+        Where :meth:`purge_analysis` deliberately **keeps** the ``theses`` row
+        so an excluded thesis's content-addressed identity is remembered, this
+        deletes the row too: a PDF added by mistake has no identity worth
+        remembering, and a remembered row would keep blocking a clean re-add of
+        the same file. Afterwards the same PDF adds again as a fresh thesis with
+        a fresh id and no history.
+
+        In one transaction: the thesis's ``metric_values`` (joined via its
+        ``module_runs``), ``artefact_files``, ``module_runs`` and ``theses``
+        rows. The on-disk ``artefacts/<thesis_id>/`` tree is then removed via
+        ``store.purge`` when a ``store`` is supplied - after the commit, and
+        with the same contract as :meth:`purge_analysis`: an ``OSError`` from
+        the filesystem step propagates (the DB deletion has already committed,
+        so state is consistent) and the caller warns that the local artefact
+        files were not fully removed. Those files never leave the machine
+        (ADR-0007), so an incomplete removal is a local-only warning. The
+        source PDF is untouched.
+
+        Removing an unknown id raises ``KeyError`` rather than silently
+        succeeding, so an adapter cannot report a removal that never happened.
+        """
+        if self.conn.execute(
+            "SELECT 1 FROM theses WHERE id = ?", (thesis_id,)
+        ).fetchone() is None:
+            raise KeyError(f"no thesis with id {thesis_id}")
+        with self.transaction():
+            self._delete_thesis_rows(thesis_id)
         if store is not None:
             store.purge(thesis_id)
 
