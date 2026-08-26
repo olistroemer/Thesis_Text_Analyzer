@@ -1,7 +1,7 @@
 # ADR-0006: Database schema — unified, source-aware, append-only history
 
-**Status:** Accepted (revision 5 — SHA-256 hashing deferred from add time to first-run time (rev. 4, #38); excluding an already-analysed thesis **scrubs** its cached analysis via `purge_analysis`, an intentional, documented exception to append-only history (#11). See below.)
-**Date:** 2026-06-03 (rev. 4: 2026-07-22; rev. 5: 2026-07-23)
+**Status:** Accepted (revision 6 — SHA-256 hashing deferred from add time to first-run time (rev. 4, #38); excluding an already-analysed thesis **scrubs** its cached analysis via `purge_analysis`, an intentional, documented exception to append-only history (#11); a mis-added thesis can be **removed** outright via `delete_thesis`, the second and last such exception (rev. 6, #63), and first-run hashing is batched into one transaction (rev. 6, #59). See below.)
+**Date:** 2026-06-03 (rev. 4: 2026-07-22; rev. 5: 2026-07-23; rev. 6: 2026-08-26)
 **Drivers:** ADR-0004 (modules + versions), ADR-0005 (producer swap deferred), US-PROF-EXCLUDE, US-PROF-ATTRS, US-RES-IMPORT, US-RES-LOCAL-RERUN, US-RES-LOW-FRICTION (rev. 4: instant add), QA-TEST, QA-PRIV.
 
 ## Decision

@@ -346,16 +346,13 @@ class Repository:
                         canonical_id,
                     ),
                 )
-                self.conn.execute(
-                    "DELETE FROM metric_values WHERE run_id IN"
-                    " (SELECT id FROM module_runs WHERE thesis_id = ?)",
-                    (row["id"],),
-                )
-                self.conn.execute(
-                    "DELETE FROM artefact_files WHERE thesis_id = ?", (row["id"],)
-                )
-                self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (row["id"],))
-                self.conn.execute("DELETE FROM theses WHERE id = ?", (row["id"],))
+                # One delete implementation (ADR-0006 rev. 6, #63): the fold
+                # shares _delete_thesis_rows rather than carrying its own copy
+                # of the four DELETEs. Called inside this transaction on
+                # purpose - the canonical row's path update and the
+                # duplicate's removal must apply atomically, so it cannot
+                # nest delete_thesis's own transaction.
+                self._delete_thesis_rows(row["id"])
         return canonical
 
     def get_thesis(self, thesis_id: int) -> Thesis:
