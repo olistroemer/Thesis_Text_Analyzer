@@ -10,9 +10,33 @@ The runner separates **planning** (deterministic, side-effect-free) from **execu
 
 Execution uses a `ProcessPoolExecutor` with one worker per concurrent thesis. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
 
-Cancellation is **skip-pending**: in-flight theses complete; no new ones are submitted. Runaway work is bounded by **two** timeouts - per module and per thesis (see [Timeouts](#timeouts)) - both of which kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
+Cancellation is **skip-pending with a bounded grace**: no new theses are submitted, and an in-flight thesis is given a short grace to finish before its worker is terminated (see [Cancellation](#cancellation)). Runaway work is bounded by **two** timeouts - per module and per thesis (see [Timeouts](#timeouts)) - both of which kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
 
 Workers are spawned with the **`spawn`** start method (`multiprocessing.get_context("spawn")`), not the Linux `fork` default: `execute()` runs on a background thread in the GUI, and forking a multi-threaded process risks deadlocks (and warns since Python 3.12). Spawn is thread-safe and matches the macOS/Windows default; per-worker re-import cost (nltk/textstat/langdetect) stays well within the ADR-0015 per-thesis budget (#32).
+
+## Cancellation
+
+**Revised (#57).** The original decision was purely skip-pending: `cancel()` stopped *scheduling*, and every in-flight thesis ran all its remaining modules to completion. The "Revisit when" trigger below — "per-thesis runtimes grow large enough that cancel lag becomes a real complaint (then either cooperative cancellation, or worker-kill on user cancel)" — has arrived, so this is the planned revision, not a contradiction: **worker-kill on user cancel**, bounded.
+
+`cancel()` records the monotonic time of the request. From then on the poll loop:
+
+1. submits no new theses (unchanged);
+2. keeps draining and committing what in-flight workers report, so a thesis that was nearly done still lands (unchanged);
+3. once `cancel_grace_s` (default 2 s) has elapsed since the request, **abandons** every remaining worker: `terminate()` → `join` → `kill()` fallback.
+
+Worst-case time from click to control returning is therefore `cancel_grace_s + 2 × join timeout`, ~12 s, in place of one full thesis per worker.
+
+An abandoned worker is deliberately *not* treated as a failure:
+
+- Outcomes already received are committed, exactly as for a normal thesis.
+- Modules that never reported get **no row** — no error, no `na`. A cancelled pair must stay `missing`, or ADR-0015's pause/resume property ("close the laptop, continue tomorrow") would resume against a history full of failures the user never caused.
+- Each of them gets a `ModuleCompleted(status="skipped")` so progress still reaches a terminal state, per the [failure policy](#failure-policy)'s pair-accounting invariant.
+
+`RunSummary` therefore distinguishes `theses_completed` from `theses_abandoned`, and a run counts as cancelled when either theses were skipped or workers were abandoned — previously `cancelled` required a *pending* thesis, so cancelling the last thesis of a batch reported a clean completion.
+
+The grace exists so that pressing Cancel on a batch that is 95 % through its current thesis does not throw that work away; 2 s is generous next to the ADR-0015 per-module budgets (the largest is 6 s) yet two orders of magnitude below the old worst case. Configurable as `[runner] cancel_grace_s`.
+
+Cooperative cancellation inside modules remains rejected (see [Alternatives](#alternatives-considered)): many of our bottlenecks are C-library calls that never yield to a checkpoint.
 
 ## Timeouts
 
@@ -34,6 +58,7 @@ Both are settable in `tta.toml`, so a user with 500-page scans need not patch th
 workers = 4
 module_timeout_s = 300.0
 thesis_timeout_s = 600.0
+cancel_grace_s = 2.0
 ```
 
 Omitted keys take the defaults above. `Runner.__init__` keeps them as constructor arguments and `Project.make_runner` passes the configured values through — previously only tests could change them.
@@ -93,7 +118,7 @@ Published from the main process to a small in-process `EventBus`:
 - `ModuleCompleted(thesis_id, module_name, status, duration_ms)` — `status` is `ok | na | error | skipped`; `skipped` carries `duration_ms=None` and no DB row (see [Failure policy](#failure-policy))
 - `ThesisCompleted(thesis_id, summary)`
 - `RunCompleted(summary)`
-- `RunCancelled(completed, skipped)`
+- `RunCancelled(completed, skipped, abandoned)` — `abandoned` counts workers terminated after the cancel grace
 
 Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI via direct stderr render). Both adapters expose `cancel()`: the GUI swaps its run buttons for a **Cancel** control while a run is in progress; the CLI installs a SIGINT handler so `Ctrl-C` cancels skip-pending and exits with the partial code (ADR-0003).
 
@@ -110,10 +135,10 @@ Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI v
 - ✅ `--dry-run` is a natural first-class feature.
 - ✅ Crashes are isolated per worker / per thesis, and a *hard* crash (no `thesis_done`) is detected rather than hanging the run (#55).
 - ✅ DB writes serialised through the main process; no SQLite contention.
-- ⚠️ Worst-case cancel lag is one thesis per worker (~30–120 s). Documented.
+- ✅ Cancel lag is bounded by `cancel_grace_s` + the join timeouts (~12 s worst case), not by one thesis per worker (~30–120 s) as in the original decision (#57).
 - ⚠️ Process pool brings pickling overhead per task; amortised away for our work units.
 
 ## Revisit when
 
-- Per-thesis runtimes grow large enough that cancel lag becomes a real complaint (then either cooperative cancellation, or worker-kill on user cancel).
+- ~~Per-thesis runtimes grow large enough that cancel lag becomes a real complaint (then either cooperative cancellation, or worker-kill on user cancel).~~ **Triggered and acted on (#57):** bounded-grace worker-kill, see [Cancellation](#cancellation).
 - LM-based modules introduce GPU coordination needs (probably forces per-GPU worker, not per-CPU).
