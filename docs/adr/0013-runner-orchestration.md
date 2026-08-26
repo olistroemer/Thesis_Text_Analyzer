@@ -112,7 +112,8 @@ Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `tta.toml [runner] wor
 
 Published from the main process to a small in-process `EventBus`:
 
-- `RunStarted(plan)`
+- `HashingProgress(done, total)` — emitted **before** `RunStarted`, while the batch's deferred SHA-256 hashes are computed ([ADR-0006](0006-schema.md) rev. 6). That phase is real work on a large corpus and used to display as a silent, mislabelled "Planning...", because `plan()` itself neither hashes nor reads a file (#59). `total` is the number of theses needing a hash; an adapter that ignores the event loses nothing but the display.
+- `RunStarted(plan)` — the plan **after** the hashing fold, so a thesis folded into a byte-identical sibling is already absent from its pair count
 - `ThesisStarted(thesis_id)`
 - `ModuleStarted(thesis_id, module_name)`
 - `ModuleCompleted(thesis_id, module_name, status, duration_ms)` — `status` is `ok | na | error | skipped`; `skipped` carries `duration_ms=None` and no DB row (see [Failure policy](#failure-policy))
