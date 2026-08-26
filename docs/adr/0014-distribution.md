@@ -1,6 +1,6 @@
 # ADR-0014: Distribution as single-file standalone binary
 
-**Status:** Accepted (revised — per **US-PROF-NO-TRACES**, no per-user state is written outside the project folder by default; the `~/.config` recent-projects file is removed; revised again 2026-08-26 to add the normative **clean-environment build** clause and the **size gate**, after #52 found the first release binary contaminated by undeclared packages). The **AGPL release gate** in the build pipeline is **superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
+**Status:** Accepted (revised — per **US-PROF-NO-TRACES**, no per-user state is written outside the project folder by default; the `~/.config` recent-projects file is removed; revised again 2026-08-26 to add the normative **clean-environment build** clause, the **size gate**, and the **third-party licence manifest**, after #52 found the first release binary contaminated by undeclared packages). The **AGPL release gate** in the build pipeline is **superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
 **Date:** 2026-06-03
 **Drivers:** US-ALL-OFFLINE, US-RES-LOW-FRICTION (step 1 = "start the app", not "start the app and then pick a folder"), US-PROF-AUTO-OPEN, US-PROF-NO-TRACES, QA-PORT.
 
@@ -60,6 +60,27 @@ No feature was removed and no dependency was dropped to get there. The ceiling s
 
 The gate is enforced in `.github/workflows/ci.yml` (`build-linux`) rather than in `pytest`, because it is a property of a produced artefact, not of the source tree. What `pytest` *does* assert is the build **contract** — that the spec still carries the excludes, still keeps the GUI-only imports out of the CLI graph, and that CI still sets `PYTHONNOUSERSITE` — so a regression is caught in the fast suite even when no binary is built (`tests/packaging/`).
 
+### Third-party licence manifest (normative)
+
+**Every distributed binary ships a `THIRD_PARTY_LICENSES.txt`.** This is a licence-compliance requirement, not a nicety. A `--onefile` executable is a distribution of every library inside it, and most of those libraries (MIT, BSD, Apache-2.0, PSF) require their notice and licence text to accompany binary redistribution. Freezing them into an opaque executable with no notices attached is a plain violation, however permissive the licence.
+
+The manifest is **generated at build time**, before PyInstaller runs, and bundled through the spec's `datas`; `packaging/tta.spec` **refuses to build if it is absent**, so a release cannot silently ship without it:
+
+```
+python packaging/gen_third_party_licenses.py --output build/licenses/THIRD_PARTY_LICENSES.txt
+PYTHONNOUSERSITE=1 pyinstaller packaging/tta.spec --noconfirm
+```
+
+`pip-licenses` (declared in the `build` extra) supplies the inventory — name, version, licence, project URL, and the licence text from each distribution's own metadata — which is why the manifest must be generated in the same clean environment that the freeze uses. Build-only tooling (PyInstaller, pip-licenses, setuptools and their dependencies) is filtered out: it is not redistributed. The manifest deliberately **over-reports** rather than under-reports — one file is bundled into both binaries even though the CLI no longer carries the plotting stack, since a surplus notice is harmless and a missing one is the violation.
+
+Three things the inventory alone does not cover, which the generator adds explicitly:
+
+1. **This program's own licence and Corresponding Source.** GPL-3.0-or-later ([ADR-0017](0017-license.md)) obliges us to convey the source. The manifest names the public repository and the release ref, which is the mechanism ADR-0017 §3 relies on.
+2. **PyMuPDF's AGPL-3.0 text in full.** PyMuPDF is dual-licensed *AGPL-3.0 or Artifex commercial*; this project distributes under the AGPL option, and AGPL-3.0 §4 requires the licence text to accompany the binary. **Its own `dist-info` does not carry that text** — PyMuPDF ships a 64-character `COPYING` that merely names the dual licence — so `pip-licenses` cannot supply it. The verbatim text is therefore committed at `packaging/licenses/AGPL-3.0.txt` and embedded as an appendix. Committing it (rather than fetching it during the build) keeps the build offline and reproducible.
+3. **A prominent PyMuPDF/MuPDF notice**, since it is the one bundled dependency whose licence imposes obligations on whoever redistributes this binary further.
+
+Sections 1 and 2 above are the release prerequisites #8 tracked; the generator makes them a build output rather than a manual checklist item.
+
 ## Code signing
 
 MVP ships **unsigned**. Workarounds (SmartScreen "More info → Run anyway", Gatekeeper right-click → Open) documented in release notes. Signing is revisited when deployment to multiple institutions warrants the cost.
@@ -83,6 +104,8 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ✅ Step 1 of the professor's happy path stays "start the app".
 - ✅ Schema migrations gated behind a defensive backup.
 - ✅ Binary contents are a function of the declared dependency set, not of the build machine (QA-REPRO); the size gate makes a re-contaminated build a CI failure rather than a shipped 212 MB download.
+- ✅ Licence compliance is a build output: the binary cannot be produced without its third-party notices, and the GPL Corresponding-Source pointer travels with it (ADR-0017).
+- ⚠️ The manifest reflects the *build environment*, so it is only as honest as the clean-environment clause above; a contaminated build would also over-report licences.
 - ⚠️ Startup ~1–3 s due to PyInstaller unpacking.
 - ⚠️ Binary size ~100 MB; CI ceiling 150 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
