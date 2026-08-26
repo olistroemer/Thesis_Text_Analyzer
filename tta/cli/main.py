@@ -343,9 +343,12 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
     is detected during the run (mod_classify_thesis_type), not set on add.
     """
     with open_project(ctx, create=True) as project:
-        for pdf in _collect_pdfs(inputs):
-            thesis = project.repo.add_thesis(pdf)
-            stderr.print(f"added thesis {thesis.id}: {thesis.pdf_filename}")
+        pdfs = _collect_pdfs(inputs)
+        if pdfs:
+            # one batched transaction for the whole INPUTS set, and one summary
+            # line instead of one per file (#61, ADR-0006 rev. 6)
+            added = project.repo.add_theses(pdfs)
+            stderr.print(f"added {len(added)} theses from {len(inputs)} input path(s)")
 
         bus = events.EventBus()
         bus.subscribe(

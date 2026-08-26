@@ -97,6 +97,125 @@ def test_assign_content_hash_sets_then_dedups(project, tmp_path):
     assert project.repo.get_thesis(first.id).pdf_filename == "b.pdf"
 
 
+def _make_pdfs(tmp_path, count, prefix="t"):
+    paths = []
+    for n in range(count):
+        pdf = tmp_path / f"{prefix}{n}.pdf"
+        pdf.write_bytes(b"%PDF-" + str(n).encode())
+        paths.append(pdf)
+    return paths
+
+
+class CountingConnection:
+    """Delegating proxy that tallies commits (sqlite3.Connection is immutable,
+    so it cannot be monkeypatched in place)."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.commits = 0
+
+    def commit(self):
+        self.commits += 1
+        return self._conn.commit()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_add_theses_commits_once_per_batch(project, tmp_path):
+    """O(1) commits, not O(N) (#61, ADR-0006 rev. 6). One fsync per PDF was
+    the real cost of adding a folder; count the commits to pin it down."""
+    paths = _make_pdfs(tmp_path, 25)
+    counting = CountingConnection(project.conn)
+    repo = Repository(counting)
+
+    added = repo.add_theses(paths)
+
+    assert len(added) == 25
+    assert counting.commits == 1  # one transaction for the batch, not 25
+    assert len(project.repo.list_theses()) == 25
+
+
+def test_add_thesis_one_by_one_would_cost_one_commit_each(project, tmp_path):
+    """The regression this fixes: the per-file loop the adapters used to run
+    cost one durable commit per PDF (#61)."""
+    paths = _make_pdfs(tmp_path, 5)
+    counting = CountingConnection(project.conn)
+    repo = Repository(counting)
+    for path in paths:
+        repo.add_thesis(path)
+    assert counting.commits == 5  # ... which is why the adapters now batch
+
+
+def test_add_thesis_still_commits_once_and_matches_the_batch_path(project, tmp_path):
+    """add_thesis is a one-element delegate; the single-add contract is
+    unchanged (hash NULL, size from stat, path-addressed identity)."""
+    pdf = tmp_path / "solo.pdf"
+    pdf.write_bytes(b"%PDF-solo")
+    single = project.repo.add_thesis(pdf)
+    batched = project.repo.add_theses([pdf])
+    assert batched == [single]  # same row, re-add updates rather than inserts
+    assert single.pdf_sha256 is None
+    assert len(project.repo.list_theses()) == 1
+
+
+def test_add_theses_returns_rows_in_first_appearance_order(project, tmp_path):
+    """One Thesis per distinct path, in input order; a path repeated inside one
+    batch resolves to a single row, exactly as re-adding it would (#61)."""
+    a, b = _make_pdfs(tmp_path, 2)
+    added = project.repo.add_theses([b, a, b, str(b)])
+    assert [t.pdf_filename for t in added] == ["t1.pdf", "t0.pdf"]
+    assert len(project.repo.list_theses()) == 2
+
+
+def test_add_theses_mixes_new_rows_and_re_adds(project, tmp_path):
+    """The batched dedup SELECT must classify each path correctly: existing
+    paths update in place (identity + history kept), new paths insert."""
+    a, b = _make_pdfs(tmp_path, 2)
+    first = project.repo.add_thesis(a)
+    with project.repo.transaction():
+        project.repo.record_run(first.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+    a.write_bytes(b"%PDF-grown-larger")  # size changes; the re-add picks it up
+
+    added = project.repo.add_theses([a, b])
+
+    assert added[0].id == first.id  # same row, not a duplicate
+    assert added[1].id != first.id
+    assert len(project.repo.list_theses()) == 2
+    row = project.conn.execute(
+        "SELECT pdf_size_bytes FROM theses WHERE id = ?", (first.id,)
+    ).fetchone()
+    assert row["pdf_size_bytes"] == len(b"%PDF-grown-larger")
+    assert project.repo.latest_runs()[(first.id, "mod_x")] is not None  # history kept
+
+
+def test_add_theses_chunks_large_batches(project, tmp_path, monkeypatch):
+    """Very large batches are split across transactions so a failure part-way
+    does not discard what already committed (#61)."""
+    monkeypatch.setattr("tta.core.db.repository._ADD_CHUNK", 4)
+    paths = _make_pdfs(tmp_path, 10)
+    added = project.repo.add_theses(paths)
+    assert len(added) == 10
+    assert [t.pdf_filename for t in added] == [p.name for p in paths]
+    assert len(project.repo.list_theses()) == 10
+
+
+def test_add_theses_missing_file_leaves_earlier_chunks_committed(project, tmp_path, monkeypatch):
+    """A vanished path aborts its own chunk with nothing written (the stat
+    happens before the transaction opens), but earlier chunks stay (#61)."""
+    monkeypatch.setattr("tta.core.db.repository._ADD_CHUNK", 2)
+    a, b, c = _make_pdfs(tmp_path, 3)
+    missing = tmp_path / "gone.pdf"
+    with pytest.raises(FileNotFoundError):
+        project.repo.add_theses([a, b, c, missing])
+    # chunk 1 (a, b) committed; chunk 2 (c, missing) wrote nothing at all
+    assert [t.pdf_filename for t in project.repo.list_theses()] == ["t0.pdf", "t1.pdf"]
+
+
+def test_add_theses_empty_batch_is_a_noop(project):
+    assert project.repo.add_theses([]) == []
+
+
 def test_excluded_filtering(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"x")

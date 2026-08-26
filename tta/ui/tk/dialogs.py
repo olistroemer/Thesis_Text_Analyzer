@@ -4,6 +4,7 @@ defaults, one decision per dialog)."""
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 from tta.core.export import ExportPolicy, export_database
@@ -21,9 +22,8 @@ def add_files_flow(parent, project: Project) -> int:
     )
     if not filenames:
         return 0
-    for filename in filenames:
-        project.repo.add_thesis(filename)
-    return len(filenames)
+    # one batched transaction, not one commit per file (#61, ADR-0006 rev. 6)
+    return len(project.repo.add_theses([Path(name) for name in filenames]))
 
 
 def export_flow(parent, project: Project) -> None:

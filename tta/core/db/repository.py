@@ -18,7 +18,15 @@ import tta
 from tta.core.types import Thesis
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from tta.core.artefacts import ArtefactStore
+
+
+# Paths per add transaction (#61): large enough that a folder add is a
+# handful of commits, small enough that a failure part-way keeps the
+# chunks already committed and the dedup IN (...) list stays modest.
+_ADD_CHUNK = 500
 
 
 def _now() -> str:
@@ -75,36 +83,97 @@ class Repository:
     # -- theses ----------------------------------------------------------
 
     def add_thesis(self, pdf_path: Path | str) -> Thesis:
-        """Instant add (ADR-0006 rev. 4, #38): no file read, so adding a
-        folder of PDFs never feels like the app hung (US-RES-LOW-FRICTION).
+        """Add one thesis; a one-element delegate to :meth:`add_theses`.
 
+        Instant add (ADR-0006 rev. 4, #38): no file read, so adding a folder
+        of PDFs never feels like the app hung (US-RES-LOW-FRICTION).
         ``pdf_sha256`` is left NULL; dedup keys on ``(source_id, pdf_path)``.
         A re-added path updates its filename/size and keeps identity and run
         history. The content hash and content-dedup are applied lazily at
         run time (:meth:`assign_content_hash`). Thesis type is a detected
         metric, not an add-time attribute (ADR-0019, #9)."""
-        pdf_path = Path(pdf_path)
-        size = pdf_path.stat().st_size  # cheap: metadata only, not a full read
-        source_id = self.ensure_local_source()
-        existing = self.conn.execute(
-            "SELECT id FROM theses WHERE source_id = ? AND pdf_path = ?",
-            (source_id, str(pdf_path)),
-        ).fetchone()
-        if existing is not None:
-            self.conn.execute(
-                "UPDATE theses SET pdf_filename = ?, pdf_size_bytes = ? WHERE id = ?",
-                (pdf_path.name, size, existing["id"]),
+        return self.add_theses([pdf_path])[0]
+
+    def add_theses(self, pdf_paths: "Sequence[Path | str]") -> list[Thesis]:
+        """Add many theses in **one transaction per chunk**, not one commit per
+        file (ADR-0006 rev. 6, #61).
+
+        The rev. 4 "instant add" claim held for the *file* work (nothing is
+        read) but not for the *transaction* work: committing per row cost one
+        fsync per PDF, which is what made adding a folder feel slow. Here the
+        local ``source_id`` is resolved once, every path is ``stat``-ed
+        **before** the transaction opens (so a vanished file aborts the chunk
+        with nothing written, as :meth:`add_thesis` always did), the dedup
+        lookup is a single batched ``SELECT`` for the whole chunk rather than
+        one per file, and the chunk commits once.
+
+        Returns one :class:`Thesis` per **distinct** path, in first-appearance
+        order; a path repeated inside one batch resolves to a single row, just
+        as re-adding it would. Batches larger than ``_ADD_CHUNK`` are split
+        across transactions, so a failure part-way does not discard the chunks
+        that already committed (and the ``IN (...)`` list stays well inside
+        SQLite's host-parameter limit)."""
+        # First-appearance order, de-duplicated; the last Path object for a
+        # given path string wins, mirroring "a re-add updates the row".
+        unique: dict[str, Path] = {}
+        for pdf_path in pdf_paths:
+            path = Path(pdf_path)
+            unique[str(path)] = path
+        keys = list(unique)
+        if not keys:
+            return []
+        source_id = self.ensure_local_source()  # once for the batch, not per file
+        theses: list[Thesis] = []
+        for start in range(0, len(keys), _ADD_CHUNK):
+            theses.extend(
+                self._add_theses_chunk(source_id, unique, keys[start:start + _ADD_CHUNK])
             )
-            self.conn.commit()
-            return self.get_thesis(existing["id"])
-        cur = self.conn.execute(
-            "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes, pdf_path,"
-            " pdf_filename, added_at)"
-            " VALUES (?, NULL, ?, ?, ?, ?)",
-            (source_id, size, str(pdf_path), pdf_path.name, _now()),
-        )
-        self.conn.commit()
-        return self.get_thesis(cur.lastrowid)
+        return theses
+
+    def _add_theses_chunk(
+        self, source_id: int, unique: dict[str, Path], keys: list[str]
+    ) -> list[Thesis]:
+        """One chunk of :meth:`add_theses`: one transaction, one commit."""
+        # cheap: metadata only, not a full read - and outside the transaction,
+        # so a missing file leaves the database untouched.
+        sizes = {key: unique[key].stat().st_size for key in keys}
+        placeholders = ",".join("?" * len(keys))
+        added_at = _now()
+        ids: list[int] = []
+        with self.transaction():  # a single commit for the whole chunk (#61)
+            existing = {
+                row["pdf_path"]: row["id"]
+                for row in self.conn.execute(
+                    "SELECT id, pdf_path FROM theses"
+                    f" WHERE source_id = ? AND pdf_path IN ({placeholders})",
+                    (source_id, *keys),
+                )
+            }
+            for key in keys:
+                path = unique[key]
+                thesis_id = existing.get(key)
+                if thesis_id is not None:
+                    self.conn.execute(
+                        "UPDATE theses SET pdf_filename = ?, pdf_size_bytes = ? WHERE id = ?",
+                        (path.name, sizes[key], thesis_id),
+                    )
+                else:
+                    cur = self.conn.execute(
+                        "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes, pdf_path,"
+                        " pdf_filename, added_at)"
+                        " VALUES (?, NULL, ?, ?, ?, ?)",
+                        (source_id, sizes[key], key, path.name, added_at),
+                    )
+                    thesis_id = cur.lastrowid
+                ids.append(thesis_id)
+        # one read-back for the chunk instead of one get_thesis per file
+        rows = {
+            row["id"]: _row_to_thesis(row)
+            for row in self.conn.execute(
+                f"SELECT * FROM theses WHERE id IN ({','.join('?' * len(ids))})", ids
+            )
+        }
+        return [rows[thesis_id] for thesis_id in ids]
 
     def assign_content_hash(self, thesis: Thesis) -> int:
         """Lazily compute + persist ``pdf_sha256`` and apply content-dedup
