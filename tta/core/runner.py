@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import logging
 import multiprocessing
 import queue as queue_mod
@@ -53,6 +55,16 @@ DEFAULT_THESIS_TIMEOUT_S = 600.0
 #: away - the largest ADR-0015 per-module budget is 6 s - and two orders of
 #: magnitude below the old worst case of one full thesis per worker.
 DEFAULT_CANCEL_GRACE_S = 2.0
+
+#: Characters of a module's captured stdout/stderr/log output kept in its run
+#: record (ADR-0013 "Module output capture", #68). The **tail** is kept - that
+#: is where a traceback or the last thing before a hang lives - so a runaway
+#: loop cannot bloat the database.
+STDOUT_CAPTURE_CHARS = 16 * 1024
+
+#: Reserved key under ``module_runs.notes`` carrying that capture. Keys
+#: beginning with ``_`` belong to the runner; a module's own keys are untouched.
+STDOUT_NOTES_KEY = "_stdout"
 
 #: How long a worker must be observed dead (``is_alive()`` false) with no
 #: ``thesis_done`` before its thesis is failed. A process can exit a few
@@ -138,10 +150,52 @@ class _ModuleOutcome:
     notes: dict = field(default_factory=dict)
     artefacts: dict[str, str] = field(default_factory=dict)  # kind -> tmp path
     workdir: str | None = None
+    #: captured stdout/stderr/log records, tail-truncated (#68)
+    stdout: str | None = None
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@contextlib.contextmanager
+def _capture_output(buffer: io.StringIO):
+    """Route everything a module writes into ``buffer`` (ADR-0013 "Module
+    output capture", #68).
+
+    Covers ``print()`` (stdout *and* stderr, merged in write order) and log
+    records: the root logger has no handler in a spawned worker, so ``log.info``
+    would vanish and warnings would escape through logging's ``lastResort`` onto
+    the parent's terminal, unlabelled. A handler on the same buffer fixes both;
+    the root level is lowered to INFO for the duration if it was higher.
+
+    Runs only inside the worker process, one buffer per module invocation - so
+    output can never interleave with another worker's, and is attributed to
+    exactly one ``(thesis, module)`` pair.
+    """
+    handler = logging.StreamHandler(buffer)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    previous_level = root.level
+    root.addHandler(handler)
+    if previous_level > logging.INFO:
+        root.setLevel(logging.INFO)
+    try:
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            yield
+    finally:
+        root.setLevel(previous_level)
+        root.removeHandler(handler)
+        handler.close()
+
+
+def _tail(text: str, limit: int = STDOUT_CAPTURE_CHARS) -> str | None:
+    """The last ``limit`` characters, marked if anything was dropped."""
+    if not text:
+        return None
+    if len(text) <= limit:
+        return text
+    return f"[... {len(text) - limit} characters truncated ...]\n" + text[-limit:]
 
 
 def _run_one_module(pm: PlannedModule, thesis: Thesis, available: dict[str, str]) -> _ModuleOutcome:
@@ -149,28 +203,30 @@ def _run_one_module(pm: PlannedModule, thesis: Thesis, available: dict[str, str]
     outcome = _ModuleOutcome(module_name=spec.name, module_version=spec.version, status="ok")
     outcome.started_at = _utc_now_iso()
     t0 = time.perf_counter()
+    buffer = io.StringIO()
     try:
-        applicability = pm.module.applicable(thesis)
-        if not applicability.ok:
-            outcome.status = "na"
-            outcome.reason = applicability.reason
-            return outcome
-        missing = [k for k in spec.consumes if k not in available]
-        if missing:
-            outcome.status = "na"
-            outcome.reason = f"upstream NA cascade: no {', '.join(missing)} available"
-            return outcome
-        workdir = Path(tempfile.mkdtemp(prefix=f"tta-{thesis.id}-{spec.name}-"))
-        outcome.workdir = str(workdir)
-        ctx = RunContext(
-            thesis=thesis,
-            artefacts={k: Path(p) for k, p in available.items() if k in spec.consumes},
-            workdir=workdir,
-        )
-        result: RunResult = pm.module.run(ctx)
-        outcome.metrics = result.metrics
-        outcome.notes = result.notes
-        outcome.artefacts = {k: str(p) for k, p in result.artefacts.items()}
+        with _capture_output(buffer):
+            applicability = pm.module.applicable(thesis)
+            if not applicability.ok:
+                outcome.status = "na"
+                outcome.reason = applicability.reason
+                return outcome
+            missing = [k for k in spec.consumes if k not in available]
+            if missing:
+                outcome.status = "na"
+                outcome.reason = f"upstream NA cascade: no {', '.join(missing)} available"
+                return outcome
+            workdir = Path(tempfile.mkdtemp(prefix=f"tta-{thesis.id}-{spec.name}-"))
+            outcome.workdir = str(workdir)
+            ctx = RunContext(
+                thesis=thesis,
+                artefacts={k: Path(p) for k, p in available.items() if k in spec.consumes},
+                workdir=workdir,
+            )
+            result: RunResult = pm.module.run(ctx)
+            outcome.metrics = result.metrics
+            outcome.notes = result.notes
+            outcome.artefacts = {k: str(p) for k, p in result.artefacts.items()}
     except NotApplicable as exc:
         outcome.status = "na"
         outcome.reason = str(exc)
@@ -180,6 +236,7 @@ def _run_one_module(pm: PlannedModule, thesis: Thesis, available: dict[str, str]
         outcome.error_traceback = traceback.format_exc()
     finally:
         outcome.duration_ms = int((time.perf_counter() - t0) * 1000)
+        outcome.stdout = _tail(buffer.getvalue())
     return outcome
 
 
@@ -740,6 +797,13 @@ class Runner:
         status_counts = {"ok": 0, "na": 0, "error": 0}
         with self.repo.transaction():
             for outcome in worker.outcomes:
+                notes = outcome.notes
+                if outcome.stdout:
+                    # local-only: notes is registered CONTENT and stripped from
+                    # every export (SDD Sec. 8.3.1, ADR-0007), which is what
+                    # captured output needs - it can quote thesis text (#68)
+                    notes = dict(notes)
+                    notes[STDOUT_NOTES_KEY] = outcome.stdout
                 run_id = self.repo.record_run(
                     thesis_id,
                     outcome.module_name,
@@ -750,7 +814,7 @@ class Runner:
                     started_at=outcome.started_at,
                     duration_ms=outcome.duration_ms,
                     metrics=outcome.metrics,
-                    notes=outcome.notes,
+                    notes=notes,
                 )
                 for kind, tmp_path in outcome.artefacts.items():
                     relative = self.store.store(thesis_id, run_id, kind, Path(tmp_path))

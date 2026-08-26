@@ -2,8 +2,10 @@
 
 import dataclasses
 import json
+import logging
 import os
 import queue
+import sys
 import time
 
 import pytest
@@ -128,6 +130,41 @@ class SleepyQuality(Module):
     def run(self, ctx: RunContext) -> RunResult:
         time.sleep(30)
         return RunResult(metrics={"extraction_quality": "ok"})
+
+
+class ChattyExtract(Module):
+    """Prints, writes to stderr and logs - the three channels #68 captures."""
+
+    spec = ModuleSpec(
+        name="mod_fake_extract",
+        version="1.0.0",
+        produces_artefacts=(artefact_kinds.RAW_TEXT,),
+        produces_metrics=("text_chars",),
+    )
+
+    def run(self, ctx: RunContext) -> RunResult:
+        print("hello from stdout")
+        print("hello from stderr", file=sys.stderr)
+        logging.getLogger("tta.core.modules.fake").info("hello from the log")
+        out = ctx.workdir / "raw_text.txt"
+        out.write_text("x" * 10, encoding="utf-8")
+        return RunResult(
+            metrics={"text_chars": 10},
+            notes={"own_key": 1},
+            artefacts={artefact_kinds.RAW_TEXT: out},
+        )
+
+
+class LoudExtract(Module):
+    """A runaway loop - its output must not be stored in full."""
+
+    spec = ModuleSpec(name="mod_fake_extract", version="1.0.0")
+
+    def run(self, ctx: RunContext) -> RunResult:
+        for i in range(4000):
+            print(f"line {i} " + "y" * 40)
+        print("LAST LINE")
+        return RunResult()
 
 
 def make_runner(project, modules, **kwargs):
@@ -680,3 +717,54 @@ def test_up_to_date_plan_stats_no_artefacts(project, tmp_path):
     bumped.spec = dataclasses.replace(FakeQuality.spec, version="1.1.0")
     runner2, _ = make_runner(project, [FakeExtract(), bumped])
     assert runner2.plan().pair_count == 3  # stale quality on 3 theses
+
+
+def _notes_of(project, module_name: str) -> dict:
+    row = project.conn.execute(
+        "SELECT notes FROM module_runs WHERE module_name = ?", (module_name,)
+    ).fetchone()
+    return json.loads(row["notes"])
+
+
+def test_module_output_is_captured_into_the_run_record(project, tmp_path):
+    """print(), stderr and log records all land against that (thesis, module)
+    run instead of on the parent's terminal unlabelled - or, in the frozen GUI
+    with no console, nowhere at all (#68)."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [ChattyExtract()])
+    assert runner.execute(runner.plan()).ok == 1
+
+    notes = _notes_of(project, "mod_fake_extract")
+    captured = notes["_stdout"]
+    assert "hello from stdout" in captured
+    assert "hello from stderr" in captured
+    assert "hello from the log" in captured  # root logger has no handler otherwise
+    assert "INFO tta.core.modules.fake" in captured  # attributed, not bare text
+    assert notes["own_key"] == 1  # the module's own diagnostics are untouched
+
+
+def test_captured_output_is_tail_truncated(project, tmp_path):
+    """A runaway loop must not bloat the DB; the tail is what is kept, because
+    that is where a traceback or the last thing before a hang lives (#68)."""
+    from tta.core.runner import STDOUT_CAPTURE_CHARS
+
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [LoudExtract()])
+    runner.execute(runner.plan())
+
+    captured = _notes_of(project, "mod_fake_extract")["_stdout"]
+    assert "characters truncated" in captured
+    assert len(captured) < STDOUT_CAPTURE_CHARS + 200
+    assert captured.rstrip().endswith("LAST LINE")
+    assert "line 0 " not in captured  # the head went, not the tail
+
+
+def test_silent_modules_add_no_stdout_key(project, tmp_path):
+    """No capture, no key: existing notes payloads are unchanged (#68)."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [FakeExtract()])
+    runner.execute(runner.plan())
+    row = project.conn.execute(
+        "SELECT notes FROM module_runs WHERE module_name = 'mod_fake_extract'"
+    ).fetchone()
+    assert row["notes"] is None
