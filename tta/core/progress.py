@@ -1,16 +1,33 @@
-"""Pure, toolkit-free run-progress estimation (SDD Sec. 5.5, #39).
+"""Pure, toolkit-free run-progress estimation (SDD Sec. 5.5, #39, #54, #58).
 
 The GUI progress bar (and any CLI progress affordance) drive their display from
 this module. It imports nothing from the ``tta/ui`` or ``tta/cli`` adapter
 packages and needs no Tk display, so it is unit-testable in isolation (ADR-0002
-boundary; hard invariant 3 of the gui-features lane).
+boundary).
 
-The estimate is *size-weighted*: each module has a cost rate in milliseconds per
-byte (from history via ``Repository.module_duration_stats`` and/or observed in
-the current run), and the remaining time is the sum over the remaining
-``(thesis x module)`` pairs of ``rate[module] * that thesis's size in bytes``.
-Bigger remaining theses therefore lengthen the estimate, not merely more of them
-- the user's explicit requirement.
+Nothing here reads the clock. The caller passes wall-clock elapsed seconds (for
+the in-flight pairs) and the runner's worker count in, so every function is a
+deterministic function of its arguments.
+
+The model, per SDD Sec. 5.5:
+
+*   **Affine cost.** One ``(thesis x module)`` pair costs
+    ``intercept_ms + slope_ms_per_byte * pdf_size_bytes``. Not a pure rate: a
+    large part of the cost is constant (``spawn`` re-imports nltk/textstat/
+    langdetect in every worker, ADR-0013) and several modules are page- or
+    token-driven rather than byte-driven. ``Repository.module_duration_stats``
+    fits the pair from history; ``fit_cost`` is the maths.
+*   **Priors.** A module with no history uses a per-module prior seeded from
+    ADR-0015's budget table (``prior_cost``) - never the mean of whichever
+    rates happen to be known already, which on a first run priced all eleven
+    not-yet-reported modules at the extractor's rate (#54).
+*   **Parallelism.** Theses run concurrently (up to ``workers``) while modules
+    within a thesis are serial, so remaining cost is bucketed per thesis and the
+    estimate is a makespan bound: the worker-count division or the longest
+    single remaining thesis, whichever is larger.
+*   **Countdown.** In-flight pairs are credited with the seconds already burned,
+    so the estimate decays between events; ``damp_eta`` smooths successive
+    estimates so the label reads as a countdown.
 """
 
 from __future__ import annotations
@@ -18,79 +35,256 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+#: ``(intercept_ms, slope_ms_per_byte)`` - the affine cost of one module on one
+#: thesis. ``intercept`` is the size-independent part (worker spawn + imports,
+#: fixed setup); ``slope`` scales with the PDF's byte size.
+CostModel = tuple[float, float]
+
+#: Nominal size of the "median 100-page thesis" that ADR-0015's per-module
+#: budgets are quoted for. Only used to turn a budget into a prior slope.
+PRIOR_THESIS_BYTES = 2_000_000
+
+#: Per-module time budgets from ADR-0015 ("Per-module time budgets", median
+#: 100-page thesis), in milliseconds. These seed the priors for modules with no
+#: recorded history; they are upper bounds, so a prior errs high until the first
+#: real observation is blended in.
+MODULE_BUDGET_MS: dict[str, float] = {
+    "mod_extract_pymupdf": 6000.0,
+    "mod_check_extraction_quality": 100.0,
+    "mod_classify_language": 500.0,
+    "mod_tokenize": 4000.0,
+    "mod_surface_counts": 200.0,
+    "mod_vocabulary": 300.0,
+    "mod_readability": 500.0,
+    "mod_redundancy": 400.0,
+    "mod_count_images": 2000.0,
+    "mod_extract_pdf_metadata": 1000.0,
+}
+
+#: Budget for a module absent from ADR-0015's table (a newer or third-party
+#: module): the order of magnitude of the cheap-to-middling entries above.
+DEFAULT_BUDGET_MS = 500.0
+
+#: Fraction of a prior/history budget attributed to the size-independent part.
+#: ADR-0015 quotes one number per module, not a split, so an even split is the
+#: neutral choice: at ``PRIOR_THESIS_BYTES`` the prior reproduces the budget
+#: exactly, while a thesis twice that size costs 1.5x rather than 2x.
+PRIOR_INTERCEPT_SHARE = 0.5
+
+#: Pseudo-count given to the history/prior model when blending in-run
+#: observations (``blend_cost``): the in-run model needs this many samples
+#: before it outweighs history. Small, because in-run observations come from
+#: the very machine and corpus being estimated.
+HISTORY_WEIGHT = 3.0
+
+#: Share of a *rise* in the raw estimate that ``damp_eta`` lets through per
+#: call. Falls are shown immediately.
+RISE_FACTOR = 0.25
+
 
 @dataclass(frozen=True)
 class Progress:
     fraction: float  # 0.0..1.0, for a determinate progress bar
     eta_seconds: float | None  # None => not enough data yet ("estimating...")
-    done: int
-    total: int
+    done: int  # (thesis x module) pairs completed
+    total: int  # (thesis x module) pairs planned
+    theses_done: int = 0  # primary readout for the label (#58)
+    theses_total: int = 0
 
 
-def _mean(values: Iterable[float]) -> float | None:
+def _mean(values: Iterable[float]) -> float:
     values = list(values)
-    return sum(values) / len(values) if values else None
+    return sum(values) / len(values) if values else 0.0
+
+
+def prior_cost(module: str) -> CostModel:
+    """Per-module cost prior from ADR-0015's budget table (#54).
+
+    The budget is split ``PRIOR_INTERCEPT_SHARE`` constant / remainder
+    size-proportional at ``PRIOR_THESIS_BYTES``, so a nominal thesis costs
+    exactly the budget and larger theses cost proportionally more - but not
+    linearly more, which matches the constant spawn/import overhead.
+    """
+    budget = MODULE_BUDGET_MS.get(module, DEFAULT_BUDGET_MS)
+    intercept = budget * PRIOR_INTERCEPT_SHARE
+    slope = (budget - intercept) / PRIOR_THESIS_BYTES
+    return (intercept, slope)
+
+
+def fit_cost(samples: Sequence[tuple[float, float]]) -> CostModel | None:
+    """Least-squares ``(intercept_ms, slope_ms_per_byte)`` over observations.
+
+    Args:
+        samples: ``(pdf_size_bytes, duration_ms)`` pairs for ONE module.
+
+    Returns ``None`` for no samples. Coefficients are never negative: a fit
+    with a negative slope degrades to intercept-only (the mean duration) and
+    one with a negative intercept to a line through the origin, because a
+    module that gets cheaper on bigger PDFs, or costs negative time at zero
+    bytes, is noise rather than signal.
+
+    Observations at a **single distinct size** give intercept-only. One size
+    carries no information about size dependence, and reading it as a rate is
+    precisely how a single small thesis used to inflate the estimate for every
+    large one still queued (#54).
+    """
+    points = [(max(float(size), 0.0), float(dur)) for size, dur in samples]
+    if not points:
+        return None
+    if len({size for size, _ in points}) < 2:
+        return (_mean(dur for _, dur in points), 0.0)
+    n = float(len(points))
+    sx = sum(size for size, _ in points)
+    sy = sum(dur for _, dur in points)
+    sxx = sum(size * size for size, _ in points)
+    sxy = sum(size * dur for size, dur in points)
+    denom = n * sxx - sx * sx
+    if denom <= 0:  # defensive; distinct sizes >= 2 makes this unreachable
+        return (_mean(dur for _, dur in points), 0.0)
+    slope = (n * sxy - sx * sy) / denom
+    intercept = (sy - slope * sx) / n
+    if slope < 0:
+        return (_mean(dur for _, dur in points), 0.0)
+    if intercept < 0:
+        return (0.0, sxy / sxx) if sxx > 0 else (_mean(dur for _, dur in points), 0.0)
+    return (intercept, slope)
+
+
+def blend_cost(
+    base: CostModel | None,
+    observed: CostModel | None,
+    observed_n: int,
+    *,
+    history_weight: float = HISTORY_WEIGHT,
+) -> CostModel | None:
+    """Blend an in-run cost model into history/prior by sample weight (#54).
+
+    The old code *overwrote* history with the in-run mean the moment a single
+    pair completed, so one unrepresentative pair threw the whole estimate. Here
+    the in-run model earns its weight: ``observed_n / (observed_n +
+    history_weight)``. With no base, the observation is taken as-is.
+    """
+    if observed is None or observed_n <= 0:
+        return base
+    if base is None:
+        return observed
+    weight = observed_n / (observed_n + max(history_weight, 0.0))
+    return (
+        base[0] * (1.0 - weight) + observed[0] * weight,
+        base[1] * (1.0 - weight) + observed[1] * weight,
+    )
+
+
+def pair_cost_ms(module: str, size_bytes: int, costs: Mapping[str, CostModel]) -> float:
+    """Cost in ms of one ``(thesis x module)`` pair under ``costs``, falling back
+    to this module's ADR-0015 prior when it has no usable model."""
+    model = costs.get(module)
+    size = max(float(size_bytes), 0.0)
+    if model is not None:
+        cost = model[0] + model[1] * size
+        if cost > 0:
+            return cost
+    intercept, slope = prior_cost(module)
+    return intercept + slope * size
 
 
 def estimate(
     done: int,
     total: int,
-    remaining: Sequence[tuple[str, int]],
-    rates: Mapping[str, float],
-    elapsed_s: float = 0.0,
+    remaining: Sequence[tuple[int, str, int]],
+    costs: Mapping[str, CostModel],
+    *,
+    in_flight: Mapping[tuple[int, str], float] | None = None,
+    workers: int = 1,
+    theses_total: int = 0,
+    theses_done: int = 0,
 ) -> Progress:
-    """Return the determinate-bar fraction and a size-weighted ETA (#39).
+    """Determinate-bar fraction plus a size-weighted, parallelism-aware ETA.
 
     Args:
         done: ``(thesis x module)`` pairs completed so far in the run.
         total: total pairs planned for the run.
-        remaining: the not-yet-done pairs, each ``(module_name, thesis_size_bytes)``.
-        rates: per-module cost in ms per byte - history merged with in-run
-            observations by the caller. A module missing here falls back to the
-            mean of the known rates.
-        elapsed_s: seconds elapsed since the run started. Used only as a
-            last-resort count-proportional fallback when no size-weighted rate
-            can yet be formed (see below).
+        remaining: the not-yet-done pairs, each
+            ``(thesis_id, module_name, thesis_size_bytes)``. The thesis id is
+            required: modules within a thesis are serial, so cost has to be
+            bucketed per thesis before parallelism is applied.
+        costs: per-module ``(intercept_ms, slope_ms_per_byte)`` - history
+            blended with in-run observations by the caller. A module missing
+            here uses its ADR-0015 prior.
+        in_flight: ``(thesis_id, module_name) -> seconds already elapsed`` for
+            the pairs currently running. These pairs are still in ``remaining``;
+            their contribution is reduced by the elapsed time (floored at zero),
+            which is what makes the estimate decay between events.
+        workers: the runner's concurrent-thesis count (``Runner.workers``).
+        theses_total: theses planned for the run - ``len(plan.theses)`` (#58).
+        theses_done: theses the caller has *seen* complete. The estimator also
+            derives completion from ``remaining``, and reports the larger of the
+            two, so it stays correct on its own if a thesis is killed without
+            its pairs ever reporting, and correct too if the caller counts
+            nothing.
 
     ETA rules:
         - No remaining pairs -> ``0.0`` seconds.
-        - At least one positive rate is known -> size-weighted sum, with any
-          module lacking its own rate using the mean of the known rates.
-        - No rate anywhere yet (first run, before any pair of any module has
-          produced an observation) -> a count-proportional estimate from
-          ``elapsed_s`` once at least one pair has completed, else ``None`` so
-          the caller shows "estimating..." while the bar still advances.
+        - No evidence at all (no ``costs``, nothing done, nothing in flight) ->
+          ``None``, so the caller shows "estimating..." while the bar advances.
+        - Otherwise the makespan bound over the remaining per-thesis costs:
+          ``max(total / min(workers, remaining theses), largest thesis)``.
     """
+    in_flight = in_flight or {}
     fraction = 0.0 if total <= 0 else max(0.0, min(1.0, done / total))
-    if not remaining:
-        return Progress(fraction=fraction, eta_seconds=0.0, done=done, total=total)
+    remaining_theses = {thesis_id for thesis_id, _, _ in remaining}
 
-    positive = [r for r in rates.values() if r and r > 0]
-    fallback_rate = _mean(positive)  # None until some rate is known
+    theses_seen = max(theses_done, 0)
+    if theses_total > 0:
+        theses_seen = min(max(theses_seen, theses_total - len(remaining_theses)), theses_total)
+    else:
+        theses_seen = 0
 
-    if fallback_rate is not None:
-        total_ms = 0.0
-        for module, size in remaining:
-            rate = rates.get(module)
-            if not rate or rate <= 0:
-                rate = fallback_rate
-            total_ms += rate * max(size, 0)
-        if total_ms > 0:
-            return Progress(
-                fraction=fraction, eta_seconds=total_ms / 1000.0, done=done, total=total
-            )
-
-    # No usable size-weighted rate yet (no history/observations, or every
-    # remaining size is unknown): fall back to a count-proportional estimate
-    # from the elapsed time, or None ("estimating...") before any pair is done.
-    if done > 0 and elapsed_s > 0:
+    def _progress(eta: float | None) -> Progress:
         return Progress(
             fraction=fraction,
-            eta_seconds=elapsed_s * (len(remaining) / done),
+            eta_seconds=eta,
             done=done,
             total=total,
+            theses_done=theses_seen,
+            theses_total=max(theses_total, 0),
         )
-    return Progress(fraction=fraction, eta_seconds=None, done=done, total=total)
+
+    if not remaining:
+        return _progress(0.0)
+    if not costs and done <= 0 and not in_flight:
+        return _progress(None)
+
+    # Bucket remaining cost per thesis: modules within a thesis are serial
+    # (runner.py), so a thesis's own bucket is a lower bound on the wall clock.
+    per_thesis: dict[int, float] = {}
+    for thesis_id, module, size in remaining:
+        cost = pair_cost_ms(module, size, costs)
+        credit = max(in_flight.get((thesis_id, module), 0.0), 0.0) * 1000.0
+        per_thesis[thesis_id] = per_thesis.get(thesis_id, 0.0) + max(cost - credit, 0.0)
+
+    divisor = max(1, min(max(workers, 1), len(per_thesis)))
+    eta_ms = max(sum(per_thesis.values()) / divisor, max(per_thesis.values()))
+    return _progress(eta_ms / 1000.0)
+
+
+def damp_eta(
+    previous: float | None, current: float | None, *, rise_factor: float = RISE_FACTOR
+) -> float | None:
+    """Smooth successive estimates so the label reads as a countdown (#54).
+
+    A *fall* is shown immediately - a countdown is allowed to drop. A *rise* is
+    eased in at ``rise_factor`` of the gap per call, so a module landing with a
+    dearer-than-expected cost nudges the number up over the next few poll ticks
+    instead of yanking it. Called at the adapter's poll rate; at 100 ms ticks the
+    default factor settles a jump in well under a second.
+    """
+    if current is None:
+        return None
+    if previous is None or current <= previous:
+        return current
+    factor = min(max(rise_factor, 0.0), 1.0)
+    return previous + factor * (current - previous)
 
 
 def format_eta(seconds: float | None) -> str:
