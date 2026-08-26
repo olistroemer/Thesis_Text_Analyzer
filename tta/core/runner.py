@@ -427,7 +427,7 @@ class Runner:
 
     def _apply_lazy_hashing(self, plan: RunPlan) -> None:
         """Compute + persist ``pdf_sha256`` for the planned theses whose hash is
-        still NULL (deferred from add time, ADR-0006 rev. 4/6, #38/#59).
+        still NULL (deferred from add time, ADR-0006 rev. 4, #38; batched, #59).
 
         One batched call: one query for the rows, the digests in a small thread
         pool, the content-dedup fold, one commit, and the hashes written back

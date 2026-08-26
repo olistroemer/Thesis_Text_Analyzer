@@ -65,7 +65,7 @@ def test_execute_on_worker_thread_with_thread_local_connection(tmp_path):
 
 
 def test_project_connections_are_in_wal_mode(tmp_path):
-    """WAL is what makes the two-connection story cheap (ADR-0006 rev. 6, #59):
+    """WAL is what makes the two-connection story cheap (ADR-0006, #59):
     it takes the rollback-journal fsync out of every commit, and lets this
     background-thread connection read while the main one writes."""
     with Project.open(tmp_path / "proj", create=True) as project:

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 #: Threads used for the batched hashing pass. ``hashlib`` releases the GIL, so
 #: a handful of threads overlap I/O wait and digest work; more than this only
-#: thrashes a spinning disk (ADR-0006 rev. 6, #59).
+#: thrashes a spinning disk (ADR-0006 first-run hashing, #59).
 HASH_THREADS = 4
 
 
@@ -172,8 +172,8 @@ class Repository:
         *,
         on_hashed: Callable[[int], None] | None = None,
     ) -> dict[int, int]:
-        """Batched :meth:`assign_content_hash` for a whole run (ADR-0006 rev. 6,
-        #59). Returns ``{thesis_id: canonical_id}`` and writes each freshly
+        """Batched :meth:`assign_content_hash` for a whole run (ADR-0006
+        first-run hashing, #59). Returns ``{thesis_id: canonical_id}`` and writes each freshly
         computed hash back onto the passed :class:`Thesis` (a mutable
         dataclass), so the caller needs no follow-up :meth:`get_thesis`.
 

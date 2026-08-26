@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class HashingProgress:
     """The deferred-SHA-256 pass, which runs **before** ``RunStarted``.
 
-    On a large corpus this is real work (ADR-0006 rev. 6) and it used to show
+    On a large corpus this is real work (ADR-0006 first-run hashing) and used to show
     up as a silent, mislabelled "Planning..." - ``plan()`` itself never hashes
     and never reads a file (#59). ``total`` counts the theses needing a hash;
     an adapter that ignores this event loses nothing but the display.

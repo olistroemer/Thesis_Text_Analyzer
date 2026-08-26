@@ -14,7 +14,7 @@ def connect(db_path: Path | str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    # ADR-0006 rev. 6 (#59): WAL takes the rollback-journal fsync out of every
+    # ADR-0006 first-run hashing (#59): WAL takes the rollback-journal fsync out of every
     # commit - the dominant cost of add_thesis and of the first-run hashing
     # pass - and lets the runner's background-thread connection (#27) read
     # while the main one writes instead of blocking on it. synchronous=NORMAL

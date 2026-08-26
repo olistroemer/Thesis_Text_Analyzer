@@ -1,7 +1,7 @@
 # ADR-0013: Runner orchestration — plan/execute split, per-thesis process pool
 
-**Status:** Accepted
-**Date:** 2026-06-03
+**Status:** Accepted (revision 2 — cancellation revised from pure skip-pending to **bounded-grace worker-kill** (#57, the ADR's own "Revisit when" trigger); a second, **per-thesis** timeout beside the per-module one, both configurable (#56); **worker death** named as a distinct failure trigger and `ModuleCompleted(status="skipped")` added so no planned pair leaves without an event (#55); module stdout/stderr captured into `module_runs.notes` (#68); a third run mode, stale-only (#7). See below.)
+**Date:** 2026-06-03 (rev. 2: 2026-08-26)
 **Drivers:** US-RES-CLI, US-PROF-RERUN, US-PROF-UPDATE, QA-PORT, QA-RES, ADR-0002 (hexagonal boundary), ADR-0006 (append-only history).
 
 ## Decision
@@ -65,12 +65,15 @@ Omitted keys take the defaults above. `Runner.__init__` keeps them as constructo
 
 ## Failure policy
 
-Three ways a thesis can end early, all funnelled through **one** cascade path in `Runner`:
+Three ways a thesis can end in a *failure*, all funnelled through **one** cascade path in `Runner` (`_fail_worker` -> `_cascade`):
 
 | Trigger | Detection |
 |---|---|
-| **Module timeout** | the in-flight module has been running longer than the per-module timeout |
+| **Module timeout** | the in-flight module has been running longer than the per-module timeout ([Timeouts](#timeouts)) |
+| **Thesis deadline** | the worker has been alive longer than the per-thesis timeout, whatever it is doing ([Timeouts](#timeouts)) |
 | **Worker death** | `process.is_alive()` is false and no `thesis_done` arrived (OOM kill, a segfault in the native PDF layer, a dead queue feeder thread) |
+
+A fourth early ending, an **abandoned** worker after the cancel grace, shares the pair-accounting half of this policy but not the failure half: it records no `error` and no `na` at all (see [Cancellation](#cancellation)).
 
 Worker death is a distinct outcome, not a variant of the timeout: the timeout guard needs a module *start* stamp, and a worker that dies **between** modules has none — so before this policy such a run had no liveness signal at all and `execute()` polled forever (#55). Detection is therefore explicit, and confirmed over two consecutive polls (the process may exit a few milliseconds before the parent drains its last queued message) before the cascade runs.
 
@@ -138,7 +141,7 @@ Keys under `notes` beginning with `_` are reserved for the runner; a module's ow
 
 Published from the main process to a small in-process `EventBus`:
 
-- `HashingProgress(done, total)` — emitted **before** `RunStarted`, while the batch's deferred SHA-256 hashes are computed ([ADR-0006](0006-schema.md) rev. 6). That phase is real work on a large corpus and used to display as a silent, mislabelled "Planning...", because `plan()` itself neither hashes nor reads a file (#59). `total` is the number of theses needing a hash; an adapter that ignores the event loses nothing but the display.
+- `HashingProgress(done, total)` — emitted **before** `RunStarted`, while the batch's deferred SHA-256 hashes are computed ([ADR-0006](0006-schema.md), #59). That phase is real work on a large corpus and used to display as a silent, mislabelled "Planning...", because `plan()` itself neither hashes nor reads a file (#59). `total` is the number of theses needing a hash; an adapter that ignores the event loses nothing but the display.
 - `RunStarted(plan)` — the plan **after** the hashing fold, so a thesis folded into a byte-identical sibling is already absent from its pair count
 - `ThesisStarted(thesis_id)`
 - `ModuleStarted(thesis_id, module_name)`
