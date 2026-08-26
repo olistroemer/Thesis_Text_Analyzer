@@ -52,4 +52,4 @@ Personas: `PROF` (professor), `PWR` (power user), `RES` (researcher / project te
 |---|---|
 | **US-ALL-OFFLINE** | As any user I want the application to run fully offline, with no data leaving my machine unless I explicitly export. |
 | **US-ALL-PRIVACY** | As any user I want a clear privacy statement that explains exactly what data the application processes, stores, and exports. |
-| **US-ALL-TOOLTIPS** | As any user I want tooltips on cells and columns explaining what they represent. |
+| **US-ALL-TOOLTIPS** | **Deferred, and restated.** As any user I want an explanation of what a cell or column represents, available *on demand* rather than on hover. -> A cell's state and reason are explained by the details panel (SDD 9.9), and a column's meaning by its help page (SDD 9.4, ADR-0012). The original hover-tooltip form shipped (#25) and was removed again (#66): the one genuinely oversized payload, a full traceback, does not belong in a hover popup, and the widget itself flickered under Linux/WSLg (#48). Whether an on-hover affordance returns in a narrower form is undecided -- this story may yet be dropped outright rather than re-satisfied. |
