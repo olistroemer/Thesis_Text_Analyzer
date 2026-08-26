@@ -456,3 +456,48 @@ def test_late_module_done_is_drained_before_the_kill(project, tmp_path):
     assert not process.terminated and not process.killed
     assert [(o.module_name, o.status) for o in worker.outcomes] == [("mod_fake_extract", "ok")]
     assert not worker.done  # still in flight, on its next module
+
+
+def test_thesis_deadline_kills_what_the_module_guard_cannot_see(project, tmp_path):
+    """The per-thesis wall-clock deadline (#56). With a module timeout far above
+    the module's own runtime the module guard never fires, so before the
+    deadline existed one document could burn timeout x modules attempted."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(
+        project,
+        [SleepyExtract(), FakeQuality()],
+        module_timeout_s=300.0,
+        thesis_timeout_s=0.5,
+    )
+    started = time.monotonic()
+    summary = runner.execute(runner.plan())
+    assert time.monotonic() - started < 30
+
+    assert summary.error == 1 and summary.na == 1
+    latest = project.repo.latest_runs()
+    killed = next(v for (_, name), v in latest.items() if name == "mod_fake_extract")
+    assert killed["status"] == "error"
+    assert "thesis deadline exceeded" in killed["reason"]
+
+
+def test_timeouts_are_configurable_from_tta_toml(tmp_path):
+    """Both timeouts must be reachable from the app, not only from tests: the
+    300 s was hardcoded because make_runner never passed it and Config had no
+    key for it (#56)."""
+    from tta.core.config import Config, save_config
+    from tta.core.project import Project
+    from tta.core.runner import DEFAULT_MODULE_TIMEOUT_S, DEFAULT_THESIS_TIMEOUT_S
+
+    project_dir = tmp_path / "proj"
+    with Project.open(project_dir, create=True) as project:
+        runner = project.make_runner()
+        assert runner.module_timeout_s == DEFAULT_MODULE_TIMEOUT_S
+        assert runner.thesis_timeout_s == DEFAULT_THESIS_TIMEOUT_S
+
+    save_config(project_dir, Config(module_timeout_s=12.5, thesis_timeout_s=99.0))
+    with Project.open(project_dir) as project:
+        assert project.config.module_timeout_s == 12.5
+        assert project.config.thesis_timeout_s == 99.0
+        runner = project.make_runner()
+        assert runner.module_timeout_s == 12.5
+        assert runner.thesis_timeout_s == 99.0

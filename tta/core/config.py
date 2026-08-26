@@ -20,6 +20,9 @@ UI_MODES = ("basic", "extended")
 @dataclass
 class Config:
     workers: int | None = None  # None -> runner default max(1, cpus - 1)
+    # ADR-0013 "Timeouts": None -> the runner's own defaults (300 s / 600 s)
+    module_timeout_s: float | None = None
+    thesis_timeout_s: float | None = None
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
     outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
     institution: str | None = None  # used in export filenames and sources row
@@ -37,6 +40,8 @@ def load_config(project_dir: Path | str) -> Config:
         ui_mode = "basic"
     return Config(
         workers=raw.get("runner", {}).get("workers"),
+        module_timeout_s=raw.get("runner", {}).get("module_timeout_s"),
+        thesis_timeout_s=raw.get("runner", {}).get("thesis_timeout_s"),
         ui_mode=ui_mode,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
         institution=raw.get("project", {}).get("institution"),
@@ -51,6 +56,14 @@ def save_config(project_dir: Path | str, config: Config) -> None:
         runner.pop("workers", None)
     else:
         runner["workers"] = config.workers
+    for key, value in (
+        ("module_timeout_s", config.module_timeout_s),
+        ("thesis_timeout_s", config.thesis_timeout_s),
+    ):
+        if value is None:
+            runner.pop(key, None)
+        else:
+            runner[key] = float(value)
     ui = dict(raw.get("ui", {}))
     ui["mode"] = config.ui_mode
     ui["outlier_scheme"] = config.outlier_scheme

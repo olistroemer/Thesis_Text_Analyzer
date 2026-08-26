@@ -36,6 +36,16 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODULE_TIMEOUT_S = 300.0
 
+#: Wall-clock ceiling for one thesis, measured from its worker's spawn
+#: (ADR-0013 "Timeouts", #56). The per-module timeout alone left one document
+#: able to burn ``module_timeout x modules attempted`` - up to ~60 min with the
+#: 12-module catalogue - and is blind to time spent *between* modules. Derived
+#: from ADR-0015: <= 15 s per thesis on the supported tier, ~4x slower on the
+#: 2016 dual-core tier (~60 s), so this is ~10x the slowest legitimate figure.
+#: Deliberately above DEFAULT_MODULE_TIMEOUT_S so that for a single stuck
+#: module the finer-grained guard fires first and names the culprit.
+DEFAULT_THESIS_TIMEOUT_S = 600.0
+
 #: How long a worker must be observed dead (``is_alive()`` false) with no
 #: ``thesis_done`` before its thesis is failed. A process can exit a few
 #: milliseconds before the parent drains the last message its queue feeder
@@ -185,6 +195,8 @@ class _ActiveWorker:
     process: multiprocessing.Process
     queue: object
     plan: ThesisPlan
+    #: monotonic stamp taken at spawn, for the per-thesis deadline (#56)
+    started_monotonic: float = field(default_factory=time.monotonic)
     outcomes: list[_ModuleOutcome] = field(default_factory=list)
     current_module: str | None = None
     module_started_monotonic: float | None = None
@@ -201,14 +213,21 @@ class Runner:
         registry: ModuleRegistry,
         bus: events.EventBus | None = None,
         workers: int | None = None,
-        module_timeout_s: float = DEFAULT_MODULE_TIMEOUT_S,
+        module_timeout_s: float | None = None,
+        thesis_timeout_s: float | None = None,
     ):
         self.repo = repo
         self.store = store
         self.registry = registry
         self.bus = bus or events.EventBus()
         self.workers = workers or max(1, (multiprocessing.cpu_count() or 2) - 1)
-        self.module_timeout_s = module_timeout_s
+        # ADR-0013 "Timeouts": two nested guards, both settable from tta.toml.
+        self.module_timeout_s = (
+            DEFAULT_MODULE_TIMEOUT_S if module_timeout_s is None else module_timeout_s
+        )
+        self.thesis_timeout_s = (
+            DEFAULT_THESIS_TIMEOUT_S if thesis_timeout_s is None else thesis_timeout_s
+        )
         self._cancelled = False
 
     # -- plan phase (deterministic, side-effect-free) ----------------------
@@ -366,6 +385,8 @@ class Runner:
                     continue
                 if self._module_timed_out(worker):
                     self._kill_timed_out(worker)
+                elif self._thesis_timed_out(worker):
+                    self._kill_over_deadline(worker)
                 elif self._worker_died(worker):
                     self._reap_dead_worker(worker)
             finished = [w for w in active if w.done]
@@ -423,6 +444,32 @@ class Runner:
         return (
             worker.module_started_monotonic is not None
             and time.monotonic() - worker.module_started_monotonic > self.module_timeout_s
+        )
+
+    def _thesis_timed_out(self, worker: _ActiveWorker) -> bool:
+        """The per-thesis wall-clock deadline (#56): the belt-and-braces guard
+        for what the per-module timeout cannot see - time spent *between*
+        modules, and a worker that keeps finishing modules while making no
+        progress overall."""
+        return time.monotonic() - worker.started_monotonic > self.thesis_timeout_s
+
+    def _kill_over_deadline(self, worker: _ActiveWorker) -> None:
+        elapsed = time.monotonic() - worker.started_monotonic
+        logger.warning(
+            "thesis %s exceeded its %.0f s deadline (%.0f s elapsed) - killing worker",
+            worker.plan.thesis.id,
+            self.thesis_timeout_s,
+            elapsed,
+        )
+        self._drain_queue(worker)
+        if worker.done:
+            return
+        self._terminate(worker)
+        self._fail_worker(
+            worker,
+            worker.current_module,
+            reason=f"thesis deadline exceeded after {elapsed:.0f} s",
+            duration_ms=int(elapsed * 1000),
         )
 
     def _worker_died(self, worker: _ActiveWorker) -> bool:
