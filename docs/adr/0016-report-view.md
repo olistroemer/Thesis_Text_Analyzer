@@ -1,68 +1,87 @@
-# ADR-0016: Report view — matplotlib-backed summary for the professor
+# ADR-0016: Report as a stand-alone HTML file
 
-**Status:** Accepted
-**Date:** 2026-06-03
-**Drivers:** US-PROF-INSIGHTS (the professor's motivation to use the app at all), US-PROF-TRENDS, US-PROF-COMPARE, US-PROF-NOTICE. Without this view, the MVP serves only US-RES-LOW-FRICTION — i.e. the professor has no reason to use the app beyond doing the researcher a favour.
+**Status:** Accepted (rev. 2; rev. 1's "matplotlib charts in a Tk notebook tab" is superseded)
+**Date:** 2026-06-03, revised 2026-08-26 (#51, #70)
+**Drivers:** US-PROF-INSIGHTS (the professor's motivation to use the app at all), US-PROF-TRENDS, US-PROF-COMPARE, US-PROF-NOTICE. Without this report, the MVP serves only US-RES-LOW-FRICTION — i.e. the professor has no reason to use the app beyond doing the researcher a favour.
 
-## Decision
+## Decision (rev. 2)
 
-A "Report" view in the GUI, opened from a dedicated toolbar button placed **next to "Update stale"** in the toolbar. The button is **disabled** until at least one successful module run exists in the local source; it enables automatically when data becomes available and stays enabled thereafter.
+The report is a **generated, self-contained HTML file**, opened in the user's browser. It is not a view inside the application.
 
-The Report renders summary aggregates and charts over the current local data (theses with `source.kind='local'` AND `excluded=0`), using **matplotlib** with the Tk backend (`FigureCanvasTkAgg`).
+- **Aggregation and rendering live in `core/report.py`** — `collect(repo) -> ReportData` and `render_html(data) -> str`. Both are pure, toolkit-free, stdlib-only, and perform **no I/O**: `render_html` returns a string. Direct precedent: `render_report_md()` / `render_report_json()` in `core/privacy_metadata.py`, consumed by both adapters.
+- **Adapters own the side effects.** The GUI's "Report" toolbar button writes `<project>/reports/report-<YYYY-MM-DD>.html` (overwriting a same-day file) and calls `webbrowser.open`. The CLI gets `tta report [--out PATH]`, which writes the same default path when `--out` is omitted and prints where it went. **Core never writes files and never opens a browser** ([ADR-0002](0002-ui-core-boundary.md)).
+- **Charts are hand-rolled inline SVG.** No matplotlib, no JavaScript, no web fonts, no CDN. The two statistics matplotlib used to supply — boxplot quartiles/whiskers/fliers and histogram binning — are reimplemented as the pure functions `core.report.box_stats` and `core.report.histogram`, following matplotlib's own conventions (1.5 × IQR fences, whiskers to the most extreme datum inside the fence; `numpy.histogram`'s equal-width bins with the last bin closed on both ends). Both are unit-tested, including an equivalence test against matplotlib/numpy where those are importable.
+- **The Report toolbar button stays**, in both modes, with rev. 1's disabled-until-one-successful-run rule unchanged. The `ttk.Notebook` loses its Report tab; the main window is grid-only.
 
-## View placement
+## Why rev. 1 was reversed
 
-Opens as a **separate tab** in the main window (`ttk.Notebook`), peer to the Grid tab. User switches between Grid and Report tabs. Data is shared; the Report recomputes its aggregates on open and on `RunCompleted` events while it is the active tab.
+- Design and interactivity freedom. Two of rev. 1's six panels (summary cards, notable theses) were plain `ttk.Label`s — text pretending to be a report. HTML gives typography, layout, and tables for free; Tk gives none of it.
+- The report becomes an **artefact the professor can keep, print, and send** rather than a screen that vanishes with the window. This is what "the professor's reward" actually looks like.
+- The aggregation was on the wrong side of the boundary. `collect()` was toolkit-agnostic domain logic sitting in the Tk adapter, which is why the CLI had **no report at all** and why the report had **no unit test** — coverage reached it only through the GUI smoke test.
+- Not a size argument. The matplotlib cluster is ~26 MB uncompressed, roughly 10 MB of the binary — rev. 1's estimate was accurate, and 10 MB was never the problem. Dropping the dependency from `pyproject.toml` and the PyInstaller spec is a **separate follow-up**, not part of this decision.
 
-## Content (MVP)
+## Content
 
-Single scrollable screen with five panels:
+Unchanged from rev. 1 except where noted: summary cards; length over time (scatter + trend line); length by type (box plots); reading-ease distribution (histogram, by language); language mix (bar chart); notable theses. Linear axes throughout (per the project's no-log-scale preference).
 
-1. **Summary cards** (top strip): N theses analysed · N excluded · language mix · bachelor/master counts · year range · median word count.
-2. **Length over time** (scatter): `word_count` vs publication year, colour-coded by `type`, with linear trend line. Reads US-PROF-TRENDS literally.
-3. **Length by type** (box plots): `word_count` distribution for Bachelor vs Master. Reads US-PROF-COMPARE.
-4. **Reading ease distribution** (histogram): `flesch_reading_ease`, faceted by language (en, de).
-5. **Language mix** (bar chart): counts per language code.
-6. **Notable theses** (list): 5–10 entries flagged as outliers on at least one trustworthy metric (`avg_word_len`, `std_sentence_len`, `yules_k`, `flesch_reading_ease`), each rendered as `<title> · <metrics it's an outlier on> · <handle>`. Reads US-PROF-NOTICE.
+The only content change is the **notable-theses label** — see Privacy below.
 
-Linear axes throughout (per `feedback_no_log_scale` from the exploration phase).
+## Self-containment (QA-PRIV, SDD §10)
 
-## Dependency added
+One file, no second file, no directory of assets: **all CSS and all SVG are inline**, and the document makes **zero external requests**. QA-PRIV forbids any network operation, which also rules out a Plotly/Chart.js CDN. A unit test asserts the rendered output contains no `http://` and no `https://` reference.
 
-`matplotlib` (BSD-style, ~10 MB in the PyInstaller bundle). Already familiar to the team from the `exploration/` and `harvester/` scripts.
+## Privacy: the report is now an emission channel
 
-## Disabled state
+Rev. 1 stated the report *"does not transmit, export, or otherwise emit data. No new entries in `core/privacy_metadata.py`."* Writing a file makes the first clause false: the report is a second emission channel next to `core/export.py`, and the user can send the file to anyone.
 
-```sql
-SELECT COUNT(*) FROM v_current_metrics
-WHERE status='ok' AND source_id IN (SELECT id FROM sources WHERE kind='local')
-```
+**Resolution: the report emits only values the privacy registry already marks `exported=True`** (categories `technical` and `metric`). Concretely, `theses.pdf_filename` — `Category.IDENTIFYING`, "may contain student names", stripped from every export ([§8.3.1](../SDD.md#831-anonymisation-rules)) — is **removed** from the notable-theses list. Notable theses are identified by `theses.id` instead.
 
-Returns 0 → button disabled, tooltip "Run analyses on at least one thesis to view the report." Returns ≥ 1 → button enabled.
+Consequences of that choice:
 
-## Privacy
+- No new entries in `core/privacy_metadata.py`. The registry's per-column `exported` flag keeps its single, cross-checkable meaning ("this column travels in the researcher export"), which the coverage gate verifies against a real export file; overloading it with a second channel would have broken that check.
+- No pre-generation confirmation dialog (unlike `export_flow`): there is no PII to warn about.
+- The privacy statement needs no new clause. The app is still fully offline; the report is still written inside the project folder; §5 "What leaves your machine" is still exactly the export.
+- A test asserts the rendered HTML contains neither `pdf_filename` nor `pdf_path` for a thesis that is flagged as notable.
 
-The Report is a read-only local view. It does not transmit, export, or otherwise emit data. No new entries in `core/privacy_metadata.py`.
+**Known cost:** a bare thesis id is not resolvable in the GUI grid, which shows filenames and has no id column; `tta list` does show ids. Accepted for MVP. Adding an id column, or a per-project stable pseudonym, is the follow-up if professors ask.
+
+## What rev. 2 gives up
+
+- **Live re-render on `RunCompleted`.** A written file cannot re-render itself, and the tab that used to do it is gone. This behaviour is deliberately surrendered. Its replacement is the post-run offer below (#70), which regenerates from current data on demand.
+- The Report tab, and with it the ability to flick between grid and report inside one window. The browser holds the report instead.
+
+## Auto-open after a run (#70)
+
+Finishing a run is the natural point to look at the report (SDD [§9.7](../SDD.md#97-happy-path-walkthrough) step 4), so the GUI offers it rather than making the professor find the button again.
+
+- The decision is a pure function, `core.report.should_offer_report(mode, cancelled=..., ok=...) -> "open" | "ask" | "skip"`, unit-tested without a display (the `core/progress.py` pattern). It returns `"skip"` for a **cancelled** run and for a run with **zero `ok`** pairs — an all-errored batch produced nothing new to report.
+- `mode` comes from `ui.open_report_after_run` in `tta.toml`: `ask` (default) | `always` | `never`.
+- In `ask` mode the GUI shows a **non-modal** prompt (a `Toplevel`, no `grab_set`) with Open / Not now and a "Don't ask again" checkbox; ticking it and answering persists `always` or `never`, so the prompt can be silenced permanently. Nothing about the prompt blocks the grid.
+- **CLI:** `tta run --open-report`, off by default — a CLI must not launch a browser unasked. The flag is the explicit ask, so it ignores the config preference; it still respects the cancelled / zero-`ok` suppression.
 
 ## Alternatives considered
 
-- **Plotly** (interactive charts): JS-backed, awkward Tk integration, larger bundle. Rejected.
-- **Custom Canvas drawing**: full control but ~10× more code for charts matplotlib gives us in one line. Rejected.
-- **Separate window** (instead of a tab): would allow side-by-side viewing of Grid + Report. Considered but tabs are simpler; most professors look at one or the other.
-- **No report in MVP**: contradicts US-PROF-INSIGHTS. The MVP would serve only the researcher's data-collection interest, with nothing for the professor to look at after clicking Run.
+- **Keep the tab *and* write a file.** Two renderers for one report, two sets of chart code, and the tab's live re-render still needs matplotlib. Rejected: the tab is the half with less value.
+- **matplotlib `savefig` to an SVG string, embedded in the HTML.** Least new code, and it keeps the maths we trust. Rejected: it keeps a 10 MB dependency and a ~500 ms first-import for four small charts we can draw in ~150 lines, and it drags matplotlib's font machinery into a frozen build for no user-visible gain.
+- **Vendored Plotly / Chart.js.** Interactive, and legal to vendor, but it is megabytes of JavaScript inside every generated report file and a second language in the codebase. Rejected.
+- **PDF via reportlab / weasyprint.** A nicer thing to archive, a much heavier dependency, and no zoom. Rejected for MVP; the browser prints the HTML to PDF perfectly well.
+- **Report inside the app, rendered as HTML in a `tkinterweb` widget.** New dependency, poor CSS support, and it re-creates the tab we decided to drop. Rejected.
+- **Markdown instead of HTML.** No charts. Rejected.
 
 ## Consequences
 
-- ✅ The professor finally has a reason to open the app beyond contributing data.
-- ✅ Matplotlib is mature, ubiquitous, and well-tested with Tk.
-- ✅ The Report respects `excluded=1` theses (they're filtered out of aggregates).
-- ✅ Re-render on `RunCompleted` events gives a live-updating feel while a batch is running.
-- ⚠️ Matplotlib first-import is ~500 ms; mitigated by lazy import on Report-tab-open.
-- ⚠️ PyInstaller bundle grows ~10 MB. Acceptable given ADR-0014's ~100 MB headline.
-- ⚠️ Additional UI surface (charts) to maintain and translate when i18n lands.
+- ✅ The professor gets an artefact: keepable, printable, sendable, and PII-free by construction.
+- ✅ `collect()` is unit-testable without a display, and the CLI has a report for the first time (`tests/core/test_report.py`, QA-TEST).
+- ✅ The GUI drops matplotlib and `FigureCanvasTkAgg` from its import graph entirely; the main window is a grid plus a toolbar.
+- ✅ One file, zero external requests — QA-PRIV holds trivially, and the file survives being copied onto a stick.
+- ⚠️ The chart maths is ours now. Mitigated by unit tests, including equivalence against matplotlib/numpy while they are still installed.
+- ⚠️ Hand-rolled SVG has no free polish: no interactive tooltips, no automatic legend layout, no font metrics. Axis ticks and label placement are chosen by simple rules and can look cramped on unusual data.
+- ⚠️ Losing the live re-render is a real regression for someone watching a long batch. #70's post-run offer covers the common case, not that one.
+- ⚠️ `<project>/reports/` is a new directory in the project folder. It is derived data: safe to delete, regenerated on demand, and never exported.
+- ⚠️ Notable theses are identified by id, which the grid cannot currently resolve (see Known cost above).
 
 ## Revisit when
 
-- MVP charts prove insufficient and we need interactive filtering / drill-down.
-- A different chart library proves to integrate better with Tk.
-- Professor feedback indicates the report should be downloadable as a PDF (out-of-MVP today).
+- Professors ask for interactivity (filter, drill-down, hover values) that inline SVG cannot carry — that is when a vendored chart library earns its megabytes.
+- The report needs to be a PDF for archiving, and browser print is not good enough.
+- Someone asks to see the report update live during a batch, at which point a written file is the wrong shape and this decision is back on the table.

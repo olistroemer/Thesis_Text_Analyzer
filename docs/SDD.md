@@ -615,7 +615,7 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 │ [+ Add files] [▶ Run all] [↻ Re-run all] [⟳ Update stale]          │
 │                            [📊 Report] [💾 Export] [? Help]         │
 ├────────────────────────────────────────────────────────────────────┤
-│ ╔═══════ Grid ═══════╗  Report                       (tabs)         │
+│  Thesis grid (fills the window; the report is a browser file, §9.8) │
 │ Thesis            │ Type   │ Lang │ Pages │ FRE   │ Yules K │ ... │
 │ ─────────────────────────────────────────────────────────────────── │
 │ thesis_001.pdf    │ Master │ en   │ 78    │ 51.2  │ 103.4   │ ... │
@@ -626,7 +626,7 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-The toolbar's Report button sits to the right of "Update stale" so the two batch-action buttons (Update stale, Report) are visually adjacent. The Report button is disabled until at least one successful module run exists; tooltip "Run analyses on at least one thesis to view the report."
+The toolbar's Report button sits to the right of "Update stale" so the two batch-action buttons (Update stale, Report) are visually adjacent. The Report button is disabled until at least one successful module run exists; tooltip "Run analyses on at least one thesis to view the report." Clicking it **generates an HTML file and opens it in the browser** ([§9.8](#98-report), [ADR-0016](adr/0016-report-view.md) rev. 2) — the main window has no Report tab and no notebook.
 
 - Toolbar buttons are icon + text.
 - While a run is in progress the run buttons are hidden and a single **Cancel** button takes their place; clicking it calls `Runner.cancel()` (skip-pending, [ADR-013](adr/0013-runner-orchestration.md)). The normal toolbar is restored on `RunCompleted`/`RunCancelled`.
@@ -646,7 +646,7 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 | **Basic** | Professor persona | Add files · Run all · **Report** · Export · Help | Limited columns visible by default; settings simplified; help glossary front-and-centre. |
 | **Extended** | Power user, researcher | Add files · Run all · Re-run all · Update stale · **Report** · Export · Help | All metrics visible; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
 
-Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode.
+Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode. In both modes it generates the stand-alone HTML report and opens it in the browser ([§9.8](#98-report)).
 
 Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 
@@ -682,9 +682,10 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened); nothing stored outside it (US-PROF-NO-TRACES). |
 | 2. Add | "Add files" toolbar button → multi-select file dialog → added immediately (no further dialog). | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
-| 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → switches to the Report tab → charts + summary cards + outlier list. | Re-renders on `RunCompleted` while the tab is active. |
+| 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → writes `<project>/reports/report-<YYYY-MM-DD>.html` → opens it in the browser: summary cards + charts + outlier list ([§9.8](#98-report)). | Regenerated from current data on every click; a same-day file is overwritten. |
 | 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
 | 6. Send | Post-export toast with "Show in folder" link. | (Outside the app.) |
+| 7. Post-run offer | When a run finishes with at least one `ok` result, a **non-modal** prompt offers to open the report; a "Don't ask again" checkbox persists the answer (#70). | `ui.open_report_after_run = "ask"`; suppressed for cancelled and all-errored runs. |
 
 **First-launch banner text:**
 
@@ -694,46 +695,78 @@ Dismisses on first interaction; never shown again for this project.
 
 **Basic-mode toolbar** contains exactly four icon+text buttons: **Add files | Run all | Export | Help**. Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection.
 
-## 9.8 Report view
+## 9.8 Report
 
-Decision: [ADR-016](adr/0016-report-view.md). Matplotlib-backed summary of the local cohort, opened from the Report toolbar button into its own tab.
+Decision: [ADR-016](adr/0016-report-view.md) rev. 2. The report is **not a view**: it is a self-contained HTML file, generated on demand and opened in the user's browser. Rev. 1's matplotlib-in-a-notebook-tab is superseded.
+
+Responsibilities split along [ADR-002](adr/0002-ui-core-boundary.md):
+
+| Piece | Where | Contract |
+|---|---|---|
+| Aggregation | `core/report.py` — `collect(repo) -> ReportData` | Pure, stdlib only, no I/O. |
+| Rendering | `core/report.py` — `render_html(data) -> str` | Returns a complete HTML document as a **string**. All CSS and all SVG inline. No file writing, no browser. |
+| Chart maths | `core/report.py` — `box_stats`, `histogram` | Pure functions; matplotlib's conventions reimplemented (see [§9.8.3](#983-behaviour)). |
+| Post-run policy | `core/report.py` — `should_offer_report(...)` | Pure decision: `"open"` \| `"ask"` \| `"skip"`. |
+| Writing + opening | adapters | GUI: Report toolbar button → write `<project>/reports/report-<YYYY-MM-DD>.html` → `webbrowser.open`. CLI: `tta report [--out PATH]` writes the file and prints the path; it does **not** open a browser. |
+
+Same shape as the GDPR statement ([ADR-009](adr/0009-privacy-as-code.md)): core renders a string, both adapters decide what to do with it.
 
 ### 9.8.1 Layout
 
+One document, top to bottom (no tab, no notebook):
+
 ```
-┌─ Report ──────────────────────────────────────────────────────────┐
-│  Summary cards                                                     │
+┌─ report-2026-08-26.html ──────────────────────────────────────────┐
+│  Thesis Text Analyzer — cohort report      generated 2026-08-26   │
+│                                                                    │
+│  Summary cards (one row of tiles)                                  │
 │   N theses analysed · N excluded · Languages: en=X de=Y · Years: … │
 │   Bachelor: A · Master: B · Median length: N words                 │
+│   (caption: N garbled excluded from aggregates)                     │
 │                                                                    │
 │  Length over time                  Length by type                  │
 │  ┌──────────────────────────┐      ┌──────────────────────────┐   │
-│  │  scatter (year × words)  │      │  box plots (B / M)       │   │
+│  │  inline SVG: scatter     │      │  inline SVG: box plots   │   │
+│  │  (year × words) + trend  │      │  (per detected type)     │   │
 │  └──────────────────────────┘      └──────────────────────────┘   │
 │                                                                    │
 │  Reading ease distribution         Language mix                    │
 │  ┌──────────────────────────┐      ┌──────────────────────────┐   │
-│  │  histogram, by language  │      │  bar chart               │   │
+│  │  inline SVG: histogram,  │      │  inline SVG: bar chart   │   │
+│  │  overlaid by language    │      │                          │   │
 │  └──────────────────────────┘      └──────────────────────────┘   │
 │                                                                    │
-│  Notable theses                                                    │
-│   • <title> · outlier on: <metric>, <metric> · <handle>            │
-│   • …                                                              │
+│  Notable theses (table)                                            │
+│   thesis 12 · outlier on: yules_k, flesch_reading_ease             │
+│   …                                                                │
+│                                                                    │
+│  Footer: tta <version> · generated locally · no data left …        │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
+The two-column chart grid collapses to one column on narrow viewports and when printed. Charts are drawn with a `viewBox` so they scale without rasterising.
+
 ### 9.8.2 Data sources
 
-The report reads from `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`. Aggregates are computed in-process at tab-open time (cheap — tens of thousands of metric rows in milliseconds). The view re-renders on `RunCompleted` events while it is the active tab so the professor sees the picture update as a batch completes.
+The report reads from `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`. Aggregates are computed in-process at generation time (cheap — tens of thousands of metric rows in milliseconds), so every click produces a report over the data as it stands **now**.
+
+A written file cannot re-render itself: rev. 1's "re-render on `RunCompleted` while the tab is active" is **gone**, deliberately ([ADR-016](adr/0016-report-view.md) rev. 2). Its replacement is a post-run offer to generate and open the report (#70, [§9.7](#97-happy-path-walkthrough) step 7).
 
 The **length-over-time** chart plots word count against the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year` (SDD §2.1, [ADR-0016](adr/0016-report-view.md)). Grouping by thesis type (by-type counts, length-by-type box plots) uses the detected **`thesis_type`** metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)); theses with no detected type group under `unspecified`.
 
 ### 9.8.3 Behaviour
 
+- **Self-contained, zero external requests.** One file: all CSS in one inline `<style>`, every chart an inline `<svg>`, no images, no scripts, no web fonts, no CDN. QA-PRIV forbids network operations, which also rules out a chart library loaded from a CDN. A unit test asserts the output contains no `http://` and no `https://`.
+- **No PII in the report.** Only values the privacy registry marks `exported=True` (categories `technical`, `metric`) are rendered. In particular `theses.pdf_filename` (`Category.IDENTIFYING`) is **not** in the report: notable theses are identified by `theses.id`, which `tta list` resolves. This is why the report needs no new `core/privacy_metadata.py` entries and no pre-generation confirmation ([ADR-0016](adr/0016-report-view.md) rev. 2, [§8.3.1](#831-anonymisation-rules)).
 - Linear axes throughout (per the project's no-log-scale preference).
-- The "Length over time" trend line is shown only when ≥ 5 data points are available.
-- "Notable theses" picks outliers via per-metric IQR over the trustworthy length-independent metrics (`avg_word_len`, `std_sentence_len`, `yules_k`, `flesch_reading_ease`); a thesis flagged on ≥ 2 of them is listed.
+- The "Length over time" trend line is shown only when ≥ 5 data points are available; it is `statistics.linear_regression` over (year, words).
+- **Box plots** use `core.report.box_stats`: Q1/median/Q3 from `statistics.quantiles(..., method="inclusive")`, fences at 1.5 × IQR, whiskers to the most extreme datum **inside** the fence, everything outside drawn as a flier point. Same convention as the grid's outlier highlighting ([§9.5](#95-outlier-highlighting)) and as matplotlib's boxplot default.
+- **Histograms** use `core.report.histogram`: 15 equal-width bins over `[min, max]`, the last bin closed on both ends (`numpy.histogram`'s convention); an all-equal series widens to `[x-0.5, x+0.5]`. Series are overlaid per language with partial fill opacity.
 - Theses flagged with `extraction_quality='garbled'` are excluded from the report's aggregates (with a one-line caption naming the count of excluded theses).
+- Empty panels render a "not enough data" placeholder rather than an empty frame; the report is generated even for a cohort of one.
+- **"Notable theses"** picks outliers via per-metric IQR over the trustworthy length-independent metrics (`avg_word_len`, `std_sentence_len`, `yules_k`, `flesch_reading_ease`); a thesis flagged on ≥ 2 of them is listed.
+- **Output path.** Default `<project>/reports/report-<YYYY-MM-DD>.html`; a same-day file is overwritten (a report is derived data, unlike an export, which refuses to overwrite). `reports/` is safe to delete and never exported. `tta report --out PATH` overrides.
+- **Post-run offer (#70).** On `RunCompleted`, `core.report.should_offer_report(mode, cancelled=…, ok=…)` decides: `"skip"` for a cancelled run, for a run with zero `ok` pairs, and for `mode="never"`; `"open"` for `mode="always"`; otherwise `"ask"`. `mode` is `ui.open_report_after_run` in `tta.toml` — `ask` (default) | `always` | `never`; an unknown value falls back to `ask`. In `ask` mode the GUI shows a **non-modal** prompt (Open / Not now, plus a "Don't ask again" checkbox that persists `always`/`never`). The CLI equivalent is `tta run --open-report`, off by default — a CLI must not launch a browser unasked — and it ignores the config preference, the flag being the explicit ask.
 
 ## 9.9 Grid cell render states
 
@@ -821,7 +854,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |
 | [0015](adr/0015-performance-budget.md) | Performance budget — concrete numbers, CI-enforced | Accepted |
-| [0016](adr/0016-report-view.md) | Report view — matplotlib-backed summary for the professor | Accepted |
+| [0016](adr/0016-report-view.md) | Report as a stand-alone HTML file — inline SVG, no matplotlib | Accepted (rev. 2; the Tk tab of rev. 1 is superseded) |
 | [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
 | [0018](adr/0018-ascii-source.md) | ASCII-only Python source — non-ASCII string content via `\uXXXX` escapes | Accepted |
 | [0019](adr/0019-thesis-type-by-detection.md) | Thesis type by detection — add-time dialog removed, override columns dropped | Accepted |
