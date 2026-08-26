@@ -1,4 +1,4 @@
-"""Main window (Sec. 9.2): menu bar, toolbar, Grid/Report tabs, status line.
+"""Main window (Sec. 9.2): menu bar, toolbar, thesis grid, status line.
 
 Runs execute on a background thread; domain events are marshalled into
 the Tk loop via a queue drained by ``root.after`` (ADR-0002 invariant 3).
@@ -10,9 +10,11 @@ import queue
 import threading
 import time
 import tkinter as tk
+import webbrowser
+from pathlib import Path
 from tkinter import messagebox, ttk
 
-from tta.core import events, progress
+from tta.core import events, progress, report
 from tta.core.config import save_config
 from tta.core.modules.registry import default_registry
 from tta.core.privacy_metadata import render_report_md
@@ -20,7 +22,6 @@ from tta.core.project import Project
 from tta.ui.tk import dialogs
 from tta.ui.tk.columns import metric_columns
 from tta.ui.tk.grid import GridView
-from tta.ui.tk.report import ReportView
 
 POLL_MS = 100
 
@@ -51,7 +52,7 @@ class MainWindow:
         if first_launch:
             self._build_banner()
         self._build_toolbar()
-        self._build_tabs()
+        self._build_grid()
         self.status = ttk.Label(self.root, anchor="w", padding=(8, 2))
         self.status.pack(fill="x", side="bottom")
 
@@ -118,13 +119,11 @@ class MainWindow:
             self._toolbar_buttons[label] = button
         self._update_report_button()
 
-    def _build_tabs(self) -> None:
-        self.notebook = ttk.Notebook(self.root)
-        self.grid_view = GridView(self.notebook, self.project.repo, self.project.store)
-        self.report_view = ReportView(self.notebook, self.project.repo)
-        self.notebook.add(self.grid_view, text="Grid")
-        self.notebook.add(self.report_view, text="Report")
-        self.notebook.pack(fill="both", expand=True)
+    def _build_grid(self) -> None:
+        # No notebook: the report is a generated HTML file opened in the
+        # browser, so the grid owns the whole window (Sec. 9.8, ADR-0016 rev. 2).
+        self.grid_view = GridView(self.root, self.project.repo, self.project.store)
+        self.grid_view.pack(fill="both", expand=True)
 
     # -- state ------------------------------------------------------------------
 
@@ -246,9 +245,8 @@ class MainWindow:
                     self.refresh()
                     cancelled = isinstance(event, events.RunCancelled)
                     self._set_status("Run cancelled" if cancelled else "Run finished")
-                    # Sec. 9.8.2: re-render while Report tab is active
-                    if self.notebook.index("current") == 1:
-                        self.report_view.render()
+                    # No report re-render here any more: the report is a
+                    # written file and cannot re-render itself (ADR-0016 rev. 2).
         except queue.Empty:
             pass
         self.root.after(POLL_MS, self._drain_events)
@@ -333,8 +331,29 @@ class MainWindow:
         self._progress_label.configure(text=text)
 
     def _show_report(self) -> None:
-        self.report_view.render()
-        self.notebook.select(self.report_view)
+        """Generate the stand-alone HTML report and open it in the browser
+        (Sec. 9.8, ADR-0016 rev. 2). Core renders the document as a string;
+        writing the file and launching the browser are the adapter's job."""
+        path = self._write_report()
+        if path is None:
+            return
+        self._set_status(f"Report written to {path}")
+        webbrowser.open(path.as_uri())
+
+    def _write_report(self) -> Path | None:
+        """Write `<project>/reports/report-<date>.html`, overwriting a
+        same-day file. Returns None (after an error dialog) if it could not
+        be written."""
+        path = report.default_report_path(self.project.dir)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(report.render_html(report.collect(self.project.repo)), "utf-8")
+        except OSError as exc:
+            messagebox.showerror(
+                "Report", f"Could not write the report:\n{exc}", parent=self.root
+            )
+            return None
+        return path
 
     def _export(self) -> None:
         dialogs.export_flow(self.root, self.project)

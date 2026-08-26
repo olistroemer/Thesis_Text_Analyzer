@@ -31,6 +31,7 @@ from tta.core.export import ExportPolicy, export_database
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
+from tta.core import report
 
 stdout = Console()
 stderr = Console(stderr=True)
@@ -479,6 +480,35 @@ def privacy_report(fmt: str) -> None:
             controller_stub=_load_stub("controller_stub.md"),
         )
     )
+
+
+# -- report -----------------------------------------------------------------------
+
+
+def _write_report(out: Path, project: Project) -> Path:
+    """Render in core, write in the adapter (ADR-0002). Overwrites."""
+    document = report.render_html(report.collect(project.repo))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(document, encoding="utf-8")
+    return out
+
+
+@cli.command("report")
+@click.option("--out", type=click.Path(path_type=Path), default=None,
+              help="Where to write it (default: <project>/reports/report-<date>.html).")
+@click.pass_context
+def write_report(ctx: click.Context, out: Path | None) -> None:
+    """Write the stand-alone HTML cohort report (Sec. 9.8, ADR-0016 rev. 2).
+
+    One self-contained file: every style rule and every chart inline, no
+    external request, and no file names, paths, notes or document text
+    (Sec. 9.8.3). It is written, not opened - a CLI must not launch a
+    browser unasked.
+    """
+    with open_project(ctx) as project:
+        theses = report.collect(project.repo).theses
+        written = _write_report(out or report.default_report_path(project.dir), project)
+    stdout.print(f"report over {theses} theses -> {written}")
 
 
 # -- help -------------------------------------------------------------------------

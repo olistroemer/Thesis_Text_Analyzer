@@ -280,3 +280,35 @@ def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
     # duplicate name -> data error
     result = runner.invoke(cli, ["-C", str(research_dir), "import", str(exports[0]), "--name", "FH Wedel 2026"])
     assert result.exit_code == 65
+
+
+# -- report (#51) -----------------------------------------------------------
+
+
+def test_report_writes_one_self_contained_html_file(project_dir):
+    _seed_thesis(project_dir, analysed=True)
+    result = invoke("-C", project_dir, "report")
+    written = sorted((project_dir / "reports").glob("report-*.html"))
+    assert len(written) == 1
+    assert written[0].name in result.output.replace("\n", "")
+    document = written[0].read_text("utf-8")
+    assert document.startswith("<!DOCTYPE html>")
+    assert document.endswith("</html>\n")
+    # QA-PRIV: an offline app must not write a file that phones home
+    assert "http://" not in document and "https://" not in document
+    assert "<script" not in document
+    # ...and no identifying value reaches it (Sec. 9.8.3)
+    assert "seed.pdf" not in document
+
+
+def test_report_out_overrides_the_default_path(project_dir, tmp_path):
+    _seed_thesis(project_dir, analysed=True)
+    target = tmp_path / "elsewhere" / "cohort.html"
+    invoke("-C", project_dir, "report", "--out", target)
+    assert "Cohort report" in target.read_text("utf-8")
+    assert not (project_dir / "reports").exists()
+
+
+def test_report_without_a_project_exits_65(tmp_path):
+    invoke("-C", tmp_path / "nope", "report", expect_exit=65)
+
