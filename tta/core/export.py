@@ -6,8 +6,9 @@ the local source is exported - imported cohorts on a researcher machine
 are someone else's data and never re-travel.
 
 What never ships (Sec. 8.3.1): `theses.pdf_path/pdf_filename/notes/tags`,
-rows with `excluded=1`, `module_runs.error_traceback/notes`, the whole
-`artefact_files` table; `theses.added_at` is rounded to day.
+rows with `excluded=1` **and the `excluded` column itself** (constant-zero
+once those rows are filtered out, #64), `module_runs.error_traceback/notes`,
+the whole `artefact_files` table; `theses.added_at` is rounded to day.
 """
 
 from __future__ import annotations
@@ -57,7 +58,7 @@ CREATE TABLE export.theses (
     source_id      INTEGER NOT NULL,
     pdf_sha256     TEXT,    -- NULL for a thesis added but never analysed (ADR-0006 rev. 4)
     pdf_size_bytes INTEGER,
-    excluded       INTEGER NOT NULL,
+    -- no `excluded`: the row filter below leaves it constant-zero (#64)
     added_at       TEXT NOT NULL
 );
 CREATE TABLE export.module_runs (
@@ -103,7 +104,7 @@ def export_database(
             conn.execute(
                 "INSERT INTO export.theses"
                 " SELECT t.id, t.source_id, t.pdf_sha256, t.pdf_size_bytes,"
-                "        t.excluded, date(t.added_at)"
+                "        date(t.added_at)"
                 " FROM theses t JOIN sources s ON s.id = t.source_id"
                 " WHERE s.kind = 'local' AND t.excluded = 0"
             )

@@ -64,6 +64,18 @@ def test_no_pii_strings_anywhere_in_export_file(project, tmp_path):
     assert b"content-derived" not in blob
 
 
+def test_excluded_column_is_absent_from_the_export(project, tmp_path):
+    """The row filter leaves `excluded` constant-zero, so the column itself is
+    stripped too (#64, ADR-0007 rev. 3) - it carried no information and hinted
+    that excluded theses might ship."""
+    populate(project, tmp_path)
+    _, conn = export_conn(project, tmp_path)
+    theses_cols = {r["name"] for r in conn.execute("PRAGMA table_info(theses)")}
+    assert "excluded" not in theses_cols
+    # the columns that do ship are unaffected
+    assert theses_cols == {"id", "source_id", "pdf_sha256", "pdf_size_bytes", "added_at"}
+
+
 def test_excluded_theses_are_stripped(project, tmp_path):
     a, b = populate(project, tmp_path)
     stats, conn = export_conn(project, tmp_path)

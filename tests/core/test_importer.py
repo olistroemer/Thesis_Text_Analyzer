@@ -65,6 +65,17 @@ def test_import_creates_imported_source_with_remapped_ids(researcher, export_fil
     assert row["value_num"] == 2.0
 
 
+def test_import_survives_the_export_having_no_excluded_column(researcher, export_file):
+    """Exports no longer carry `theses.excluded` (#64); the importer must not
+    read it back out. Imported rows take the local default (not excluded) -
+    harmless, since the runner never touches imported theses anyway."""
+    stats = import_export(researcher.conn, export_file, name="FH Wedel CS 2026")
+    rows = researcher.conn.execute(
+        "SELECT excluded FROM theses WHERE source_id = ?", (stats.source_id,)
+    ).fetchall()
+    assert [r["excluded"] for r in rows] == [0]
+
+
 def test_imported_theses_are_not_planned(researcher, export_file):
     import_export(researcher.conn, export_file, name="FH Wedel CS 2026")
     runner = Runner(researcher.repo, researcher.store, ModuleRegistry([FakeExtract()]))
