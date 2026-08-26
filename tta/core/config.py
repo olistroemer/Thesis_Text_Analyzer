@@ -23,6 +23,11 @@ class Config:
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
     outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
     institution: str | None = None  # used in export filenames and sources row
+    # Last-project pointer (SDD Sec. 5.6.1). Only the *default* project's
+    # tta.toml is ever consulted for it; it is the whole of the app's
+    # cross-launch memory, and it is a project file, so deleting the project
+    # folder deletes it too (US-PROF-NO-TRACES).
+    last_opened: str | None = None
     raw: dict | None = None  # full parsed file, for round-tripping
 
 
@@ -35,11 +40,17 @@ def load_config(project_dir: Path | str) -> Config:
     ui_mode = raw.get("ui", {}).get("mode", "basic")
     if ui_mode not in UI_MODES:
         ui_mode = "basic"
+    # Hand edits and older versions can put anything here; a non-string
+    # pointer must be ignored, not carried into a Path() at startup.
+    last_opened = raw.get("project", {}).get("last_opened")
+    if not isinstance(last_opened, str) or not last_opened.strip():
+        last_opened = None
     return Config(
         workers=raw.get("runner", {}).get("workers"),
         ui_mode=ui_mode,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
         institution=raw.get("project", {}).get("institution"),
+        last_opened=last_opened,
         raw=raw,
     )
 
@@ -59,6 +70,10 @@ def save_config(project_dir: Path | str, config: Config) -> None:
         project.pop("institution", None)
     else:
         project["institution"] = config.institution
+    if config.last_opened is None:
+        project.pop("last_opened", None)
+    else:
+        project["last_opened"] = config.last_opened
     for key, value in (("runner", runner), ("ui", ui), ("project", project)):
         if value:
             raw[key] = value

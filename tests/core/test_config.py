@@ -33,3 +33,30 @@ def test_unknown_keys_survive_round_trip(tmp_path):
 def test_invalid_mode_falls_back_to_basic(tmp_path):
     (tmp_path / "tta.toml").write_text("[ui]\nmode = \"hacker\"\n", encoding="utf-8")
     assert load_config(tmp_path).ui_mode == "basic"
+
+
+def test_last_opened_pointer_round_trips(tmp_path):
+    """The last-project pointer is a project file, not ~/.config state
+    (SDD Sec. 5.6.1, US-PROF-NO-TRACES)."""
+    save_config(tmp_path, Config(last_opened="/srv/theses"))
+    assert load_config(tmp_path).last_opened == "/srv/theses"
+    assert 'last_opened = "/srv/theses"' in (tmp_path / "tta.toml").read_text(encoding="utf-8")
+
+
+def test_clearing_last_opened_removes_the_key(tmp_path):
+    save_config(tmp_path, Config(last_opened="/srv/theses"))
+    save_config(tmp_path, Config(last_opened=None))
+    assert load_config(tmp_path).last_opened is None
+    assert "last_opened" not in (tmp_path / "tta.toml").read_text(encoding="utf-8")
+
+
+def test_last_opened_coexists_with_institution(tmp_path):
+    save_config(tmp_path, Config(institution="FH Wedel", last_opened="/srv/theses"))
+    reloaded = load_config(tmp_path)
+    assert reloaded.institution == "FH Wedel"
+    assert reloaded.last_opened == "/srv/theses"
+
+
+def test_non_string_last_opened_is_ignored(tmp_path):
+    (tmp_path / "tta.toml").write_text("[project]\nlast_opened = 7\n", encoding="utf-8")
+    assert load_config(tmp_path).last_opened is None

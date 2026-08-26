@@ -7,11 +7,12 @@ binary stays stateless; the project directory is the entire state.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from tta.core import db
 from tta.core.artefacts import ArtefactStore
-from tta.core.config import Config, load_config
+from tta.core.config import Config, load_config, save_config
 from tta.core.db import migrator
 from tta.core.db.repository import Repository
 from tta.core.events import EventBus
@@ -19,6 +20,124 @@ from tta.core.modules.registry import ModuleRegistry, default_registry
 from tta.core.runner import Runner
 
 DB_FILENAME = "tta.sqlite"
+DEFAULT_PROJECT_DIRNAME = "TTA-Theses"
+
+
+# -- startup project resolution (SDD Sec. 5.6.1, ADR-0014) -------------------
+#
+# The app's entire cross-launch memory is one key, `[project].last_opened`,
+# in the *default* project's `tta.toml`. Nothing is written under
+# ~/.config - deleting the project folders deletes every trace
+# (US-PROF-NO-TRACES). Resolution lives in core so both adapters share it.
+
+
+def default_project_dir() -> Path:
+    """The default project location.
+
+    A function rather than a module constant so that pointing HOME
+    elsewhere takes effect without re-importing the module.
+    """
+    return Path.home() / DEFAULT_PROJECT_DIRNAME
+
+
+def _base_dir(default_dir: Path | str | None) -> Path:
+    return Path(default_dir) if default_dir is not None else default_project_dir()
+
+
+def _same_dir(a: Path | str, b: Path | str) -> bool:
+    a, b = Path(a), Path(b)
+    try:
+        return a.resolve() == b.resolve()
+    except OSError:
+        return a.absolute() == b.absolute()
+
+
+def _one_line(exc: BaseException) -> str:
+    text = f"{type(exc).__name__}: {exc}".splitlines()
+    return text[0] if text else type(exc).__name__
+
+
+@dataclass
+class StartupTarget:
+    """Where startup should open, and whether it is creating that project."""
+
+    project_dir: Path
+    first_launch: bool
+
+
+def last_opened_pointer(default_dir: Path | str | None = None) -> Path | None:
+    """The remembered custom project, or ``None``.
+
+    Reads the pointer out of the default project's ``tta.toml``. Creates
+    nothing: a missing folder, a missing file, or a non-string value all
+    yield ``None``.
+    """
+    pointer = load_config(_base_dir(default_dir)).last_opened
+    return Path(pointer) if pointer else None
+
+
+def remember_project(project_dir: Path | str, default_dir: Path | str | None = None) -> None:
+    """Record ``project_dir`` as the project to open on next start.
+
+    Pointing at the default project clears the pointer instead of storing a
+    self-reference. Writing it creates the default project folder if
+    needed - that folder is the anchor the pointer lives in.
+    """
+    base = _base_dir(default_dir)
+    target = Path(project_dir).expanduser()
+    try:
+        target = target.resolve()
+    except OSError:
+        target = target.absolute()
+    base.mkdir(parents=True, exist_ok=True)
+    config = load_config(base)
+    config.last_opened = None if _same_dir(target, base) else str(target)
+    save_config(base, config)
+
+
+def resolve_startup_project(default_dir: Path | str | None = None) -> StartupTarget:
+    """Resolve which project the next launch opens (SDD Sec. 5.6.1)."""
+    base = _base_dir(default_dir)
+    pointer = last_opened_pointer(base)
+    # A remembered directory that still exists wins even without a
+    # tta.sqlite: File -> Open may name an empty folder, and the project is
+    # created there. A directory that is *gone* is a project the user
+    # deleted, and no-traces says that must leave nothing behind, so the
+    # stale pointer is ignored and the default project is used.
+    if pointer is not None and pointer.is_dir():
+        return StartupTarget(pointer, not (pointer / DB_FILENAME).exists())
+    return StartupTarget(base, not (base / DB_FILENAME).exists())
+
+
+def open_startup_project(
+    default_dir: Path | str | None = None,
+) -> tuple["Project", bool, str | None]:
+    """Open the resolved startup project; fall back to the default one.
+
+    Returns ``(project, first_launch, notice)``, where ``notice`` is
+    ``None`` on the normal path and a human-readable reason when the
+    remembered project could not be opened. Startup must not die on a bad
+    pointer: it selects the same broken target on every launch, so an
+    unhandled failure here means the app never starts again. The pointer is
+    deliberately left in place - the user may want to repair that project -
+    and the notice tells them File -> Open resets it.
+
+    A broken *default* project has nothing to fall back to, so it raises.
+    """
+    base = _base_dir(default_dir)
+    target = resolve_startup_project(base)
+    try:
+        return Project.open(target.project_dir, create=True), target.first_launch, None
+    except Exception as exc:
+        if _same_dir(target.project_dir, base):
+            raise
+        notice = (
+            f"Could not open the remembered project at {target.project_dir} "
+            f"({_one_line(exc)}). Opened the default project at {base} instead - "
+            "use File -> Open Project... to choose another."
+        )
+        first_launch = not (base / DB_FILENAME).exists()
+        return Project.open(base, create=True), first_launch, notice
 
 
 class Project:
