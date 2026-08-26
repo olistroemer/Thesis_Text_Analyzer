@@ -56,6 +56,12 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
                 second_thesis.id, "mod_surface_counts", "0.1.0", "ok",
                 metrics={"word_count": 100},
             )
+            # only the second thesis has a detected type, so a sort by the
+            # Type lead column has a visible effect on row order (#60)
+            project.repo.record_run(
+                second_thesis.id, "mod_classify_thesis_type", "0.1.0", "ok",
+                metrics={"thesis_type": "master"},
+            )
 
         window = MainWindow(project, first_launch=True)
         try:
@@ -93,7 +99,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
             grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
             window.root.update_idletasks()
-            assert grid._sort_metric == "word_count"
+            assert grid._sort_key == "word_count"
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (asc)"
 
@@ -106,6 +112,34 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             assert grid._sort_reverse is True
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (desc)"
+
+            # #60: a real click on the Type *lead* column header sorts by the
+            # detected type (blank last) and stamps the indicator on that
+            # header - it used to silently sort by file name and mark the file
+            # header instead.
+            type_col = headers.index("type")
+            x = grid.sheet.MT.col_positions[type_col] + 5
+            grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
+            grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
+            window.root.update_idletasks()
+            assert grid._sort_key == "type"
+            assert grid._sort_reverse is False
+            assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
+            assert grid.sheet.headers()[type_col] == "type (asc)"
+            assert grid.sheet.headers()[FILE_COL] == "file"  # indicator moved off
+            assert grid.sheet.headers()[col] == "word_count"
+
+            # #60: the Excluded lead column sorts too (nothing is excluded here,
+            # so the file-name tie-break decides), and a repeat click reverses.
+            excluded_col = headers.index("excluded")
+            x = grid.sheet.MT.col_positions[excluded_col] + 5
+            for _ in range(2):
+                grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
+                grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
+            window.root.update_idletasks()
+            assert grid._sort_key == "excluded"
+            assert grid._sort_reverse is True
+            assert grid.sheet.headers()[excluded_col] == "excluded (desc)"
 
             # #33: while a run is in progress the run buttons are replaced by a
             # single Cancel control; cancelling with no active runner is a

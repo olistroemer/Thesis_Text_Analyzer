@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from tta.core.db.repository import Repository
 from tta.core.types import Thesis
-from tta.ui.tk.columns import MetricColumn
+from tta.ui.tk.columns import ARTEFACT_COLUMNS, MetricColumn
 
 OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
@@ -140,20 +140,42 @@ def is_outlier(cell: Cell, bounds: tuple[float, float] | None) -> bool:
     return not bounds[0] <= cell.value <= bounds[1]
 
 
-def sort_rows(rows: list[ThesisRow], metric: str | None, reverse: bool) -> list[ThesisRow]:
-    """Sort by a metric column (None -> by filename). Missing values sort last."""
-    if metric is None:
+def _value_key(value: float | str | None, tie_break: str) -> tuple[int, float, str, str]:
+    """Rank/number/text/tie-break tuple: numbers first, then text, blanks last
+    (Sec. 9.2). ``tie_break`` keeps the order deterministic across equal values."""
+    if isinstance(value, bool):  # bool is an int - rank it as text, not as 0/1
+        return (1, 0.0, str(value).lower(), tie_break)
+    if isinstance(value, (int, float)):
+        return (0, float(value), "", tie_break)
+    if isinstance(value, str) and value:
+        return (1, 0.0, value.lower(), tie_break)
+    return (2, 0.0, "", tie_break)
+
+
+def sort_rows(rows: list[ThesisRow], key: str | None, reverse: bool) -> list[ThesisRow]:
+    """Sort by a *column identity* (Sec. 9.2), not by grid position.
+
+    ``key`` is the raw column name the grid header carries: a lead column
+    ("file", "type", "excluded"), an artefact kind, or a metric name. ``None``
+    means the default sort, by file name. Blank/missing values sort last in
+    ascending order and every column tie-breaks on the file name, so the row
+    order is deterministic (#60).
+    """
+    if key is None or key == "file":
         return sorted(rows, key=lambda r: r.thesis.pdf_filename.lower(), reverse=reverse)
 
-    def key(row: ThesisRow):
-        value = row.cells[metric].value
-        if isinstance(value, (int, float)):
-            return (0, value, "")
-        if isinstance(value, str):
-            return (1, 0.0, value.lower())
-        return (2, 0.0, "")
+    def key_func(row: ThesisRow):
+        tie_break = row.thesis.pdf_filename.lower()
+        if key == "type":
+            return _value_key(row.thesis_type, tie_break)
+        if key == "excluded":
+            return (0, float(bool(row.thesis.excluded)), "", tie_break)
+        if key in ARTEFACT_COLUMNS:
+            return (0, float(key in row.artefacts), "", tie_break)
+        cell = row.cells.get(key)
+        return _value_key(cell.value if cell is not None else None, tie_break)
 
-    return sorted(rows, key=key, reverse=reverse)
+    return sorted(rows, key=key_func, reverse=reverse)
 
 
 def cell_tooltip(cell: Cell) -> str | None:

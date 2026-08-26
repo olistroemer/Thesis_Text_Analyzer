@@ -130,6 +130,85 @@ def test_sort_rows_numeric_missing_last(project, tmp_path):
     assert [r.cells["word_count"].value for r in rows] == [10.0, 30.0, None]
 
 
+def _three_theses(project, tmp_path):
+    """b.pdf (bachelor, excluded, raw_text artefact), a.pdf (master), c.pdf (no run)."""
+    theses = {}
+    for name in ("b.pdf", "a.pdf", "c.pdf"):
+        pdf = tmp_path / name
+        pdf.write_bytes(b"%PDF-" + name.encode())
+        theses[name] = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        run_id = project.repo.record_run(
+            theses["b.pdf"].id, "mod_classify_thesis_type", "0.1.0", "ok",
+            metrics={"thesis_type": "bachelor"},
+        )
+        project.repo.record_run(
+            theses["a.pdf"].id, "mod_classify_thesis_type", "0.1.0", "ok",
+            metrics={"thesis_type": "master"},
+        )
+        project.repo.record_artefact(
+            theses["b.pdf"].id, "raw_text", "artefacts/1/raw_text.txt", run_id
+        )
+    project.repo.set_excluded(theses["b.pdf"].id, True)
+    return theses
+
+
+def _names(rows):
+    return [r.thesis.pdf_filename for r in rows]
+
+
+def test_sort_by_file_lead_column(project, tmp_path):
+    """#60: the 'file' identity and the default (None) sort agree."""
+    _three_theses(project, tmp_path)
+    rows = grid_model.load_rows(project.repo, [])
+    assert _names(grid_model.sort_rows(rows, "file", False)) == ["a.pdf", "b.pdf", "c.pdf"]
+    assert _names(grid_model.sort_rows(rows, "file", True)) == ["c.pdf", "b.pdf", "a.pdf"]
+    assert _names(grid_model.sort_rows(rows, None, False)) == ["a.pdf", "b.pdf", "c.pdf"]
+
+
+def test_sort_by_type_lead_column_blanks_last(project, tmp_path):
+    """#60: clicking Type sorts by the detected type, never by file name; the
+    not-yet-analysed row stays at the bottom in ascending order (Sec. 9.2)."""
+    _three_theses(project, tmp_path)
+    rows = grid_model.load_rows(project.repo, [])
+    ordered = grid_model.sort_rows(rows, "type", False)
+    assert [r.thesis_type for r in ordered] == ["bachelor", "master", ""]
+    assert _names(ordered) == ["b.pdf", "a.pdf", "c.pdf"]  # not alphabetical
+    assert [r.thesis_type for r in grid_model.sort_rows(rows, "type", True)] == [
+        "", "master", "bachelor",
+    ]
+
+
+def test_sort_by_excluded_lead_column(project, tmp_path):
+    """#60: clicking Excluded groups the excluded rows, file name as tie-break."""
+    _three_theses(project, tmp_path)
+    rows = grid_model.load_rows(project.repo, [])
+    ordered = grid_model.sort_rows(rows, "excluded", False)
+    assert _names(ordered) == ["a.pdf", "c.pdf", "b.pdf"]  # excluded b.pdf last
+    assert _names(grid_model.sort_rows(rows, "excluded", True))[0] == "b.pdf"
+
+
+def test_sort_by_artefact_presence_column(project, tmp_path):
+    """#60: an artefact column sorts on presence of that artefact kind."""
+    _three_theses(project, tmp_path)
+    rows = grid_model.load_rows(project.repo, [])
+    ordered = grid_model.sort_rows(rows, "raw_text", True)
+    assert _names(ordered)[0] == "b.pdf"  # the only row with a raw_text artefact
+    assert "raw_text" in ordered[0].artefacts
+    assert _names(grid_model.sort_rows(rows, "raw_text", False))[-1] == "b.pdf"
+
+
+def test_sort_by_unknown_key_falls_back_to_the_tie_break(project, tmp_path):
+    """A key that matches no cell (e.g. a column dropped by a mode switch)
+    degrades to 'every value blank' - so the file-name tie-break decides -
+    rather than raising a KeyError (#60)."""
+    _three_theses(project, tmp_path)
+    rows = grid_model.load_rows(project.repo, [])
+    assert _names(grid_model.sort_rows(rows, "no_such_metric", False)) == [
+        "a.pdf", "b.pdf", "c.pdf",
+    ]
+
+
 def test_has_analysis_reflects_presence_of_runs(project, tmp_path):
     """A row carries has_analysis=True when the thesis has any cached run (so
     excluding it must scrub), and False for a never-analysed thesis (#11)."""

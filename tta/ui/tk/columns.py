@@ -12,6 +12,10 @@ from tta.core.modules.registry import ModuleRegistry
 # SDD Sec. 9.2, #11).
 LEAD_COLUMNS = ("excluded", "file", "type")
 
+#: Artefact-presence columns, extended mode only (Sec. 9.2). Named here so
+#: the grid, the sort keys and COLUMN_HELP all agree on the set and order.
+ARTEFACT_COLUMNS = ("raw_text", "language", "tokens", "pdf_metadata")
+
 #: Curated basic-mode metric subset (Sec. 9.3 "limited columns visible by default").
 BASIC_METRICS = (
     "n_pages",

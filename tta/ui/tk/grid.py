@@ -11,7 +11,7 @@ from tksheet import Sheet, num2alpha
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
+from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
 
 # Sec. 9.9 render states / Sec. 9.5 outlier overlay
 COLOR_NA = "#e8e8e8"
@@ -45,7 +45,9 @@ class GridView(ttk.Frame):
         self.columns: list[MetricColumn] = []
         self.artefact_kinds: list[str] = []
         self.rows: list[grid_model.ThesisRow] = []
-        self._sort_metric: str | None = None
+        # raw name of the column sorted on - a lead column, an artefact kind or
+        # a metric (Sec. 9.2, #60). None = the default sort, by file name.
+        self._sort_key: str | None = None
         self._sort_reverse = False
         self._sorted = False
         # note keys set on the last render, cleared before the next one so a
@@ -85,16 +87,21 @@ class GridView(ttk.Frame):
 
     def reload(self, columns: list[MetricColumn], show_artefacts: bool) -> None:
         self.columns = columns
-        self.artefact_kinds = (
-            ["raw_text", "language", "tokens", "pdf_metadata"] if show_artefacts else []
-        )
+        self.artefact_kinds = list(ARTEFACT_COLUMNS) if show_artefacts else []
         self.rows = grid_model.sort_rows(
-            grid_model.load_rows(self.repo, columns), self._sort_metric, self._sort_reverse
+            grid_model.load_rows(self.repo, columns), self._sort_key, self._sort_reverse
         )
         self._render()
 
+    def _column_names(self) -> list[str]:
+        """Raw column names, left to right: lead columns, artefact-presence
+        columns (extended mode), then metric columns. This list *is* the
+        column-identity model - headers, sort keys and note targets all index
+        into it (#60)."""
+        return list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+
     def _header(self) -> list[str]:
-        headers = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+        headers = self._column_names()
         if self._sorted:
             index = self._sorted_header_index()
             if index is not None:
@@ -102,14 +109,12 @@ class GridView(ttk.Frame):
         return headers
 
     def _sorted_header_index(self) -> int | None:
-        """Header position of the current sort column (ASCII indicator, #40)."""
-        if self._sort_metric is None:
-            return FILE_COL  # default sort is by filename
-        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        for i, column in enumerate(self.columns):
-            if column.metric == self._sort_metric:
-                return offset + i
-        return None
+        """Header position of the current sort column (ASCII indicator, #40).
+        The indicator lands on the column actually sorted on, whichever kind of
+        column that is (#60)."""
+        key = "file" if self._sort_key is None else self._sort_key  # default sort
+        names = self._column_names()
+        return names.index(key) if key in names else None
 
     def _render(self) -> None:
         bounds = grid_model.outlier_bounds(self.rows, self.columns)
@@ -170,8 +175,7 @@ class GridView(ttk.Frame):
         self._note_cells = set()
         self._note_headers = set()
 
-        names = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
-        for c, name in enumerate(names):
+        for c, name in enumerate(self._column_names()):
             help_text = column_help(name)
             if help_text:
                 sheet.note(sheet.span(num2alpha(c), header=True), note=help_text)
@@ -197,18 +201,16 @@ class GridView(ttk.Frame):
         column = self.sheet.identify_column(event, allow_end=False)
         if column is None:
             return
-        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        metric = (
-            self.columns[column - offset].metric
-            if offset <= column < offset + len(self.columns)
-            else None
-        )
-        if self._sorted and metric == self._sort_metric:
+        names = self._column_names()
+        if not 0 <= column < len(names):
+            return
+        key = names[column]
+        if self._sorted and key == self._sort_key:
             self._sort_reverse = not self._sort_reverse
         else:
-            self._sort_metric, self._sort_reverse = metric, False
+            self._sort_key, self._sort_reverse = key, False
         self._sorted = True
-        self.rows = grid_model.sort_rows(self.rows, self._sort_metric, self._sort_reverse)
+        self.rows = grid_model.sort_rows(self.rows, self._sort_key, self._sort_reverse)
         self._render()
 
     def _on_excluded_toggle(self, event) -> None:
