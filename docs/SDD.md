@@ -484,6 +484,14 @@ Thirteen modules, thirty-one metrics. See [ADR-011](adr/0011-mvp-module-catalogu
 | 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `notes` |
 | 13 | `mod_extract_filesystem_metadata` | — (PDF path directly) | — | `file_size_bytes` (num), `fs_modified_year` (num) | stdlib `os.stat`; run-time file size + mtime year. Weak, easily-reset signals (#18) — see [§7.4](#74-notes-on-specific-modules) |
 
+The third-party libraries named in the *Notes* column are inventoried — name, purpose, version,
+licence — in [`dependencies.md`](dependencies.md), which doubles as the one-time
+GPL-3.0-or-later compatibility audit [ADR-0017](adr/0017-license.md) calls for (#37). What those
+libraries and formulas get *wrong*, and which metrics must therefore be read with caution, is
+documented in [`model-limitations.md`](model-limitations.md) (#43). The MVP uses **no LLM**; the
+only trained/statistical components are NLTK punkt, langdetect, and the Flesch/Amstad syllable
+heuristics.
+
 ## 7.2 Applicability matrix
 
 | Module | Applicable when | N/A reason if not |
