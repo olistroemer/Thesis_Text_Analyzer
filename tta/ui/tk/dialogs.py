@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database
 from tta.core.project import Project
 
@@ -25,6 +26,41 @@ def add_files_flow(parent, project: Project) -> int:
     # one batched transaction, not one commit per file (#61, ADR-0006 rev. 6)
     return len(project.repo.add_theses([Path(name) for name in filenames]))
 
+
+def add_folder_flow(parent, project: Project) -> int:
+    """Pick one folder -> add every PDF beneath it, recursively. Returns count.
+
+    The CLI has always done this for a directory INPUT; the GUI could only
+    multi-select individual files (#62). Both now walk the folder through the
+    same core collector (ADR-0002), so ".PDF" is picked up either way.
+
+    The count is confirmed **before** anything is written: a mis-picked folder
+    (a home directory, a whole drive) would otherwise dump thousands of rows,
+    and undoing an add is a per-thesis operation, not one click. Tk's
+    ``askdirectory`` returns a single directory, so this adds one folder per
+    invocation; ``collect_pdfs`` itself takes any number, which is what
+    ``tta run DIR1 DIR2 ...`` passes."""
+    chosen = filedialog.askdirectory(
+        parent=parent, title="Add all thesis PDFs in a folder (including subfolders)"
+    )
+    if not chosen:
+        return 0
+    folder = Path(chosen)
+    pdfs = collect_pdfs([folder])
+    if not pdfs:
+        messagebox.showinfo(
+            "Add folder", f"No PDFs found in or below:\n{folder}", parent=parent
+        )
+        return 0
+    if not messagebox.askyesno(
+        "Add folder",
+        f"Add {len(pdfs)} PDFs from:\n{folder}\n\n"
+        "Subfolders are included. Nothing is read yet - the documents are "
+        "only analysed when you click Run.",
+        parent=parent,
+    ):
+        return 0
+    return len(project.repo.add_theses(pdfs))
 
 def export_flow(parent, project: Project) -> None:
     """Pre-export confirmation (Sec. 8.3, QA-PRIV): row count + path, one

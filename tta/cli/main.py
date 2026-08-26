@@ -27,6 +27,7 @@ import tta
 from tta.core import events
 from tta.core import privacy_metadata
 from tta.core.db import migrator
+from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
@@ -317,13 +318,13 @@ def module_show(name: str) -> None:
 
 
 def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
-    pdfs: list[Path] = []
-    for path in inputs:
-        if path.is_dir():
-            pdfs.extend(sorted(path.rglob("*.pdf")))
-        else:
-            pdfs.append(path)
-    return pdfs
+    """Thin shim over the collector shared with the GUI (#62).
+
+    The walk used to live here, which is why the GUI had no folder add at
+    all; it now lives in ``core.discovery`` and is case-insensitive, so a
+    ``.PDF`` is no longer skipped.
+    """
+    return collect_pdfs(inputs)
 
 
 @cli.command()
