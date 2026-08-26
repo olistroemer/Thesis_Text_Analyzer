@@ -12,12 +12,19 @@ of application code would ever notice:
      Tcl/Tk) because the spec shared one ``hiddenimports`` list, which made
      the CLI *larger* than the GUI.
 
-This script checks both against a finished build tree and exits non-zero on
-any violation, so CI fails instead of publishing the artefact. Run it from
-the repo root after PyInstaller:
+  3. A bundled library's licence notice is missing from
+     THIRD_PARTY_LICENSES.txt (#4). The manifest is generated from the build
+     environment's installed distributions, so a package the binary picks up
+     through a runtime hook can end up frozen in with no notice attached -
+     which is the direction that is an actual licence violation.
+
+This script checks all three against a finished build tree and exits
+non-zero on any violation, so CI fails instead of publishing the artefact.
+Run it from the repo root after PyInstaller:
 
     python packaging/check_build.py --dist dist --build build/tta \\
-        --max-bytes 157286400
+        --max-bytes 157286400 \\
+        --manifest build/licenses/THIRD_PARTY_LICENSES.txt
 
 The size ceiling is a regression tripwire, not a target (ADR-0014). Raising
 it requires an ADR revision that states why the growth is a genuine
@@ -28,7 +35,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.metadata
 import os
+import re
 import sys
 
 # Packages that must not appear in EITHER dependency graph. Not declared in
@@ -59,6 +68,9 @@ TOC_KINDS = frozenset(
 )
 
 MIB = 1024 * 1024
+
+# The licence manifest's bundled filename (ADR-0014, #4).
+MANIFEST_NAME = "THIRD_PARTY_LICENSES.txt"
 
 
 def _walk_entries(node):
@@ -119,6 +131,70 @@ def user_site_sources(entries):
     )
 
 
+# Directory names under site-packages that are not importable packages and
+# so cannot be mapped to a distribution by import name.
+_NOT_A_PACKAGE = re.compile(
+    r"(\.dist-info|\.egg-info|\.egg-link|\.pth|\.libs|__pycache__)$"
+)
+
+
+def normalise_dist(name):
+    """PEP 503-ish normalisation, so 'PyYAML' and 'pyyaml' compare equal."""
+    return name.strip().lower().replace("_", "-").replace(".", "-")
+
+
+def bundled_distributions(entries, mapping=None):
+    """Distribution names for every site-packages file in a dependency graph.
+
+    Attribution goes through the top-level import name, because that is all a
+    TOC records. ``importlib.metadata.packages_distributions()`` supplies the
+    import-name -> distribution mapping, which is why this has to run in the
+    same environment the freeze used.
+
+    Returns (distributions, unattributed): the second set holds top-level
+    names no installed distribution claims (PyInstaller's own bootstrap
+    modules, vendored shims, hash-named mypyc extensions). Those are
+    reported, not failed on - guessing at them would make the gate flaky.
+    """
+    if mapping is None:  # pragma: no cover - environment-dependent
+        mapping = importlib.metadata.packages_distributions()
+    lookup = {normalise_dist(k): v for k, v in mapping.items()}
+
+    distributions, unattributed = set(), set()
+    for _dest, source, _kind in entries:
+        path = source.replace("\\", "/")
+        if "site-packages/" not in path:
+            continue
+        head = path.split("site-packages/", 1)[1].split("/", 1)[0]
+        if _NOT_A_PACKAGE.search(head):
+            continue
+        top = head[:-3] if head.endswith(".py") else head
+        top = top.split(".", 1)[0]
+        if not top or top.startswith("-"):
+            continue
+        claimed = lookup.get(normalise_dist(top))
+        if claimed:
+            distributions.update(normalise_dist(d) for d in claimed)
+        else:
+            unattributed.add(top)
+    return distributions, unattributed
+
+
+def manifest_gaps(entries, manifest_text, mapping=None):
+    """Bundled distributions with no notice in the licence manifest (#4).
+
+    The manifest names each component in its inventory table, so a substring
+    search on the normalised text is enough and stays robust to layout
+    changes in the generator.
+    """
+    distributions, unattributed = bundled_distributions(entries, mapping)
+    haystack = normalise_dist(re.sub(r"\s+", " ", manifest_text))
+    missing = sorted(
+        dist for dist in distributions if normalise_dist(dist) not in haystack
+    )
+    return missing, sorted(unattributed)
+
+
 def classify_tocs(paths):
     """Split Analysis TOCs into (cli_tocs, gui_tocs) by their entry script.
 
@@ -135,7 +211,14 @@ def classify_tocs(paths):
     return cli, gui
 
 
-def check(dist_dir, build_dir, max_bytes, executables=("tta", "tta-gui")):
+def check(
+    dist_dir,
+    build_dir,
+    max_bytes,
+    executables=("tta", "tta-gui"),
+    manifest=None,
+    mapping=None,
+):
     """Run every gate. Returns a list of human-readable failure strings."""
     failures = []
 
@@ -203,6 +286,48 @@ def check(dist_dir, build_dir, max_bytes, executables=("tta", "tta-gui")):
                 % (os.path.basename(path), ", ".join(sorted(found)))
             )
 
+    # ---- gate 4: every bundled distribution has a licence notice ----------
+    if manifest is not None:
+        if not os.path.isfile(manifest):
+            failures.append(
+                "licence manifest not found at %s - generate it with "
+                "packaging/gen_third_party_licenses.py (ADR-0014, #4)" % manifest
+            )
+        else:
+            with open(manifest, "r", encoding="utf-8") as handle:
+                manifest_text = handle.read()
+
+            # It must also be BUNDLED, in both graphs - a manifest sitting on
+            # the build machine protects nobody.
+            for path, entries in cli_tocs + gui_tocs:
+                if not any(
+                    os.path.basename(dest.replace("\\", "/")) == MANIFEST_NAME
+                    for dest, _source, _kind in entries
+                ):
+                    failures.append(
+                        "%s does not bundle %s - add it to the spec's datas "
+                        "(ADR-0014, #4)"
+                        % (os.path.basename(path), MANIFEST_NAME)
+                    )
+
+            all_entries = [e for _p, entries in cli_tocs + gui_tocs for e in entries]
+            missing, unattributed = manifest_gaps(
+                all_entries, manifest_text, mapping
+            )
+            if missing:
+                failures.append(
+                    "THIRD_PARTY_LICENSES.txt has no notice for %d bundled "
+                    "distribution(s): %s - a frozen binary redistributes them, "
+                    "so their licences must accompany it (ADR-0014, #4)"
+                    % (len(missing), ", ".join(missing))
+                )
+            if unattributed:
+                print(
+                    "note: %d bundled top-level name(s) map to no installed "
+                    "distribution and were not licence-checked: %s"
+                    % (len(unattributed), ", ".join(unattributed))
+                )
+
     return failures
 
 
@@ -226,6 +351,12 @@ def main(argv=None):
         default=None,
         help="executable name to size-check (repeatable; default tta, tta-gui)",
     )
+    parser.add_argument(
+        "--manifest",
+        default=None,
+        help="THIRD_PARTY_LICENSES.txt to check for licence coverage (#4); "
+        "omitted skips that gate",
+    )
     args = parser.parse_args(argv)
 
     failures = check(
@@ -233,6 +364,7 @@ def main(argv=None):
         args.build,
         args.max_bytes,
         tuple(args.exe) if args.exe else ("tta", "tta-gui"),
+        manifest=args.manifest,
     )
     for line in failures:
         print("ERROR: %s" % line, file=sys.stderr)

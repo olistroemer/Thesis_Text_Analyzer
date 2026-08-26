@@ -34,6 +34,21 @@ def check_build():
     return module
 
 
+AGPL_PATH = REPO_ROOT / "packaging" / "licenses" / "AGPL-3.0.txt"
+GENERATOR_PATH = REPO_ROOT / "packaging" / "gen_third_party_licenses.py"
+
+
+@pytest.fixture(scope="session")
+def generator():
+    """packaging/gen_third_party_licenses.py loaded by path."""
+    spec = importlib.util.spec_from_file_location(
+        "tta_gen_third_party_licenses", GENERATOR_PATH
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 @pytest.fixture
 def spec_source():
     return SPEC_PATH.read_text(encoding="utf-8")

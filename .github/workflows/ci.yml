@@ -98,18 +98,29 @@ jobs:
       - name: Download NLTK punkt_tab (bundled into the binary)
         run: python -m nltk.downloader punkt_tab
 
+      # ADR-0014 licence manifest (#4). Must run BEFORE PyInstaller and in
+      # this same clean environment: it inventories the installed
+      # distributions, so its accuracy depends on PYTHONNOUSERSITE above.
+      # The spec refuses to build if the file is absent.
+      - name: Generate THIRD_PARTY_LICENSES.txt (ADR-0014)
+        run: |
+          python packaging/gen_third_party_licenses.py \
+            --output build/licenses/THIRD_PARTY_LICENSES.txt
+
       - name: Build onefile binaries
         run: pyinstaller packaging/tta.spec --noconfirm --distpath dist --workpath build
 
-      # ADR-0014 build gates (#52): per-executable size ceiling, plus proof
-      # that neither dependency graph carries the undeclared numeric stack,
-      # that nothing was collected from a user site directory, and that the
-      # CLI graph is free of the GUI-only stack. The logic lives in a
-      # committed script so it is unit-tested by tests/packaging/.
+      # ADR-0014 build gates (#52, #4): per-executable size ceiling, plus
+      # proof that neither dependency graph carries the undeclared numeric
+      # stack, that nothing was collected from a user site directory, that
+      # the CLI graph is free of the GUI-only stack, and that every bundled
+      # distribution has a licence notice in the manifest. The logic lives in
+      # a committed script so it is unit-tested by tests/packaging/.
       - name: Build gates (ADR-0014)
         run: |
           python packaging/check_build.py \
-            --dist dist --build build/tta --max-bytes "$TTA_MAX_EXE_BYTES"
+            --dist dist --build build/tta --max-bytes "$TTA_MAX_EXE_BYTES" \
+            --manifest build/licenses/THIRD_PARTY_LICENSES.txt
 
       # Headless CLI smoke test: prove the frozen binary boots, the bundled
       # SQL migrations run, and the NLTK-dependent modules succeed end to end
@@ -128,6 +139,23 @@ jobs:
           # punkt_tab + migrations + fitz all work in the frozen binary).
           grep -Eq '0 errors' run.log
 
+      # The manifest must be INSIDE each executable, not merely next to it on
+      # the build machine (ADR-0014, #4). pyi-archive_viewer reads the real
+      # CArchive out of the produced onefile binary, so this is evidence
+      # about the shipped artefact rather than about the build tree.
+      - name: Verify the licence manifest is inside both binaries
+        run: |
+          set -euo pipefail
+          for exe in dist/tta dist/tta-gui; do
+            if pyi-archive_viewer --list "$exe" \
+                 | grep -q "'THIRD_PARTY_LICENSES.txt'"; then
+              echo "$exe: licence manifest present"
+            else
+              echo "::error::$exe does not contain THIRD_PARTY_LICENSES.txt"
+              exit 1
+            fi
+          done
+
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
@@ -135,4 +163,5 @@ jobs:
           path: |
             dist/tta
             dist/tta-gui
+            build/licenses/THIRD_PARTY_LICENSES.txt
           if-no-files-found: error

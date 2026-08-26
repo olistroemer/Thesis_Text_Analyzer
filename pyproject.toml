@@ -34,10 +34,14 @@ tta-gui = "tta.ui.tk.app:main"
 # (ADR-0011 / ADR-0014) fails any distributed build that imports it under
 # tta/core/. Kept out of the default dependency set on purpose.
 pymupdf = ["pymupdf>=1.24"]
-dev = ["pytest>=8", "tta[pymupdf]"]
+# The packaging tests (tests/packaging) exercise the real build contract,
+# so the dev env needs the build tooling too.
+dev = ["pytest>=8", "tta[pymupdf]", "tta[build]"]
 # Frozen single-file binaries (ADR-0014). PyInstaller --onefile; punkt_tab
 # NLTK data + SQL migrations bundled via the committed packaging/tta.spec.
-build = ["pyinstaller>=6"]
+# pip-licenses inventories the build environment for THIRD_PARTY_LICENSES.txt,
+# which the spec refuses to build without (ADR-0014 licence manifest, #4).
+build = ["pyinstaller>=6", "pip-licenses>=5"]
 
 [tool.setuptools.packages.find]
 include = ["tta*"]

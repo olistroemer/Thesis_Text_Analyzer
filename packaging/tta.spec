@@ -11,6 +11,9 @@ Bundled data (must survive freezing - verified by the CLI smoke test):
     (mod_tokenize); a runtime hook prepends it to ``nltk.data.path``.
   * SQL migrations ``tta/core/db/migrations/*.sql`` (schema bootstrap).
   * Help markdown ``tta/core/help/**/*.md`` (CLI ``help`` / ``privacy``).
+  * ``THIRD_PARTY_LICENSES.txt`` (ADR-0014, #4) - generated BEFORE this spec
+    runs; the build is refused without it, because a --onefile binary
+    redistributes every library inside it.
 
 UPX is disabled (ADR-0014): it corrupts some shared objects and the size
 win is not worth the flakiness.
@@ -29,6 +32,7 @@ dependency set rather than of the build machine (QA-REPRO, SDD 10):
 
 Run from the repo root:
 
+    python packaging/gen_third_party_licenses.py
     PYTHONNOUSERSITE=1 pyinstaller packaging/tta.spec --noconfirm
 """
 
@@ -69,6 +73,28 @@ def _root(*parts):
 # (tokenizers/punkt_tab) so the frozen path matches what NLTK looks up.
 _punkt_tab = str(nltk.data.find("tokenizers/punkt_tab"))
 
+# ---- third-party licence manifest (ADR-0014, #4) --------------------------
+# A --onefile executable is a redistribution of every library inside it, and
+# the MIT / BSD / Apache-2.0 / PSF licences in the dependency set - plus
+# PyMuPDF's AGPL-3.0 section 4 - all require their notices to accompany the
+# binary. The manifest is generated in the same clean environment as the
+# freeze (it inventories the installed distributions), so it cannot be
+# produced from inside this spec; refuse to build without it rather than
+# ship a binary with no notices.
+LICENSES_DEST = "THIRD_PARTY_LICENSES.txt"
+_licenses = os.environ.get(
+    "TTA_THIRD_PARTY_LICENSES",
+    _root("build", "licenses", LICENSES_DEST),
+)
+if not os.path.isfile(_licenses):
+    raise SystemExit(
+        "packaging/tta.spec: missing %s (ADR-0014 licence-manifest clause).\n"
+        "  expected at: %s\n"
+        "  fix: python packaging/gen_third_party_licenses.py\n"
+        "  (or point TTA_THIRD_PARTY_LICENSES at an existing manifest)"
+        % (LICENSES_DEST, _licenses)
+    )
+
 # ---- package data files (datas: (src, dest_dir_inside_bundle)) ------------
 datas = [
     (_punkt_tab, os.path.join("nltk_data", "tokenizers", "punkt_tab")),
@@ -76,6 +102,7 @@ datas = [
      os.path.join("tta", "core", "db", "migrations")),
     (_root("tta", "core", "help"),
      os.path.join("tta", "core", "help")),
+    (_licenses, "."),
 ]
 
 # ---- imports PyInstaller's static analysis tends to miss ------------------
