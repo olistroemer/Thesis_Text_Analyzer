@@ -1,17 +1,28 @@
-"""Pure size-weighted progress/ETA estimator tests (tta.core.progress, #39).
+"""Pure progress/ETA estimator tests (tta.core.progress; #39, #54, #58).
 
-No Tk: the estimator is toolkit-free by design (hard invariant 3), so this
-exercises it directly with numbers.
+No Tk: the estimator is toolkit-free by design (ADR-0002), so this exercises it
+directly with numbers. It also never reads the clock - wall-clock elapsed and
+the worker count are arguments - so every case below is deterministic.
 """
 
 import pytest
 
 from tta.core import progress
 
+NOMINAL = progress.PRIOR_THESIS_BYTES
+
+
+def _flat(module: str, ms: float) -> tuple[float, float]:
+    """A size-independent cost model of ``ms`` per pair, for readable maths."""
+    return (ms, 0.0)
+
+
+# -- fraction and terminal states -------------------------------------------
+
 
 def test_fraction_is_done_over_total_and_clamped():
-    assert progress.estimate(0, 4, [("m", 10)], {}).fraction == 0.0
-    assert progress.estimate(2, 4, [("m", 10)], {"m": 1.0}).fraction == 0.5
+    assert progress.estimate(0, 4, [(1, "m", 10)], {}).fraction == 0.0
+    assert progress.estimate(2, 4, [(1, "m", 10)], {"m": _flat("m", 1)}).fraction == 0.5
     assert progress.estimate(4, 4, [], {}).fraction == 1.0
     # degenerate totals never divide by zero or exceed [0, 1]
     assert progress.estimate(0, 0, [], {}).fraction == 0.0
@@ -19,71 +30,258 @@ def test_fraction_is_done_over_total_and_clamped():
 
 
 def test_no_remaining_pairs_is_zero_eta():
-    est = progress.estimate(4, 4, [], {"m": 2.0})
+    est = progress.estimate(4, 4, [], {"m": _flat("m", 2000)})
     assert est.eta_seconds == 0.0
     assert est.done == 4 and est.total == 4
 
 
-def test_eta_is_size_weighted_sum_over_pairs():
-    """ETA = sum(rate[module] * size) / 1000. Two pairs, one module at
-    2 ms/byte: 100B + 50B -> (200 + 100) ms -> 0.3 s."""
-    est = progress.estimate(
-        done=1, total=3, remaining=[("mod_a", 100), ("mod_a", 50)], rates={"mod_a": 2.0}
-    )
-    assert est.eta_seconds == pytest.approx(0.3)
-
-
-def test_bigger_remaining_theses_give_a_longer_eta():
-    """The explicit requirement: size matters, not just the pair count."""
-    rates = {"mod_a": 1.0}
-    small = progress.estimate(1, 3, [("mod_a", 10), ("mod_a", 10)], rates).eta_seconds
-    large = progress.estimate(1, 3, [("mod_a", 10), ("mod_a", 1000)], rates).eta_seconds
-    assert large > small
-    # same pair COUNT, only the size differs -> the estimate must differ
-    assert small == pytest.approx((10 + 10) / 1000)
-    assert large == pytest.approx((10 + 1000) / 1000)
-
-
-def test_module_without_its_own_rate_uses_mean_of_known_rates():
-    """A remaining module absent from `rates` borrows the mean of known rates."""
-    rates = {"mod_a": 2.0, "mod_b": 4.0}  # mean 3.0 ms/byte
-    est = progress.estimate(1, 2, [("mod_c", 100)], rates)  # mod_c unknown
-    assert est.eta_seconds == pytest.approx(3.0 * 100 / 1000)
-
-
-def test_before_any_data_no_eta_but_bar_still_advances():
-    """First run, no history, nothing observed yet: fraction is real but ETA is
-    None so the caller shows 'estimating...'."""
-    est = progress.estimate(done=0, total=5, remaining=[("mod_a", 100)], rates={})
+def test_before_any_evidence_no_eta_but_bar_still_advances():
+    """No history, nothing done, nothing running: the fraction is real but the
+    ETA is None so the caller shows 'estimating...'."""
+    est = progress.estimate(done=0, total=5, remaining=[(1, "mod_a", 100)], costs={})
     assert est.eta_seconds is None
     assert est.fraction == 0.0
 
 
-def test_observed_in_run_rate_enables_the_estimate():
-    """Once a module's in-run rate is known (caller merges it into `rates`), the
-    size-weighted ETA is produced for the remaining pairs."""
+def test_a_pair_in_flight_is_enough_evidence_for_a_prior_estimate():
+    """Once the run is actually running, the ADR-0015 priors give a number - the
+    label does not sit on 'estimating...' waiting for the first completion."""
     est = progress.estimate(
-        done=1, total=3, remaining=[("mod_a", 200), ("mod_a", 200)], rates={"mod_a": 0.5}
+        0, 5, [(1, "mod_tokenize", NOMINAL)], {}, in_flight={(1, "mod_tokenize"): 0.0}
     )
-    assert est.eta_seconds == pytest.approx((0.5 * 200 * 2) / 1000)
+    assert est.eta_seconds == pytest.approx(4.0)  # mod_tokenize budget: 4 s
 
 
-def test_count_proportional_elapsed_fallback_when_no_rates():
-    """No rate anywhere but some pairs done and time elapsed: fall back to a
-    count-proportional estimate from elapsed time (elapsed * remaining/done)."""
+# -- affine cost model (#54 defect 3) ---------------------------------------
+
+
+def test_eta_uses_intercept_plus_slope_not_a_pure_rate():
+    """cost = intercept_ms + slope*size. Two pairs, one module at
+    (100 ms + 2 ms/byte): 100B -> 300 ms, 50B -> 200 ms, serial -> 0.5 s."""
     est = progress.estimate(
-        done=2, total=5, remaining=[("m", 0), ("m", 0), ("m", 0)], rates={}, elapsed_s=10.0
+        done=1,
+        total=3,
+        remaining=[(1, "mod_a", 100), (1, "mod_a", 50)],
+        costs={"mod_a": (100.0, 2.0)},
     )
-    assert est.eta_seconds == pytest.approx(10.0 * 3 / 2)
+    assert est.eta_seconds == pytest.approx(0.5)
 
 
-def test_zero_sizes_with_known_rate_fall_through_to_elapsed():
-    """Known rate but all remaining sizes are 0 -> size sum is 0, so use the
-    elapsed count-proportional fallback rather than reporting 0 s left."""
+def test_bigger_remaining_theses_give_a_longer_eta():
+    """The explicit #39 requirement: size matters, not just the pair count."""
+    costs = {"mod_a": (0.0, 1.0)}  # 1 ms/byte, no constant part
+    pairs_small = [(1, "mod_a", 10), (2, "mod_a", 10)]
+    pairs_large = [(1, "mod_a", 10), (2, "mod_a", 1000)]
+    small = progress.estimate(1, 3, pairs_small, costs, workers=1).eta_seconds
+    large = progress.estimate(1, 3, pairs_large, costs, workers=1).eta_seconds
+    assert large > small
+    # same pair COUNT, only the size differs -> the estimate must differ
+    assert small == pytest.approx((10 + 10) / 1000)
+    assert large == pytest.approx((10 + 1000) / 1000)
+    # on two workers the big thesis is the critical path, the small one is free
+    assert progress.estimate(1, 3, pairs_large, costs, workers=2).eta_seconds == pytest.approx(1.0)
+
+
+def test_unknown_module_uses_its_own_prior_not_the_mean_of_known_rates():
+    """#54 defect 3: on a first run only the extractor has reported, and the old
+    mean-of-known-rates fallback priced every other module at the extractor's
+    rate - the visible 'grossly inflated' ETA. Each module gets its own
+    ADR-0015 prior instead."""
+    extractor = {"mod_extract_pymupdf": (0.0, 6000.0 / NOMINAL)}  # 6 s at nominal size
     est = progress.estimate(
-        done=1, total=3, remaining=[("m", 0), ("m", 0)], rates={"m": 2.0}, elapsed_s=6.0
+        1, 2, [(1, "mod_surface_counts", NOMINAL)], extractor  # 200 ms budget
     )
-    assert est.eta_seconds == pytest.approx(6.0 * 2 / 1)
+    assert est.eta_seconds == pytest.approx(0.2)
+    assert est.eta_seconds < 6.0  # not priced at the extractor's rate
+
+
+def test_zero_or_degenerate_cost_model_falls_back_to_the_prior():
+    """A model that prices a pair at zero is unusable; the prior is used."""
+    est = progress.estimate(1, 2, [(1, "mod_tokenize", 0)], {"mod_tokenize": (0.0, 0.0)})
+    assert est.eta_seconds == pytest.approx(progress.prior_cost("mod_tokenize")[0] / 1000)
+
+
+def test_prior_cost_reproduces_the_adr_0015_budget_at_nominal_size():
+    intercept, slope = progress.prior_cost("mod_tokenize")
+    assert intercept + slope * NOMINAL == pytest.approx(progress.MODULE_BUDGET_MS["mod_tokenize"])
+    assert intercept > 0 and slope > 0  # split, so a huge PDF is not free either
+    # a module ADR-0015 does not budget gets the documented default
+    unknown = progress.prior_cost("mod_not_in_the_table")
+    assert unknown[0] + unknown[1] * NOMINAL == pytest.approx(progress.DEFAULT_BUDGET_MS)
+
+
+# -- parallelism (#54 defect 2) ---------------------------------------------
+
+
+def test_eta_divides_remaining_work_by_the_worker_count():
+    """Four independent theses of 1 s each finish in ~1 s on four workers, not
+    4 s. The old estimator summed every remaining pair serially and so ran ~N x
+    too high at the start of a batch."""
+    remaining = [(tid, "mod_a", 0) for tid in (1, 2, 3, 4)]
+    costs = {"mod_a": _flat("mod_a", 1000)}
+    assert progress.estimate(0, 4, remaining, costs, workers=1).eta_seconds == pytest.approx(4.0)
+    assert progress.estimate(0, 4, remaining, costs, workers=4).eta_seconds == pytest.approx(1.0)
+    assert progress.estimate(0, 4, remaining, costs, workers=8).eta_seconds == pytest.approx(1.0)
+
+
+def test_tail_of_a_run_does_not_underestimate():
+    """One thesis left on eight workers still takes its own full time: the
+    divisor is min(workers, remaining theses), not workers flat."""
+    est = progress.estimate(
+        3, 4, [(7, "mod_a", 0)], {"mod_a": _flat("mod_a", 1000)}, workers=8
+    )
+    assert est.eta_seconds == pytest.approx(1.0)
+
+
+def test_a_single_long_thesis_sets_the_critical_path_floor():
+    """Modules within a thesis are serial, so the run cannot finish before the
+    longest remaining thesis does, however many workers are idle."""
+    remaining = [(1, "mod_a", 0), (1, "mod_a", 0), (1, "mod_a", 0), (1, "mod_a", 0)]
+    remaining.append((2, "mod_b", 0))
+    costs = {"mod_a": _flat("mod_a", 1000), "mod_b": _flat("mod_b", 100)}
+    est = progress.estimate(0, 5, remaining, costs, workers=4)
+    # total 4100 ms / min(4, 2 theses) = 2050 ms, but thesis 1 alone needs 4 s
+    assert est.eta_seconds == pytest.approx(4.0)
+
+
+# -- it counts down (#54 defect 1) -----------------------------------------
+
+
+def test_in_flight_elapsed_is_credited_against_the_pairs_cost():
+    remaining = [(1, "mod_a", 0)]
+    costs = {"mod_a": _flat("mod_a", 1000)}
+    fresh = progress.estimate(0, 1, remaining, costs, in_flight={(1, "mod_a"): 0.0})
+    part = progress.estimate(0, 1, remaining, costs, in_flight={(1, "mod_a"): 0.4})
+    assert fresh.eta_seconds == pytest.approx(1.0)
+    assert part.eta_seconds == pytest.approx(0.6)
+
+
+def test_in_flight_credit_is_floored_at_the_pairs_own_cost():
+    """A pair overrunning its estimate must not drive the ETA negative, nor
+    subtract from the other theses' remaining work."""
+    est = progress.estimate(
+        0,
+        2,
+        [(1, "mod_a", 0), (2, "mod_a", 0)],
+        {"mod_a": _flat("mod_a", 1000)},
+        in_flight={(1, "mod_a"): 60.0},
+        workers=1,
+    )
+    assert est.eta_seconds == pytest.approx(1.0)  # thesis 1 floored at 0, thesis 2 unchanged
+
+
+def test_the_estimate_strictly_decays_between_events():
+    """The defect: the ETA was a function of the remaining pair set only, so it
+    was frozen between ModuleCompleted events and could not count down."""
+    remaining = [(1, "mod_a", 0), (2, "mod_a", 0)]
+    costs = {"mod_a": _flat("mod_a", 5000)}
+    etas = [
+        progress.estimate(
+            0, 2, remaining, costs, in_flight={(1, "mod_a"): t, (2, "mod_a"): t}, workers=2
+        ).eta_seconds
+        for t in (0.0, 1.0, 2.0, 3.0)
+    ]
+    assert etas == sorted(etas, reverse=True)
+    assert etas[0] > etas[-1]
+
+
+def test_damp_eta_shows_falls_at_once_and_eases_rises():
+    assert progress.damp_eta(None, 30.0) == 30.0
+    assert progress.damp_eta(30.0, None) is None
+    assert progress.damp_eta(30.0, 20.0) == 20.0  # a countdown may drop freely
+    assert progress.damp_eta(30.0, 50.0, rise_factor=0.25) == pytest.approx(35.0)
+    assert progress.damp_eta(30.0, 50.0, rise_factor=1.0) == pytest.approx(50.0)
+
+
+def test_damp_eta_converges_on_a_rise():
+    value = 10.0
+    for _ in range(40):
+        value = progress.damp_eta(value, 20.0)
+    assert value == pytest.approx(20.0, abs=0.01)
+
+
+# -- fitting and blending cost models (#54 defect 3) -----------------------
+
+
+def test_fit_cost_recovers_a_clean_affine_line():
+    model = progress.fit_cost([(100, 300.0), (200, 500.0), (400, 900.0)])
+    assert model[0] == pytest.approx(100.0)
+    assert model[1] == pytest.approx(2.0)
+
+
+def test_fit_cost_with_no_samples_is_none():
+    assert progress.fit_cost([]) is None
+
+
+def test_fit_cost_with_one_distinct_size_is_intercept_only():
+    """One size says nothing about size dependence. Reading it as a rate is how
+    a single small thesis inflated every large one still queued (#54)."""
+    assert progress.fit_cost([(100, 200.0)]) == pytest.approx((200.0, 0.0))
+    assert progress.fit_cost([(100, 200.0), (100, 400.0)]) == pytest.approx((300.0, 0.0))
+
+
+def test_fit_cost_never_returns_negative_coefficients():
+    # cheaper on a bigger PDF -> noise; degrade to a constant
+    assert progress.fit_cost([(100, 500.0), (200, 100.0)]) == pytest.approx((300.0, 0.0))
+    # a fit implying negative cost at zero bytes -> line through the origin
+    intercept, slope = progress.fit_cost([(100, 200.0), (50, 50.0)])
+    assert intercept == 0.0
+    assert slope == pytest.approx(1.8)
+
+
+def test_blend_cost_weights_in_run_observations_against_history():
+    """The old code overwrote history with the in-run mean as soon as one pair
+    landed; now the observation has to earn its weight."""
+    blended = progress.blend_cost((100.0, 1.0), (200.0, 2.0), 3, history_weight=3.0)
+    assert blended == pytest.approx((150.0, 1.5))  # weight 3/(3+3) = 0.5
+    one = progress.blend_cost((100.0, 1.0), (200.0, 2.0), 1, history_weight=3.0)
+    assert one[0] == pytest.approx(125.0)  # weight 1/4: history still dominates
+
+
+def test_blend_cost_degenerate_inputs():
+    assert progress.blend_cost((1.0, 2.0), None, 0) == (1.0, 2.0)
+    assert progress.blend_cost((1.0, 2.0), (9.0, 9.0), 0) == (1.0, 2.0)
+    assert progress.blend_cost(None, (9.0, 9.0), 2) == (9.0, 9.0)
+    assert progress.blend_cost(None, None, 2) is None
+
+
+# -- n/N theses (#58) ------------------------------------------------------
+
+
+def test_theses_done_is_derived_from_the_remaining_pairs():
+    """Self-sufficient: the estimator needs no thesis-completion event to know
+    how many theses are done."""
+    est = progress.estimate(
+        4, 9, [(2, "mod_a", 0), (2, "mod_b", 0), (3, "mod_a", 0)], {}, theses_total=3
+    )
+    assert (est.theses_done, est.theses_total) == (1, 3)
+
+
+def test_theses_done_takes_the_callers_count_when_it_is_ahead():
+    """A thesis killed without its pairs ever reporting would leave the derived
+    count stuck; the caller's ThesisCompleted tally wins in that case."""
+    est = progress.estimate(
+        2, 9, [(2, "mod_a", 0), (3, "mod_a", 0)], {}, theses_total=3, theses_done=2
+    )
+    assert est.theses_done == 2
+
+
+def test_theses_done_is_clamped_to_the_total():
+    est = progress.estimate(9, 9, [], {}, theses_total=3, theses_done=99)
+    assert (est.theses_done, est.theses_total) == (3, 3)
+
+
+def test_theses_counts_default_to_zero_when_the_caller_gives_no_total():
+    est = progress.estimate(1, 2, [(1, "mod_a", 0)], {}, theses_done=5)
+    assert (est.theses_done, est.theses_total) == (0, 0)
+
+
+def test_all_theses_done_when_nothing_remains():
+    est = progress.estimate(9, 9, [], {}, theses_total=4)
+    assert (est.theses_done, est.theses_total) == (4, 4)
+
+
+# -- formatting ------------------------------------------------------------
 
 
 def test_format_eta():

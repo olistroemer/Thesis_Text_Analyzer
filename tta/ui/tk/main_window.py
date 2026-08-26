@@ -230,12 +230,16 @@ class MainWindow:
                 event = self._event_queue.get_nowait()
                 if isinstance(event, events.RunStarted):
                     self._begin_progress(event.plan)
+                elif isinstance(event, events.ModuleStarted):
+                    self._start_progress_pair(event)
                 elif isinstance(event, events.ModuleCompleted):
                     self._advance_progress(event)
                     self._set_status(
-                        f"Running... thesis {event.thesis_id}: {event.module_name} {event.status}"
+                        f"Running... thesis {self._thesis_ordinal(event.thesis_id)}: "
+                        f"{event.module_name} {event.status}"
                     )
                 elif isinstance(event, events.ThesisCompleted):
+                    self._run_theses_done += 1
                     self.grid_view.reload(
                         metric_columns(self.registry, self._extended.get()),
                         show_artefacts=self._extended.get(),
@@ -251,9 +255,16 @@ class MainWindow:
                         self.report_view.render()
         except queue.Empty:
             pass
+        # #54: re-render every tick while a run is live. The ETA used to be
+        # recomputed only on ModuleCompleted, so it froze between events and
+        # the in-flight pair got no credit for the seconds already burned - it
+        # could not count down. The estimate itself stays a pure function; the
+        # clock is read here and passed in.
+        if self._progress_label is not None:
+            self._render_progress()
         self.root.after(POLL_MS, self._drain_events)
 
-    # -- live progress + size-weighted ETA (#39) --------------------------------
+    # -- live progress + size-weighted ETA (#39, #54, #58) ----------------------
 
     def _reset_progress_state(self) -> None:
         """Clear the per-run estimator state. The progress widgets are owned by
@@ -265,9 +276,20 @@ class MainWindow:
         self._run_done = 0
         self._run_remaining: list[tuple[int, str]] = []  # (thesis_id, module_name)
         self._run_sizes: dict[int, int] = {}
-        self._run_rates: dict[str, float] = {}  # historical ms/byte at run start
-        self._run_obs: dict[str, list[float]] = {}  # module -> [sum_ms, sum_bytes]
-        self._run_start = 0.0
+        # module -> (intercept_ms, slope_ms_per_byte) fitted from history at run
+        # start; absent modules fall back to their ADR-0015 prior (#54)
+        self._run_costs: dict[str, tuple[float, float]] = {}
+        # module -> this run's (size_bytes, duration_ms) observations, blended
+        # into history by sample weight rather than overwriting it (#54)
+        self._run_obs: dict[str, list[tuple[float, float]]] = {}
+        # (thesis_id, module_name) -> monotonic start of a pair still running;
+        # its elapsed time is credited against the pair's cost so the ETA decays
+        self._run_in_flight: dict[tuple[int, str], float] = {}
+        self._run_workers = 1  # Runner.workers: theses run concurrently (#54)
+        self._run_theses_total = 0  # len(plan.theses) - the n/N denominator (#58)
+        self._run_theses_done = 0  # ThesisCompleted count (#58)
+        self._run_thesis_ordinals: dict[int, int] = {}  # thesis id -> 1-based plan position
+        self._eta_shown: float | None = None  # damped ETA actually on screen
 
     def _begin_progress(self, plan) -> None:
         """Initialise the determinate bar + ETA from the run plan (RunStarted).
@@ -281,56 +303,110 @@ class MainWindow:
             (tp.thesis.id, pm.name) for tp in plan.theses for pm in tp.modules
         ]
         self._run_sizes = self.project.repo.thesis_sizes()
-        self._run_rates = self.project.repo.module_duration_stats()
+        self._run_costs = self.project.repo.module_duration_stats()
         self._run_obs = {}
-        self._run_start = time.monotonic()
+        self._run_in_flight = {}
+        # Theses run concurrently, modules within a thesis serially, so the ETA
+        # needs the worker count to divide by (#54, ADR-0013). The live runner
+        # is authoritative (it resolved the default); the configured value is
+        # the fallback should the run already have torn down.
+        runner_workers = getattr(self._runner, "workers", None)
+        self._run_workers = max(1, runner_workers or self.project.config.workers or 1)
+        self._run_theses_total = len(plan.theses)
+        self._run_theses_done = 0
+        self._run_thesis_ordinals = {
+            tp.thesis.id: index for index, tp in enumerate(plan.theses, start=1)
+        }
+        self._eta_shown = None
         if self._progress_bar is not None:
             self._progress_bar.configure(maximum=max(self._run_total, 1), value=0)
         self._render_progress()
 
+    def _thesis_ordinal(self, thesis_id: int) -> str:
+        """Ordinal "n/N" for the status line (#58). The raw ``thesis_id`` used to be
+        printed here; it is the DB primary key, so after any delete or
+        content-dedup fold it reads like a counter without being one."""
+        ordinal = self._run_thesis_ordinals.get(thesis_id)
+        if ordinal is None or self._run_theses_total <= 0:
+            return f"#{thesis_id}"
+        return f"{ordinal}/{self._run_theses_total}"
+
+    def _start_progress_pair(self, event: events.ModuleStarted) -> None:
+        """Remember when a pair started so the estimator can credit the seconds
+        already burned against its cost - what makes the ETA count down (#54)."""
+        self._run_in_flight[(event.thesis_id, event.module_name)] = time.monotonic()
+        self._render_progress()
+
     def _advance_progress(self, event: events.ModuleCompleted) -> None:
         """Advance one (thesis x module) pair on ModuleCompleted and recompute
-        the ETA, folding this module's observed cost into the in-run rate."""
+        the ETA, recording this module's observed cost as a sample."""
         pair = (event.thesis_id, event.module_name)
         if pair in self._run_remaining:
             self._run_remaining.remove(pair)
+        self._run_in_flight.pop(pair, None)
         self._run_done += 1
         size = self._run_sizes.get(event.thesis_id, 0)
         if event.status == "ok" and event.duration_ms and size > 0:
-            acc = self._run_obs.setdefault(event.module_name, [0.0, 0.0])
-            acc[0] += event.duration_ms
-            acc[1] += size
+            self._run_obs.setdefault(event.module_name, []).append(
+                (float(size), float(event.duration_ms))
+            )
         if self._progress_bar is not None:
             self._progress_bar.configure(value=self._run_done)
         self._render_progress()
 
-    def _merged_rates(self) -> dict[str, float]:
-        """History rates overlaid with the rate observed so far this run
-        (mean ms/byte over this run's ok pairs of each module)."""
-        rates = dict(self._run_rates)
-        for module, (sum_ms, sum_bytes) in self._run_obs.items():
-            if sum_bytes > 0:
-                rates[module] = sum_ms / sum_bytes
-        return rates
+    def _merged_costs(self) -> dict[str, tuple[float, float]]:
+        """Per-module (intercept, slope) from history with this run's own
+        observations blended in **by sample weight** (#54). The old code
+        overwrote history with the in-run mean ms/byte the moment one pair
+        landed. A module with neither history nor observations stays absent so
+        the estimator applies its ADR-0015 prior."""
+        costs = dict(self._run_costs)
+        for module, samples in self._run_obs.items():
+            blended = progress.blend_cost(
+                costs.get(module), progress.fit_cost(samples), len(samples)
+            )
+            if blended is not None:
+                costs[module] = blended
+        return costs
 
     def _render_progress(self) -> None:
         if self._progress_label is None:
             return
-        remaining = [(module, self._run_sizes.get(tid, 0)) for tid, module in self._run_remaining]
+        now = time.monotonic()
+        remaining = [
+            (tid, module, self._run_sizes.get(tid, 0)) for tid, module in self._run_remaining
+        ]
+        in_flight = {pair: max(now - started, 0.0) for pair, started in self._run_in_flight.items()}
         est = progress.estimate(
             self._run_done,
             self._run_total,
             remaining,
-            self._merged_rates(),
-            time.monotonic() - self._run_start,
+            self._merged_costs(),
+            in_flight=in_flight,
+            workers=self._run_workers,
+            theses_total=self._run_theses_total,
+            theses_done=self._run_theses_done,
         )
+        self._eta_shown = progress.damp_eta(self._eta_shown, est.eta_seconds)
+        self._progress_label.configure(text=self._progress_text(est, self._eta_shown))
+
+    def _progress_text(self, est: progress.Progress, eta: float | None) -> str:
+        """Label for the run progress bar (SDD Sec. 9.2, #58).
+
+        Theses are the primary figure - "(thesis x module) pairs" means nothing
+        to the professor persona. The pair count is a power-user detail and
+        appears only in extended mode."""
         if not est.total:
-            text = ""
-        elif est.eta_seconds is None:
-            text = f"{est.done}/{est.total} pairs - estimating..."
-        else:
-            text = f"{est.done}/{est.total} pairs - ~{progress.format_eta(est.eta_seconds)} left"
-        self._progress_label.configure(text=text)
+            return ""
+        if est.theses_total:
+            head = f"thesis {est.theses_done}/{est.theses_total}"
+        else:  # no plan thesis count (shouldn't happen in a real run)
+            head = f"{est.done}/{est.total} pairs"
+        tail = "estimating..." if eta is None else f"~{progress.format_eta(eta)} left"
+        text = f"{head} - {tail}"
+        if est.theses_total and self._extended.get():
+            text += f" - {est.done}/{est.total} pairs"
+        return text
 
     def _show_report(self) -> None:
         self.report_view.render()

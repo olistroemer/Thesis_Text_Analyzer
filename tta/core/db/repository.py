@@ -217,28 +217,41 @@ class Repository:
         ).fetchall()
         return {(r["thesis_id"], r["module_name"]): r for r in rows}
 
-    def module_duration_stats(self) -> dict[str, float]:
-        """Per-module cost rate for the size-weighted ETA (#39, SDD Sec. 5.5).
+    def module_duration_stats(self) -> dict[str, tuple[float, float]]:
+        """Per-module affine cost model for the ETA (#39, #54, SDD Sec. 5.5).
 
-        Returns, per module, the mean over past **successful** (``ok``) runs of
-        ``duration_ms / pdf_size_bytes`` - a rate in milliseconds per byte.
+        Returns, per module, a least-squares ``(intercept_ms,
+        slope_ms_per_byte)`` fit over that module's past **successful** (``ok``)
+        runs. Cost is a constant part *plus* a size-proportional part, not a
+        pure ms-per-byte rate: much of the per-thesis cost is size-independent
+        (worker ``spawn`` re-imports nltk/textstat/langdetect, ADR-0013) and
+        several modules are page- or token-driven, so a model through the origin
+        let one small thesis inflate every large one still queued (#54).
+
         Only runs with a recorded ``duration_ms`` and a **positive** PDF size
-        contribute (guards divide-by-zero and NULL sizes); a module with no
-        such history is simply absent from the result (the estimator then
-        falls back to the rate observed so far in the current run)."""
+        contribute (guards NULL sizes and divide-by-zero); a module with no such
+        history is simply absent from the result, and the estimator then uses
+        that module's ADR-0015 prior. The fit itself - including the
+        intercept-only degradation when history holds a single distinct size,
+        and the non-negativity of both coefficients - is the pure, unit-tested
+        ``tta.core.progress.fit_cost``."""
+        from tta.core.progress import fit_cost
+
         rows = self.conn.execute(
             "SELECT mr.module_name AS name, mr.duration_ms AS dur, t.pdf_size_bytes AS size"
             " FROM module_runs mr JOIN theses t ON t.id = mr.thesis_id"
             " WHERE mr.status = 'ok' AND mr.duration_ms IS NOT NULL"
             " AND t.pdf_size_bytes IS NOT NULL AND t.pdf_size_bytes > 0"
         ).fetchall()
-        sums: dict[str, float] = {}
-        counts: dict[str, int] = {}
+        samples: dict[str, list[tuple[float, float]]] = {}
         for row in rows:
-            rate = row["dur"] / row["size"]
-            sums[row["name"]] = sums.get(row["name"], 0.0) + rate
-            counts[row["name"]] = counts.get(row["name"], 0) + 1
-        return {name: sums[name] / counts[name] for name in sums}
+            samples.setdefault(row["name"], []).append((float(row["size"]), float(row["dur"])))
+        fitted: dict[str, tuple[float, float]] = {}
+        for name, points in samples.items():
+            model = fit_cost(points)
+            if model is not None:
+                fitted[name] = model
+        return fitted
 
     def thesis_sizes(self) -> dict[int, int]:
         """Thesis id -> PDF size in bytes, for weighting the ETA by the size of

@@ -185,31 +185,51 @@ def test_purge_analysis_surfaces_disk_failure_after_db_scrub(project, tmp_path, 
     assert project.repo.get_thesis(thesis.id).excluded is True
 
 
-def test_module_duration_stats_mean_rate_per_module(project, tmp_path):
-    """The ETA history query returns mean(duration_ms / pdf_size_bytes) over ok
-    runs, per module, guarding NULL/zero sizes and non-ok runs (#39)."""
-    a = tmp_path / "a.pdf"
-    a.write_bytes(b"x" * 100)  # 100 bytes
-    b = tmp_path / "b.pdf"
-    b.write_bytes(b"x" * 50)  # 50 bytes
-    ta = project.repo.add_thesis(a)
-    tb = project.repo.add_thesis(b)
+def test_module_duration_stats_fits_intercept_and_slope_per_module(project, tmp_path):
+    """The ETA history query returns a least-squares (intercept_ms,
+    slope_ms_per_byte) per module over ok runs, guarding NULL/zero sizes and
+    non-ok runs (#39, #54). Three sizes on a clean line 100 + 2*size."""
+    sizes = (100, 200, 400)
+    theses = []
+    for index, size in enumerate(sizes):
+        pdf = tmp_path / f"t{index}.pdf"
+        pdf.write_bytes(b"x" * size)
+        theses.append(project.repo.add_thesis(pdf))
     with project.repo.transaction():
-        # mod_a: 200ms/100B = 2.0 and 50ms/50B = 1.0 -> mean 1.5 ms/byte
-        project.repo.record_run(ta.id, "mod_a", "1.0.0", "ok", duration_ms=200)
-        project.repo.record_run(tb.id, "mod_a", "1.0.0", "ok", duration_ms=50)
+        for thesis, size in zip(theses, sizes):
+            project.repo.record_run(
+                thesis.id, "mod_a", "1.0.0", "ok", duration_ms=100 + 2 * size
+            )
         # an errored run is ignored
-        project.repo.record_run(ta.id, "mod_a", "1.0.0", "error", duration_ms=999)
+        project.repo.record_run(theses[0].id, "mod_a", "1.0.0", "error", duration_ms=99999)
         # a run without a duration is ignored
-        project.repo.record_run(tb.id, "mod_b", "1.0.0", "ok", duration_ms=None)
+        project.repo.record_run(theses[1].id, "mod_b", "1.0.0", "ok", duration_ms=None)
 
     stats = project.repo.module_duration_stats()
-    assert stats["mod_a"] == pytest.approx(1.5)
+    intercept, slope = stats["mod_a"]
+    assert intercept == pytest.approx(100.0)
+    assert slope == pytest.approx(2.0)
     assert "mod_b" not in stats  # only run had no duration
 
 
+def test_module_duration_stats_single_size_is_intercept_only(project, tmp_path):
+    """History at one distinct size is no evidence of size dependence, so it is
+    reported as a constant cost, not a ms-per-byte rate (#54)."""
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"x" * 100)
+    b = tmp_path / "b.pdf"
+    b.write_bytes(b"y" * 100)
+    ta = project.repo.add_thesis(a)
+    tb = project.repo.add_thesis(b)
+    with project.repo.transaction():
+        project.repo.record_run(ta.id, "mod_a", "1.0.0", "ok", duration_ms=200)
+        project.repo.record_run(tb.id, "mod_a", "1.0.0", "ok", duration_ms=400)
+    assert project.repo.module_duration_stats()["mod_a"] == pytest.approx((300.0, 0.0))
+
+
 def test_module_duration_stats_skips_zero_size(project, tmp_path):
-    """A zero-byte PDF (size 0) cannot form a rate; it is guarded out (#39)."""
+    """A zero-byte PDF (size 0) carries no cost signal; it is guarded out of the
+    fit, and a module left with no samples is absent (#39)."""
     empty = tmp_path / "empty.pdf"
     empty.write_bytes(b"")
     thesis = project.repo.add_thesis(empty)
