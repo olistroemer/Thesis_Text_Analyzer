@@ -26,9 +26,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-tk xvfb
 
-      - name: Install package (dev extras)
+      # pytest-cov is installed here rather than declared in the dev extra:
+      # it is a property of how CI measures the suite, not of the package.
+      # pip-licenses (the build extra) comes along so tests/packaging can
+      # exercise the real manifest generator instead of skipping it.
+      - name: Install package (dev extras + coverage)
         run: |
-          pip install -e '.[dev]'
+          pip install -e '.[dev,build]' 'pytest-cov>=5'
           python -m nltk.downloader punkt_tab
 
       # SDD §5.2 — hexagonal boundary invariant.
@@ -58,15 +62,50 @@ jobs:
       # deselects them. The display-gated GUI tests self-skip here; the step
       # after this one runs them for real under Xvfb.
       #
-      # Coverage gate (QA-TEST, issue #3): 85 % on tta/core, which is the
-      # number SDD 10 has always specified and nothing enforced. Measured
-      # 94.6 % line / 93.8 % branch when the gate was added, so the 85 %
-      # floor leaves headroom rather than freezing today's figure.
+      # Coverage gate (QA-TEST, SDD §10): 85 % line AND 70 % branch on
+      # tta/core - two separate targets, which is why this cannot use
+      # --cov-fail-under. That flag gates coverage.py's single COMBINED
+      # line+branch rate, so it would fail a build that satisfies both stated
+      # targets (line 86 %, branch 71 % combine to ~81 %) and pass one that
+      # misses the branch target outright. The two numbers are therefore
+      # checked separately, against the ones QA-TEST states.
+      #
+      # COVERAGE_FILE and the JSON report are written outside the checkout, so
+      # a coverage run leaves the working tree clean.
       - name: Run tests (with the QA-TEST coverage gate)
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/.coverage
+          TTA_COV_LINE: "85"
+          TTA_COV_BRANCH: "70"
         run: |
+          set -euo pipefail
           python -m pytest -q \
-            --cov=tta.core --cov-branch \
-            --cov-report=term-missing --cov-fail-under=85
+            --cov=tta.core --cov-branch --cov-report=term-missing \
+            --cov-report=json:"$RUNNER_TEMP/coverage.json"
+          python - <<'PY'
+          import json, os, sys
+
+          totals = json.load(
+              open(os.path.join(os.environ["RUNNER_TEMP"], "coverage.json"))
+          )["totals"]
+          line = 100.0 * totals["covered_lines"] / max(totals["num_statements"], 1)
+          branch = 100.0 * totals["covered_branches"] / max(totals["num_branches"], 1)
+          want_line = float(os.environ["TTA_COV_LINE"])
+          want_branch = float(os.environ["TTA_COV_BRANCH"])
+          print(
+              "tta/core coverage: %.2f %% line (QA-TEST target %.0f %%), "
+              "%.2f %% branch (target %.0f %%)"
+              % (line, want_line, branch, want_branch)
+          )
+          short = []
+          if line < want_line:
+              short.append("line %.2f %% < %.0f %%" % (line, want_line))
+          if branch < want_branch:
+              short.append("branch %.2f %% < %.0f %%" % (branch, want_branch))
+          if short:
+              print("::error::QA-TEST coverage gate: " + "; ".join(short))
+              sys.exit(1)
+          PY
 
       # Without this the display-gated tests under tests/ui NEVER run in CI -
       # they self-skip, which reads as a pass. Issue #3 allows either, but a
