@@ -290,10 +290,11 @@ Decision: [ADR-013](adr/0013-runner-orchestration.md). The runner splits into a 
 - Events: `HashingProgress`, `RunStarted`, `ThesisStarted`, `ModuleStarted`, `ModuleCompleted`, `ThesisCompleted`, `RunCompleted`, `RunCancelled`. `HashingProgress(done, total)` precedes `RunStarted`: it covers the deferred-hash pass ([ADR-006](adr/0006-schema.md) rev. 6), which is real work on a large corpus and used to display as a silent "Planning..." even though `plan()` never hashes or reads a file (#59). Adapters subscribe; main process publishes (workers do not). `ModuleCompleted.status` is `ok | na | error | skipped`; every pair in the `RunStarted` plan is followed by exactly one `ModuleCompleted`, whatever happens to its worker.
 - **Progress + size-weighted ETA (#39).** From the event stream an adapter drives a determinate progress bar (advance per `(thesis × module)` pair) and a remaining-time estimate. The estimate is computed by a pure, toolkit-free function in `core/progress.py` (`estimate`), reusable by GUI and CLI and unit-tested without a display. It models each module's cost as a **rate** = mean(`duration_ms` / `pdf_size_bytes`) over that module's past **successful (`ok`)** runs (`Repository.module_duration_stats`), and estimates remaining time as the **sum over the remaining `(thesis × module)` pairs of** `rate[module] × that thesis's pdf_size_bytes`. This accounts for the **size** of the theses still to process, not just their count. With no history for a module, the rate observed so far **in the current run** is used; before any pair completes, the bar advances with no ETA number ("estimating..."). The GUI renders this inline in the run area beside the Cancel control ([§9.2](#92-main-window-layout)); the CLI's progress goes to stderr.
 
-Two run modes for MVP:
+Three run modes for MVP:
 
 - **Default** ("Run all"): missing + stale + previously-errored `(thesis × module)` pairs.
-- **`--rerun`**: everything regardless of state.
+- **`--rerun`** ("Re-run all"): everything regardless of state.
+- **`--stale-only`** ("Update stale", #7): the default set minus never-run pairs — stale + errored + upstream-changed. The literal reading of US-PROF-UPDATE, and what makes the [§9.3](#93-modes) extended toolbar's third run button distinct from the first; the artefact closure is deliberately *not* filtered, so a producer whose cached artefact is gone still runs rather than leaving the stale module to fail as `na` ([ADR-013](adr/0013-runner-orchestration.md#three-run-modes)).
 
 A `--dry-run` flag prints the plan without executing.
 

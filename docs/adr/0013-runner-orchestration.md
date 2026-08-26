@@ -88,18 +88,30 @@ That last group is exactly what leaked adapter progress before this policy: no r
 
 The invariant adapters may rely on: **every pair in the `RunStarted` plan is followed by exactly one `ModuleCompleted`**, whatever happens to its worker.
 
-## Two run modes
+## Three run modes
 
 - **Default** ("Run all"): runs `(thesis × module)` pairs that are missing, stale (`module_version` differs from live), or whose last run was `error`.
-- **`--rerun`**: every `(thesis × module)` pair regardless of state.
+- **`--rerun`** ("Re-run all"): every `(thesis × module)` pair regardless of state.
+- **`--stale-only`** ("Update stale", added #7): the default set **minus** never-run pairs — stale, errored and upstream-changed only.
 
 A `--dry-run` flag prints the plan without executing.
+
+### Why a third mode (#7)
+
+The extended toolbar has always offered both "Re-run all" and "Update stale" (SDD §9.3), but "Update stale" was wired to the *same* call as the default run, so two of the three buttons were identical. The alternative was to delete the button; a third mode is chosen instead because it is the literal reading of **US-PROF-UPDATE** — "update only the analyses whose modules or upstream metrics have changed, **without re-running everything**" — and because the distinction is real for the professor persona: after adding 200 new PDFs *and* upgrading the app, "recompute what my version bump invalidated" and "also extract 200 new documents" are different amounts of an afternoon.
+
+It is a filter, not a new planning path: `plan(stale_only=True)` drops `plan_reason == "missing"` pairs from the initial per-module selection. Two properties follow deliberately from *where* the filter sits — after `_needs_run`, before downstream propagation and before the artefact closure:
+
+- **Upstream-changed pairs survive.** A consumer of a re-planned producer is still added (reason `upstream-changed`), which is the "upstream metrics have changed" half of the story.
+- **The artefact closure is not filtered.** A producer pulled in because its artefact is missing from disk keeps its `missing` reason and still runs — otherwise the stale module that needs it would be planned only to fail with an `na` upstream cascade. "Stale-only" constrains *which theses/modules are worth updating*, never *whether the update can be computed*.
+
+`rerun=True` with `stale_only=True` is a contradiction (everything vs. not-everything) and raises `ValueError` rather than picking a winner silently.
 
 ## Public API
 
 ```python
 class Runner:
-    def plan(self, theses=None, modules=None, rerun=False) -> RunPlan: ...
+    def plan(self, theses=None, modules=None, rerun=False, stale_only=False) -> RunPlan: ...
     def execute(self, plan: RunPlan) -> RunSummary: ...
     def cancel(self) -> None: ...
 ```
