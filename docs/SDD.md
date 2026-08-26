@@ -667,7 +667,7 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 ┌────────────────────────────────────────────────────────────────────┐
 │ File   Edit   View   Help                              (menu bar)  │
 ├────────────────────────────────────────────────────────────────────┤
-│ [+ Add files] [▶ Run all] [↻ Re-run all] [⟳ Update stale]          │
+│ [+ Add files] [- Remove] [▶ Run all] [↻ Re-run all] [⟳ Update stale]│
 │                            [📊 Report] [💾 Export] [? Help]         │
 ├────────────────────────────────────────────────────────────────────┤
 │  Thesis grid (fills the window; the report is a browser file, §9.8) │
@@ -704,8 +704,8 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 
 | Mode | Default for | Toolbar buttons (left to right) | Differences from basic |
 |---|---|---|---|
-| **Basic** | Professor persona | Add files · Run all · **Report** · Export · Help | Curated column set (enumerated below); settings simplified; help glossary front-and-centre. |
-| **Extended** | Power user, researcher | Add files · Run all · Re-run all · Update stale · **Report** · Export · Help | All metrics visible; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
+| **Basic** | Professor persona | Add files · Remove · Run all · **Report** · Export · Help | Curated column set (enumerated below); settings simplified; help glossary front-and-centre. |
+| **Extended** | Power user, researcher | Add files · Remove · Run all · Re-run all · Update stale · **Report** · Export · Help | All metrics visible; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
 
 Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode. In both modes it generates the stand-alone HTML report and opens it in the browser ([§9.8](#98-report)).
 
@@ -789,7 +789,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 | Step | Screen / dialog | Defaults |
 |---|---|---|
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened, §5.6.1); nothing stored outside it (US-PROF-NO-TRACES). A project that cannot be opened never blocks startup: the default project opens instead and the banner says why. |
-| 2. Add | Two affordances, side by side (#62). **"Add files"** → multi-select file dialog → added immediately (no further dialog). **"Add folder"** → single-folder dialog → every PDF **beneath** it, recursively → one count confirmation ("Add 428 PDFs from …?") → added. | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4) and the whole selection is **one transaction** ([§8.1](#81-database-schema), #61); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
+| 2. Add | **One** affordance. **"Add files"** → single-folder dialog → every PDF **beneath** it, recursively → one count confirmation ("Add 428 PDFs from …?") → added. Recursive folder selection is the default and only toolbar add path: a professor's theses arrive as a directory tree, not as a hand-picked list, and two adjacent add buttons made the common case a choice. Picking individual files stays available as **File → Add Individual Files…** for the one-off case. | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4) and the whole selection is **one transaction** ([§8.1](#81-database-schema), #61); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
 | 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → writes `<project>/reports/report-<YYYY-MM-DD>.html` → opens it in the browser: summary cards + charts + outlier list ([§9.8](#98-report)). | Regenerated from current data on every click; a same-day file is overwritten. |
 | 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
@@ -806,7 +806,7 @@ Dismisses on first interaction; never shown again for this project. The same ban
 
 **File → Open Project…** writes the last-project pointer (§5.6.1) and tells the user the project opens on next start. The chosen folder does not have to be a project already — an empty folder is a valid choice and the project is created there on the next launch, which is what the banner's "to use a different location" sentence promises.
 
-**Basic-mode toolbar** contains the icon+text buttons **Add files | Add folder | Run all | Report | Export | Help** ("Add folder" added by #62; **Report** was added by [ADR-0016](adr/0016-report-view.md) and this sentence's former "exactly four" count had already gone stale before that). Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection. This list is the shipped inventory; the toolbar sketch in [§9.2](#92-main-window-layout) and the Modes table in [§9.3](#93-modes) still omit both **Add folder** and **Report** and are **known-stale** — tracked by #73 (SDD/ADR reconciliation audit), which owns those two sections.
+**Basic-mode toolbar** contains the icon+text buttons **Add files | Remove | Run all | Report | Export | Help**. "Add files" is recursive-folder add (#62); the separate "Add folder" button it briefly shared the toolbar with is gone. **Remove** deletes the selected thesis from the project (#63, [ADR-0006](adr/0006-schema.md) rev. 6) and is **disabled until a row is selected**; it always confirms, since nothing restores a removed thesis. Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection. This list is the shipped inventory; the toolbar sketch in [§9.2](#92-main-window-layout) and the Modes table in [§9.3](#93-modes) still omit both **Add folder** and **Report** and are **known-stale** — tracked by #73 (SDD/ADR reconciliation audit), which owns those two sections.
 
 ## 9.8 Report
 
