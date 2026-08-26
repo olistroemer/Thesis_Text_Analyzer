@@ -624,3 +624,59 @@ def test_transaction_rolls_back_on_error(project, tmp_path):
             project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
             raise RuntimeError("boom")
     assert project.repo.latest_runs() == {}
+
+
+def test_thesis_cost_floors_reads_back_only_timeout_rows(project, tmp_path):
+    """#56: a timed-out run is excluded from the cost fit, so it is read back
+    here instead as a per-thesis ETA floor.
+
+    Only timeout kills count. An ordinary `error` is a module defect, not
+    evidence that the document is slow, and must not inflate its estimate.
+    """
+    from tta.core.db.repository import TIMEOUT_REASON_PREFIX
+
+    theses = []
+    for index in range(3):
+        pdf = tmp_path / f"t{index}.pdf"
+        pdf.write_bytes(b"x" * (100 + index))
+        theses.append(project.repo.add_thesis(pdf))
+
+    with project.repo.transaction():
+        # thesis 0: two timeouts, the longer one wins
+        project.repo.record_run(
+            theses[0].id, "mod_a", "1.0.0", "error",
+            reason=f"{TIMEOUT_REASON_PREFIX}300 s", duration_ms=300_000,
+        )
+        project.repo.record_run(
+            theses[0].id, "mod_b", "1.0.0", "error",
+            reason=f"{TIMEOUT_REASON_PREFIX}600 s", duration_ms=600_000,
+        )
+        # thesis 1: an ordinary failure, not a timeout -> no floor
+        project.repo.record_run(
+            theses[1].id, "mod_a", "1.0.0", "error",
+            reason="ValueError: boom", duration_ms=999_999,
+        )
+        # thesis 2: a successful run -> no floor
+        project.repo.record_run(theses[2].id, "mod_a", "1.0.0", "ok", duration_ms=42)
+
+    floors = project.repo.thesis_cost_floors()
+    assert floors == {theses[0].id: 600_000.0}
+
+
+def test_timeout_rows_still_stay_out_of_the_cost_fit(project, tmp_path):
+    """The floor is a *substitute* for feeding timeouts into the model, not an
+    addition to it: pricing mod_a at 300 s for every thesis is the outcome #56
+    deliberately rejected."""
+    from tta.core.db.repository import TIMEOUT_REASON_PREFIX
+
+    pdf = tmp_path / "t.pdf"
+    pdf.write_bytes(b"x" * 100)
+    thesis = project.repo.add_thesis(pdf)
+    with project.repo.transaction():
+        project.repo.record_run(
+            thesis.id, "mod_a", "1.0.0", "error",
+            reason=f"{TIMEOUT_REASON_PREFIX}300 s", duration_ms=300_000,
+        )
+
+    assert "mod_a" not in project.repo.module_duration_stats()
+    assert project.repo.thesis_cost_floors() == {thesis.id: 300_000.0}

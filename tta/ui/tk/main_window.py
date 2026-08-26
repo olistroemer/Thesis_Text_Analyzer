@@ -320,6 +320,7 @@ class MainWindow:
         # module -> (intercept_ms, slope_ms_per_byte) fitted from history at run
         # start; absent modules fall back to their ADR-0015 prior (#54)
         self._run_costs: dict[str, tuple[float, float]] = {}
+        self._run_floors: dict[int, float] = {}  # per-thesis ETA floors (#56)
         # module -> this run's (size_bytes, duration_ms) observations, blended
         # into history by sample weight rather than overwriting it (#54)
         self._run_obs: dict[str, list[tuple[float, float]]] = {}
@@ -345,6 +346,8 @@ class MainWindow:
         ]
         self._run_sizes = self.project.repo.thesis_sizes()
         self._run_costs = self.project.repo.module_duration_stats()
+        # Theses that timed out before are floored at that timeout (#56).
+        self._run_floors = self.project.repo.thesis_cost_floors()
         self._run_obs = {}
         self._run_in_flight = {}
         # Theses run concurrently, modules within a thesis serially, so the ETA
@@ -427,6 +430,7 @@ class MainWindow:
             workers=self._run_workers,
             theses_total=self._run_theses_total,
             theses_done=self._run_theses_done,
+            thesis_floors=self._run_floors,
         )
         self._eta_shown = progress.damp_eta(self._eta_shown, est.eta_seconds)
         self._progress_label.configure(text=self._progress_text(est, self._eta_shown))

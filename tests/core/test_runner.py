@@ -315,6 +315,16 @@ def test_module_timeout_kills_worker_and_cascades(project, tmp_path):
     cascaded = next(v for (_, name), v in latest.items() if name == "mod_fake_quality")
     assert cascaded["status"] == "na"
 
+    # #56: the row the kill wrote must be recognisable to the estimator. The
+    # two sides are coupled by TIMEOUT_REASON_PREFIX, so assert end to end
+    # rather than trusting the constant - a reworded reason would otherwise
+    # silently stop flooring this thesis and nothing else would notice.
+    floors = project.repo.thesis_cost_floors()
+    assert floors, "the timeout row was not recognised as one"
+    assert floors == {timed_out["thesis_id"]: pytest.approx(1000.0)}
+    # ...and it still does not enter the cost fit, which is ok-runs only
+    assert "mod_fake_extract" not in project.repo.module_duration_stats()
+
 
 def test_cancel_is_skip_pending_and_reports_cancelled(project, tmp_path):
     """cancel() stops new theses from starting; the in-flight one finishes

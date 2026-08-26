@@ -198,6 +198,7 @@ def estimate(
     workers: int = 1,
     theses_total: int = 0,
     theses_done: int = 0,
+    thesis_floors: Mapping[int, float] | None = None,
 ) -> Progress:
     """Determinate-bar fraction plus a size-weighted, parallelism-aware ETA.
 
@@ -217,6 +218,13 @@ def estimate(
             which is what makes the estimate decay between events.
         workers: the runner's concurrent-thesis count (``Runner.workers``).
         theses_total: theses planned for the run - ``len(plan.theses)`` (#58).
+        thesis_floors: ``thesis_id -> minimum remaining ms`` for theses known
+            to misbehave - in practice the longest timeout recorded against
+            each (``Repository.thesis_cost_floors``, #56). A thesis that timed
+            out contributes nothing to the cost fit, which uses successful runs
+            only, so without this the next run under-estimates it exactly as
+            badly. Applied per thesis, never per module: a hang is a property
+            of the one document that hung.
         theses_done: theses the caller has *seen* complete. The estimator also
             derives completion from ``remaining``, and reports the larger of the
             two, so it stays correct on its own if a thesis is killed without
@@ -262,6 +270,13 @@ def estimate(
         cost = pair_cost_ms(module, size, costs)
         credit = max(in_flight.get((thesis_id, module), 0.0), 0.0) * 1000.0
         per_thesis[thesis_id] = per_thesis.get(thesis_id, 0.0) + max(cost - credit, 0.0)
+
+    # A thesis that previously timed out is floored at that timeout (#56): its
+    # own history says it misbehaves, but the timed-out run is excluded from the
+    # cost fit, so the model alone would price it as if nothing had happened.
+    for thesis_id, floor_ms in (thesis_floors or {}).items():
+        if thesis_id in per_thesis:
+            per_thesis[thesis_id] = max(per_thesis[thesis_id], max(floor_ms, 0.0))
 
     divisor = max(1, min(max(workers, 1), len(per_thesis)))
     eta_ms = max(sum(per_thesis.values()) / divisor, max(per_thesis.values()))

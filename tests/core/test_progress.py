@@ -290,3 +290,49 @@ def test_format_eta():
     assert progress.format_eta(45.4) == "45s"
     assert progress.format_eta(80) == "1m 20s"
     assert progress.format_eta(3725) == "1h 02m"
+
+
+def test_a_timed_out_thesis_is_floored_at_its_timeout():
+    """#56: a thesis that timed out is not estimated as if it had not.
+
+    The timed-out run is excluded from the cost fit (successful runs only), so
+    without a floor the model prices this thesis at its cheap nominal cost and
+    under-estimates it exactly as badly as the run before.
+    """
+    remaining = [(1, "mod_a", 1_000), (2, "mod_a", 1_000)]
+    costs = {"mod_a": (100.0, 0.0)}  # 100 ms per pair
+
+    plain = progress.estimate(0, 2, remaining, costs, workers=1)
+    floored = progress.estimate(
+        0, 2, remaining, costs, workers=1, thesis_floors={1: 300_000.0}
+    )
+
+    assert plain.eta_seconds == pytest.approx(0.2)  # 2 x 100 ms, serial
+    # thesis 1 is floored at 300 s, which then dominates the makespan bound
+    assert floored.eta_seconds == pytest.approx(300.1)
+
+
+def test_the_floor_is_per_thesis_not_per_module():
+    """The floor must not leak onto other theses running the same module."""
+    remaining = [(1, "mod_a", 1_000), (2, "mod_a", 1_000)]
+    costs = {"mod_a": (100.0, 0.0)}
+    est = progress.estimate(
+        0, 2, remaining, costs, workers=2, thesis_floors={1: 60_000.0}
+    )
+    # thesis 2 keeps its 100 ms; the makespan is thesis 1's floor, not 2 x 60 s
+    assert est.eta_seconds == pytest.approx(60.0)
+
+
+def test_a_floor_below_the_modelled_cost_changes_nothing():
+    remaining = [(1, "mod_a", 1_000)]
+    costs = {"mod_a": (5_000.0, 0.0)}
+    est = progress.estimate(0, 1, remaining, costs, thesis_floors={1: 10.0})
+    assert est.eta_seconds == pytest.approx(5.0)
+
+
+def test_a_floor_for_a_finished_thesis_is_ignored():
+    """Only theses with remaining work can be floored."""
+    remaining = [(2, "mod_a", 1_000)]
+    costs = {"mod_a": (100.0, 0.0)}
+    est = progress.estimate(1, 2, remaining, costs, thesis_floors={1: 300_000.0})
+    assert est.eta_seconds == pytest.approx(0.1)
