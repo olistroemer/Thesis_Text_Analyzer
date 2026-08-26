@@ -616,10 +616,11 @@ Decision: [ADR-001](adr/0001-ui-toolkit.md). tkinter (stdlib) for the main shell
 │                            [📊 Report] [💾 Export] [? Help]         │
 ├────────────────────────────────────────────────────────────────────┤
 │ ╔═══════ Grid ═══════╗  Report                       (tabs)         │
-│ Thesis            │ Type   │ Lang │ Pages │ FRE   │ Yules K │ ... │
-│ ─────────────────────────────────────────────────────────────────── │
-│ thesis_001.pdf    │ Master │ en   │ 78    │ 51.2  │ 103.4   │ ... │
-│ thesis_002.pdf    │ Bachel │ de   │ 42    │ 48.0  │ 71.0    │ ... │
+│ Excl │ ! │ Thesis         │ Type   │ Pages │ Year │ Lang │ ...     │
+│ ──────────────────────────────────────────────────────────────────  │
+│ [ ]  │   │ thesis_001.pdf │ Master │ 78    │ 2024 │ en   │ ...     │
+│ [ ]  │ ! │ thesis_002.pdf │ Bachel │ 42    │ 2023 │ de   │ ...     │
+│ [x]  │   │ thesis_003.pdf │        │       │      │      │ ...     │
 │ ...                                                                │
 ├────────────────────────────────────────────────────────────────────┤
 │ Ready · 24 theses · last run 2026-06-03 17:42      (status line)   │
@@ -631,22 +632,40 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 - Toolbar buttons are icon + text.
 - While a run is in progress the run buttons are hidden and a single **Cancel** button takes their place; clicking it calls `Runner.cancel()` (skip-pending, [ADR-013](adr/0013-runner-orchestration.md)). The normal toolbar is restored on `RunCompleted`/`RunCancelled`.
 - Alongside the Cancel control, a **determinate progress bar** with a `"<done>/<total> pairs - ~<eta> left"` label reports run progress (#39, [§5.5](#55-runner-orchestration)). It advances per `(thesis × module)` pair on each `ModuleCompleted` event; the ETA is **size-weighted** (see [§5.5](#55-runner-orchestration)). It is hidden/reset on `RunCompleted`/`RunCancelled`.
-- Grid is sortable by clicking column headers. **Every** column sorts by its own value — the lead columns (Excluded, Thesis, Type), the artefact-presence columns and the metric columns alike — and a repeat click on the already-sorted header flips ASC↔DESC (#40). Sorting is by *column identity*, not by grid position, so a mode switch keeps the sort. Blank values (a metric that has not run, a type not yet detected) sort **last** in ascending order; rows tie-break on file name so the order is deterministic. The ` (asc)`/` (desc)` indicator is appended to the header actually sorted on.
+- Grid is sortable by clicking column headers. **Every** column sorts by its own value — the lead columns (Excluded, State, Thesis, Type), the artefact-presence columns and the metric columns alike — and a repeat click on the already-sorted header flips ASC↔DESC (#40). Sorting is by *column identity*, not by grid position, so a mode switch keeps the sort. Blank values (a metric that has not run, a type not yet detected) sort **last** in ascending order; rows tie-break on file name so the order is deterministic. The ` (asc)`/` (desc)` indicator is appended to the header actually sorted on.
 - The first lead column is an **Excluded** checkbox (both basic and extended modes — it is a professor-facing privacy control, not a power-user feature; US-PROF-EXCLUDE). Ticking it marks the thesis `excluded` (`repository.set_excluded`); excluded rows render **greyed**. Ticking it for an **already-analysed** thesis prompts a destructive-and-irreversible confirmation, then scrubs the cached analysis via `purge_analysis` ([§8.2](#82-filesystem-layout), [ADR-0006](adr/0006-schema.md) rev. 5); the source PDF is untouched. Un-ticking clears the flag and the thesis re-runs as "missing" on the next Run. Excluding **before** a run means no `raw_text`/tokens are ever cached (the runner's `plan()` skips excluded theses).
 - Fuzzy search per column (extended mode).
-- Double-click an artefact cell opens the underlying file with the system default application.
+- Artefact-presence cells (extended mode) render as **read-only checkboxes** — a disabled tksheet checkbox, so a click cannot fabricate or clear presence. Double-click an artefact cell opens the underlying file with the system default application.
 - Cells are coloured by outlier highlighting (see [§9.5](#95-outlier-highlighting)).
 - "NA" cells are visually distinct from "error" and "missing"; tooltip explains the reason.
-- "Garbled extraction" rows get a warning glyph in the leftmost cell.
+- "Garbled extraction" rows get a warning glyph `[!]` in the dedicated **State** lead column ([§9.9](#99-grid-cell-render-states)) — *not* prefixed onto the file name, so the marker is sortable and file names no longer shift horizontally from row to row.
 
 ## 9.3 Modes
 
 | Mode | Default for | Toolbar buttons (left to right) | Differences from basic |
 |---|---|---|---|
-| **Basic** | Professor persona | Add files · Run all · **Report** · Export · Help | Limited columns visible by default; settings simplified; help glossary front-and-centre. |
+| **Basic** | Professor persona | Add files · Run all · **Report** · Export · Help | Curated column set (enumerated below); settings simplified; help glossary front-and-centre. |
 | **Extended** | Power user, researcher | Add files · Run all · Re-run all · Update stale · **Report** · Export · Help | All metrics visible; fuzzy search; outlier-detection algorithm choice; CSV/JSON copy from grid. |
 
 Both modes show the Report button — the professor's reward (US-PROF-INSIGHTS) is not gated behind Extended mode.
+
+### Column sets
+
+Both modes open with the same four **lead columns**, left to right (`columns.LEAD_COLUMNS`):
+
+| # | Column | Renders |
+|---|---|---|
+| 0 | **Excluded** | Editable checkbox — the privacy control described in [§9.2](#92-main-window-layout). |
+| 1 | **State** | Per-row file/extraction state: `[!]` for `extraction_quality = garbled`, otherwise blank ([§9.9](#99-grid-cell-render-states)). |
+| 2 | **Thesis** | The PDF file name. Double-click opens the PDF. |
+| 3 | **Type** | The detected `thesis_type` (bachelor / master / unspecified); blank until analysed. |
+
+**Basic mode** then shows a curated metric subset, in this order (`columns.BASIC_METRICS`):
+`n_pages` · `publication_year` · `language_code` · `word_count` · `flesch_reading_ease` · `yules_k` · `extraction_quality`.
+
+`publication_year` is in the basic set because the publication year is the project's primary research axis ([§2.1](#21-problem-statement)) and the professor persona *defaults* to basic mode — the axis the whole tool exists to study must not require a mode switch to see.
+
+**Extended mode** shows the same lead columns, then the four **artefact-presence** columns (`raw_text`, `language`, `tokens`, `pdf_metadata`; `columns.ARTEFACT_COLUMNS`), then **every** metric in the catalogue in module topological order — `publication_year_source`, `thesis_type` and the rest included.
 
 Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 
@@ -746,7 +765,9 @@ Every grid cell renders in one of four visually distinct states:
 | **`error`** | Module raised an exception or timed out | Warning glyph in a distinct colour. Tooltip: one-line reason. In Extended mode, click → details panel with traceback. |
 | **`not yet run`** | No `module_runs` row exists for this `(thesis, module)` pair | Blank cell, no glyph. Tooltip: "Not yet analysed — click Run to compute." |
 
-Whole-row indicator: theses with `extraction_quality = garbled` get a warning glyph in the leftmost (row-header) cell with a tooltip explaining the unreliability of all downstream metrics for that row. This is per US-PROF-QUALITY.
+Whole-row indicator: theses with `extraction_quality = garbled` get a warning glyph `[!]` in the dedicated **State** lead column ([§9.3](#93-modes)) — not in the row-header cell and not prefixed onto the file name. A dedicated column makes the marker sortable and stops the file names from shifting horizontally row to row; the column's header help explains that every metric in a flagged row may be unreliable. This is per US-PROF-QUALITY.
+
+The State column currently reports **garbled extraction only**. A "source PDF no longer on disk" state belongs in the same column but is deferred: `ThesisRow` has no such flag and `repository.list_theses` does not report file presence.
 
 ---
 

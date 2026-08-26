@@ -10,10 +10,12 @@ Every tracked `*.py` file in the repository contains **only ASCII bytes** (code 
 
 Two cases are handled differently:
 
-1. **Decorative / typographic non-ASCII** in comments, docstrings, UI labels, log/status strings, and CLI help is rewritten to readable ASCII. Examples applied in this change: em-/en-dash -> `-`; the section sign -> `Sec.`; middle dot -> `|`; right arrow -> `->`; `<=` / `>=` for the inequality glyphs; toolbar/menu/grid emoji dropped in favour of plain text labels (`Add files`, `Run all`, `Report`, `Export`, the close button `X`, the garbled-row marker `[!]`, the artefact-present marker `[x]`, the error cell `err`); and the Yule/Guiraud math in `tta/core/modules/vocabulary.py` rewritten as ASCII pseudo-notation (`K = 1e4 * (sum_i i^2 * V_i - N) / N^2`, `V/sqrt(N)`, `V1`).
+1. **Decorative / typographic non-ASCII** in comments, docstrings, UI labels, log/status strings, and CLI help is rewritten to readable ASCII. Examples applied in this change: em-/en-dash -> `-`; the section sign -> `Sec.`; middle dot -> `|`; right arrow -> `->`; `<=` / `>=` for the inequality glyphs; toolbar/menu/grid emoji dropped in favour of plain text labels (`Add files`, `Run all`, `Report`, `Export`, the close button `X`, the garbled-row marker `[!]`, the error cell `err`); and the Yule/Guiraud math in `tta/core/modules/vocabulary.py` rewritten as ASCII pseudo-notation (`K = 1e4 * (sum_i i^2 * V_i - N) / N^2`, `V/sqrt(N)`, `V1`).
 2. **Semantic string content that must keep its exact characters** -- most importantly the German-language test fixtures and the German stopword list / word regex in `tta/core/modules/check_extraction_quality.py` -- is encoded with Python `\uXXXX` escapes. The file bytes are pure ASCII; the runtime string value is byte-for-byte unchanged. These characters are NOT deleted or anglicised: the German language-detection, readability, and tokenisation tests require those exact code points, and the passing test suite after escaping is the proof the escapes are correct.
 
 `.sql` migration comments are held to the same ASCII rule (case 1: decorative -> ASCII).
+
+**Scope note (#65).** The substitution vocabulary above governs *text carried in source*. Where a real widget can draw the state instead, the widget is preferred and this ADR does not apply: the artefact-present marker was ASCII `[x]` until #65 replaced it with a read-only tksheet checkbox, and the Excluded flag was never text. `[x]` remains the correct substitution wherever such a marker *is* carried as a string. The garbled-row marker `[!]` is still text, now rendered in the grid's own State column ([SDD Sec. 9.9](../SDD.md#99-grid-cell-render-states)).
 
 ## Context
 
