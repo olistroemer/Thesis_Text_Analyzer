@@ -108,6 +108,18 @@ class Runner:
 
 Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `tta.toml [runner] workers = N`, alongside the [timeouts](#timeouts).
 
+## Module output capture
+
+A module's `print()` and its log records used to be thrown away, or worse: the spawned child inherits the parent's fd 1/2, so the text landed **unlabelled** (no thesis id, no module name), interleaved across parallel workers, mixed into the CLI's progress render — and lost entirely in the frozen GUI, which has no console at all (`console=False`). Logging fared no worse only because nothing calls `basicConfig`: in the child the root logger has no handler, so `log.info(...)` vanished and `log.warning(...)` and above escaped through logging's `lastResort` (#68).
+
+Two structured channels already existed for diagnostics — `module_runs.notes` (JSON) and `error_traceback`. What was missing is the *unstructured* output a developer actually prints while debugging. So the worker captures it, per module, and it travels home on the existing channel:
+
+- `_run_one_module` runs the module inside `redirect_stdout`/`redirect_stderr` over one `StringIO`, with a `StreamHandler` on that same buffer attached to the root logger (and the root level lowered to `INFO` if it was higher) for the duration. One buffer per module invocation, so output is **attributed to exactly one `(thesis, module)` pair and cannot interleave** with another worker's.
+- The text is **tail-truncated to 16 384 characters** — the tail, because that is where a traceback or the last thing before a hang lives — with a `[... N characters truncated ...]` marker, so a runaway loop cannot bloat the database.
+- `_commit_thesis` folds it into that run's `notes` JSON under the reserved key **`_stdout`**. No schema migration: `notes` is already documented as JSON diagnostics (SDD §8.1) and is already stripped from exports (SDD §8.3.1, [ADR-0007](0007-export-format.md)), registered `CONTENT` / not-exported in the privacy registry — which is exactly the right classification, because captured output is content-derived free text and can contain fragments of thesis text. It stays on the machine.
+
+Keys under `notes` beginning with `_` are reserved for the runner; a module's own diagnostics keys are untouched.
+
 ## Event surface
 
 Published from the main process to a small in-process `EventBus`:
