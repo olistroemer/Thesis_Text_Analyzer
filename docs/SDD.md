@@ -641,6 +641,8 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 
 **Help menu.** Three entries: **Help topics** — the help viewer over `core/help/` ([§9.4](#94-help-system)); **Privacy statement** — the generated GDPR statement ([ADR-009](adr/0009-privacy-as-code.md)); **About**. The `? Help` toolbar button opens the help viewer (#72).
 
+**About.** A small read-only window (not a message box) with four facts: application name and version, the project attribution line, the SPDX licence expression `GPL-3.0-or-later` ([ADR-017](adr/0017-license.md)), and the **repository URL**. Because the binary ships under the GPL and bundles copyleft dependencies, a recipient must be able to find the corresponding source, so the URL is not decoration: it sits in a selectable read-only field with a **Copy** button (#71). It is deliberately **not** a hyperlink — About never calls `webbrowser`, keeping QA-PRIV's "runs fully offline, no network access" literally true, with no browser hand-off to caveat. The same URL is declared as `[project.urls]` `Homepage`/`Source` in `pyproject.toml`; a test pins the two together so they cannot drift.
+
 ## 9.3 Modes
 
 | Mode | Default for | Toolbar buttons (left to right) | Differences from basic |
