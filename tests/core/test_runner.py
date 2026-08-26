@@ -2,6 +2,8 @@
 
 import dataclasses
 import json
+import os
+import queue
 import time
 
 import pytest
@@ -15,7 +17,7 @@ from tta.core.modules.base import (
     RunResult,
 )
 from tta.core.modules.registry import ModuleRegistry, default_registry
-from tta.core.runner import Runner
+from tta.core.runner import Runner, _ActiveWorker, _ModuleOutcome
 
 # Fake modules at module level: picklable / importable in worker processes.
 
@@ -82,6 +84,34 @@ class SleepyExtract(Module):
     def run(self, ctx: RunContext) -> RunResult:
         time.sleep(30)
         return RunResult()
+
+
+class Independent(Module):
+    """Consumes nothing, so no failure upstream of it can cascade to it - the
+    class of module whose pairs used to leak out of progress accounting (#55)."""
+
+    spec = ModuleSpec(
+        name="mod_fake_independent",
+        version="1.0.0",
+        produces_metrics=("independent_flag",),
+    )
+
+    def run(self, ctx: RunContext) -> RunResult:
+        return RunResult(metrics={"independent_flag": True})
+
+
+class SuicidalExtract(Module):
+    """Dies hard mid-module (no exception, no ``thesis_done``) - stands in for
+    an OOM kill or a segfault in the native PDF layer."""
+
+    spec = ModuleSpec(
+        name="mod_fake_extract",
+        version="1.0.0",
+        produces_artefacts=(artefact_kinds.RAW_TEXT,),
+    )
+
+    def run(self, ctx: RunContext) -> RunResult:
+        os._exit(9)
 
 
 def make_runner(project, modules, **kwargs):
@@ -317,3 +347,112 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
 
     # pause/resume property: a second default run has nothing to do
     assert runner.plan().pair_count == 0
+
+
+def test_worker_death_fails_the_thesis_instead_of_hanging(project, tmp_path):
+    """A worker that dies without reporting has no timeout signal to trip (no
+    module start stamp survives it), so before #55 the poll loop spun forever.
+    It must now be detected, recorded as an error, and the run must finish."""
+    add_fake_pdf(project, tmp_path)
+    runner, seen = make_runner(project, [SuicidalExtract(), FakeQuality()])
+    started = time.monotonic()
+    summary = runner.execute(runner.plan())
+    assert time.monotonic() - started < 30  # not hung
+
+    assert summary.error == 1 and summary.na == 1 and summary.ok == 0
+    latest = project.repo.latest_runs()
+    died = next(v for (_, name), v in latest.items() if name == "mod_fake_extract")
+    assert died["status"] == "error"
+    assert "worker died" in died["reason"]
+    cascaded = next(v for (_, name), v in latest.items() if name == "mod_fake_quality")
+    assert cascaded["status"] == "na"
+
+    # an errored pair is replanned by the default mode
+    assert "mod_fake_extract" in {pm.name for tp in runner.plan().theses for pm in tp.modules}
+    assert [type(e).__name__ for e in seen][-1] == "RunCompleted"
+
+
+def test_timeout_reports_skipped_pairs_so_progress_can_close(project, tmp_path):
+    """After a kill, every planned pair must still get exactly one
+    ModuleCompleted - otherwise the determinate bar stops short of 100 % and
+    the ETA never clears (#55, #39). The independent module gets no DB row, so
+    it stays 'missing' and the next default run picks it up."""
+    add_fake_pdf(project, tmp_path)
+    runner, seen = make_runner(
+        project, [SleepyExtract(), Independent(), FakeQuality()], module_timeout_s=1.0
+    )
+    plan = runner.plan()
+    assert [pm.name for pm in plan.theses[0].modules] == [
+        "mod_fake_extract",
+        "mod_fake_independent",
+        "mod_fake_quality",
+    ]
+    summary = runner.execute(plan)
+
+    completed = [e for e in seen if isinstance(e, events.ModuleCompleted)]
+    assert len(completed) == plan.pair_count == 3
+    assert len({(e.thesis_id, e.module_name) for e in completed}) == 3
+    by_name = {e.module_name: e for e in completed}
+    assert by_name["mod_fake_extract"].status == "error"
+    assert by_name["mod_fake_quality"].status == "na"  # dependent: real cascade
+    assert by_name["mod_fake_independent"].status == events.MODULE_SKIPPED
+    assert by_name["mod_fake_independent"].duration_ms is None
+
+    # the skipped pair invents no history and is replanned as missing
+    assert summary.error == 1 and summary.na == 1
+    latest = project.repo.latest_runs()
+    assert not any(name == "mod_fake_independent" for _, name in latest)
+    replanned = {
+        pm.name: pm.plan_reason for tp in runner.plan().theses for pm in tp.modules
+    }
+    assert replanned["mod_fake_independent"] == "missing"
+
+
+class _StubProcess:
+    """Stands in for a worker process so the kill path can be exercised
+    deterministically (the real race is a few microseconds wide)."""
+
+    exitcode = None
+
+    def __init__(self) -> None:
+        self.terminated = False
+        self.killed = False
+
+    def is_alive(self) -> bool:
+        return not (self.terminated or self.killed)
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def kill(self) -> None:
+        self.killed = True
+
+    def join(self, timeout=None) -> None:
+        pass
+
+
+def test_late_module_done_is_drained_before_the_kill(project, tmp_path):
+    """A module_done written between the poll loop's drain and the terminate()
+    used to be lost, recording a module that had in fact succeeded as never
+    having run (#55 defect 3). _kill_timed_out drains once more first, sees the
+    result, and must then not kill anything."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()], module_timeout_s=0.5)
+    plan = runner.plan()
+
+    process = _StubProcess()
+    pipe = queue.SimpleQueue()  # get_nowait() raises queue.Empty, as mp.Queue does
+    worker = _ActiveWorker(process=process, queue=pipe, plan=plan.theses[0])
+    worker.current_module = "mod_fake_extract"
+    worker.module_started_monotonic = time.monotonic() - 10  # long past the timeout
+    pipe.put((
+        "module_done",
+        _ModuleOutcome(module_name="mod_fake_extract", module_version="1.0.0", status="ok"),
+    ))
+
+    assert runner._module_timed_out(worker)
+    runner._kill_timed_out(worker)
+
+    assert not process.terminated and not process.killed
+    assert [(o.module_name, o.status) for o in worker.outcomes] == [("mod_fake_extract", "ok")]
+    assert not worker.done  # still in flight, on its next module

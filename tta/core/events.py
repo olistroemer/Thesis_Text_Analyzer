@@ -31,11 +31,28 @@ class ModuleStarted:
     module_name: str
 
 
+#: ``ModuleCompleted.status`` for a planned pair that will not run in this run
+#: (its worker timed out, died, or was abandoned on cancel). Carries
+#: ``duration_ms=None`` and, unlike the other statuses, **no DB row**: the pair
+#: stays ``missing`` and the next default run picks it up. Adapters retire it
+#: from their remaining set like any other completion, which is the whole point
+#: - without it a killed worker's independent modules leaked from the progress
+#: accounting and the bar could never reach 100 % (#55, ADR-0013 failure policy).
+MODULE_SKIPPED = "skipped"
+
+
 @dataclass(frozen=True)
 class ModuleCompleted:
+    """One planned ``(thesis x module)`` pair reached a terminal state.
+
+    Every pair in the ``RunStarted`` plan is followed by exactly one of these,
+    whatever happens to its worker - adapters may rely on that to close their
+    pair accounting.
+    """
+
     thesis_id: int
     module_name: str
-    status: str  # ok | na | error
+    status: str  # ok | na | error | skipped (MODULE_SKIPPED)
     duration_ms: int | None
 
 

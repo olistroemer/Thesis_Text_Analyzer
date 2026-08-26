@@ -6,8 +6,10 @@
 - Workers compute in isolation and stream results over a queue; the main
   process is the sole DB writer (one transaction per thesis) and the sole
   event publisher.
-- Per-module timeout kills the stuck worker; failures cascade as ``na``
-  to dependents; cancellation is skip-pending.
+- Per-module timeout kills the stuck worker; a worker that dies without
+  reporting is detected and fails its thesis the same way; failures cascade
+  as ``na`` to dependents and unreachable pairs are reported as ``skipped``
+  so adapter progress closes; cancellation is skip-pending.
 """
 
 from __future__ import annotations
@@ -33,6 +35,17 @@ from tta.core.types import Thesis
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODULE_TIMEOUT_S = 300.0
+
+#: How long a worker must be observed dead (``is_alive()`` false) with no
+#: ``thesis_done`` before its thesis is failed. A process can exit a few
+#: milliseconds before the parent drains the last message its queue feeder
+#: flushed, so death is confirmed over consecutive polls rather than on the
+#: first sighting (ADR-0013 failure policy, #55).
+DEAD_WORKER_GRACE_S = 0.25
+
+#: Seconds to wait for a terminated worker to actually exit before escalating
+#: ``terminate()`` (SIGTERM) to ``kill()`` (SIGKILL).
+JOIN_TIMEOUT_S = 5.0
 
 # Plan reasons per run mode (SDD Sec. 5.5): default = missing + stale + errored.
 REASON_MISSING = "missing"
@@ -176,6 +189,8 @@ class _ActiveWorker:
     current_module: str | None = None
     module_started_monotonic: float | None = None
     done: bool = False
+    #: first poll at which the process was seen dead without a ``thesis_done``
+    dead_since: float | None = None
 
 
 class Runner:
@@ -347,8 +362,12 @@ class Runner:
 
             for worker in active:
                 self._drain_queue(worker)
-                if not worker.done and self._module_timed_out(worker):
+                if worker.done:
+                    continue
+                if self._module_timed_out(worker):
                     self._kill_timed_out(worker)
+                elif self._worker_died(worker):
+                    self._reap_dead_worker(worker)
             finished = [w for w in active if w.done]
             active = [w for w in active if not w.done]
             for worker in finished:
@@ -392,13 +411,66 @@ class Runner:
             elif kind == "thesis_done":
                 worker.done = True
 
+    # -- liveness guards and the single failure-cascade path ----------------
+    #
+    # Three triggers end a thesis early - a module timeout, a worker that dies
+    # without reporting, and (on cancel) an abandoned worker - and all of them
+    # funnel through ``_fail_worker`` / ``_cascade`` so that no path can leak a
+    # planned pair out of the adapters' progress accounting (ADR-0013 failure
+    # policy, #55).
+
     def _module_timed_out(self, worker: _ActiveWorker) -> bool:
         return (
             worker.module_started_monotonic is not None
             and time.monotonic() - worker.module_started_monotonic > self.module_timeout_s
         )
 
+    def _worker_died(self, worker: _ActiveWorker) -> bool:
+        """True once the process has been seen dead, with no ``thesis_done``,
+        for ``DEAD_WORKER_GRACE_S``.
+
+        This is the only liveness signal for a worker that dies *between*
+        modules (OOM kill, a segfault in the native PDF layer, a dead queue
+        feeder thread): ``module_started_monotonic`` is ``None`` there, so the
+        timeout guard can never fire and the poll loop would otherwise sleep
+        forever (#55). The grace absorbs the race in which the process has
+        exited but its last flushed messages have not been read yet - each poll
+        re-drains the queue before getting here, so a ``thesis_done`` still in
+        the pipe wins.
+        """
+        if worker.process.is_alive():
+            worker.dead_since = None
+            return False
+        now = time.monotonic()
+        if worker.dead_since is None:
+            worker.dead_since = now
+            return False
+        return now - worker.dead_since >= DEAD_WORKER_GRACE_S
+
+    def _reap_dead_worker(self, worker: _ActiveWorker) -> None:
+        exitcode = worker.process.exitcode
+        logger.error(
+            "worker for thesis %s died without reporting (exitcode=%s) - failing the thesis",
+            worker.plan.thesis.id,
+            exitcode,
+        )
+        elapsed_ms = 0
+        if worker.module_started_monotonic is not None:
+            elapsed_ms = int((time.monotonic() - worker.module_started_monotonic) * 1000)
+        self._fail_worker(
+            worker,
+            worker.current_module,
+            reason=f"worker died before reporting (exitcode={exitcode})",
+            duration_ms=elapsed_ms,
+        )
+
     def _kill_timed_out(self, worker: _ActiveWorker) -> None:
+        # Drain once more first: a ``module_done`` written between the previous
+        # drain and the terminate() below would be lost, and that module would
+        # be recorded as never having run (#55).
+        self._drain_queue(worker)
+        if worker.done or not self._module_timed_out(worker):
+            return  # finished under the wire
         timed_out = worker.current_module
         logger.warning(
             "module %s on thesis %s exceeded %.0f s - killing worker",
@@ -406,32 +478,83 @@ class Runner:
             worker.plan.thesis.id,
             self.module_timeout_s,
         )
+        self._terminate(worker)
+        self._fail_worker(
+            worker,
+            timed_out,
+            reason=f"timeout after {self.module_timeout_s:.0f} s",
+            duration_ms=int(self.module_timeout_s * 1000),
+        )
+
+    def _terminate(self, worker: _ActiveWorker) -> None:
+        """SIGTERM, then SIGKILL if it will not go. Bounded by construction."""
         worker.process.terminate()
-        worker.process.join(timeout=5)
-        done_names = {o.module_name for o in worker.outcomes}
-        spec = self.registry.get(timed_out).spec
+        worker.process.join(timeout=JOIN_TIMEOUT_S)
+        if worker.process.is_alive():
+            logger.warning(
+                "worker for thesis %s ignored terminate() - killing", worker.plan.thesis.id
+            )
+            worker.process.kill()
+            worker.process.join(timeout=JOIN_TIMEOUT_S)
+
+    def _unreported(self, worker: _ActiveWorker) -> list[PlannedModule]:
+        """Planned modules of this thesis that have not sent an outcome yet,
+        in plan (topological) order."""
+        reported = {o.module_name for o in worker.outcomes}
+        return [pm for pm in worker.plan.modules if pm.name not in reported]
+
+    def _fail_worker(
+        self, worker: _ActiveWorker, failed: str | None, reason: str, duration_ms: int
+    ) -> None:
+        """End a thesis on a terminal worker failure: one ``error`` row for the
+        culprit, then the cascade over everything else it never reported.
+
+        ``failed`` is the module in flight; when the worker died between modules
+        it is ``None`` and the next module in topological order - the one that
+        was about to run - takes the error. ``error`` rather than ``na`` is
+        deliberate: the default plan mode re-runs errored pairs, so the next run
+        retries it (ADR-0013 failure policy).
+        """
+        thesis_id = worker.plan.thesis.id
+        unreported = self._unreported(worker)
+        if failed is None:
+            failed = unreported[0].name if unreported else None
+        if failed is None:
+            worker.done = True  # died after the last module_done; nothing lost
+            return
+        spec = self.registry.get(failed).spec
         worker.outcomes.append(
             _ModuleOutcome(
-                module_name=timed_out,
+                module_name=failed,
                 module_version=spec.version,
                 status="error",
-                reason=f"timeout after {self.module_timeout_s:.0f} s",
+                reason=reason,
                 started_at=_utc_now_iso(),
-                duration_ms=int(self.module_timeout_s * 1000),
+                duration_ms=duration_ms,
             )
         )
-        # remaining modules: dependents of the dead worker's pipeline get an
-        # na row; independent ones get no row and stay 'missing' for the
-        # next run (SDD Sec. 5.5: failures cascade as na to dependents)
-        unavailable = set(spec.produces_artefacts)
-        for pm in worker.plan.modules:
-            if pm.name in done_names or pm.name == timed_out:
-                continue
+        self.bus.publish(events.ModuleCompleted(thesis_id, failed, "error", duration_ms))
+        self._cascade(worker, unavailable=set(spec.produces_artefacts))
+        worker.done = True
+
+    def _cascade(self, worker: _ActiveWorker, unavailable: set[str]) -> None:
+        """Classify every still-unreported module of a failed thesis.
+
+        Dependents of the failure (their ``consumes`` are no longer obtainable)
+        get an ``na`` row and event. Modules *independent* of the failure get
+        **no row** - inventing one would either strand them as permanently-``na``
+        pairs or fake an error they never had, so they stay ``missing`` for the
+        next run - but they do get a ``skipped`` event, which is what closes the
+        adapters' pair accounting (#55, #39).
+        """
+        thesis_id = worker.plan.thesis.id
+        produced = self._produced_kinds(worker)
+        for pm in self._unreported(worker):
             consumed_missing = [
                 k
                 for k in pm.module.spec.consumes
                 if k in unavailable
-                or (k not in worker.plan.artefacts and k not in self._produced_kinds(worker, pm))
+                or (k not in worker.plan.artefacts and k not in produced)
             ]
             if consumed_missing:
                 unavailable.update(pm.module.spec.produces_artefacts)
@@ -445,15 +568,13 @@ class Runner:
                         duration_ms=0,
                     )
                 )
-                self.bus.publish(events.ModuleCompleted(worker.plan.thesis.id, pm.name, "na", 0))
-        self.bus.publish(
-            events.ModuleCompleted(
-                worker.plan.thesis.id, timed_out, "error", int(self.module_timeout_s * 1000)
-            )
-        )
-        worker.done = True
+                self.bus.publish(events.ModuleCompleted(thesis_id, pm.name, "na", 0))
+            else:
+                self.bus.publish(
+                    events.ModuleCompleted(thesis_id, pm.name, events.MODULE_SKIPPED, None)
+                )
 
-    def _produced_kinds(self, worker: _ActiveWorker, until_pm: PlannedModule) -> set[str]:
+    def _produced_kinds(self, worker: _ActiveWorker) -> set[str]:
         produced = set()
         for outcome in worker.outcomes:
             if outcome.status == "ok":
