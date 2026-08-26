@@ -141,3 +141,15 @@ def project(tmp_path):
         store=ArtefactStore(project_dir),
     )
     conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _clear_tokens_memo():
+    """`_tokens` memoises the parsed tokens artefact per process (#69). Tests
+    reuse one path (`tmp_path/tokens.json`) with different content, so clear it
+    between tests rather than relying on mtime granularity."""
+    from tta.core.modules import _tokens
+
+    _tokens.clear_memo()
+    yield
+    _tokens.clear_memo()
