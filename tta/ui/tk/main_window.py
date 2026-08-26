@@ -32,8 +32,14 @@ FIRST_LAUNCH_BANNER = (
 
 
 class MainWindow:
-    def __init__(self, project: Project, first_launch: bool = False):
+    def __init__(
+        self, project: Project, first_launch: bool = False, notice: str | None = None
+    ):
         self.project = project
+        # A startup notice means the remembered project could not be opened
+        # and the default one was used instead (#41, SDD Sec. 5.6.1). It
+        # shares the banner area with the first-launch text.
+        self._notice = notice
         self.registry = default_registry()
         self.root = tk.Tk()
         self.root.title(f"Thesis Text Analyzer - {project.dir}")
@@ -48,8 +54,8 @@ class MainWindow:
         self._reset_progress_state()
 
         self._build_menu()
-        if first_launch:
-            self._build_banner()
+        if first_launch or notice:
+            self._build_banner(first_launch=first_launch, notice=notice)
         self._build_toolbar()
         self._build_tabs()
         self.status = ttk.Label(self.root, anchor="w", padding=(8, 2))
@@ -82,9 +88,14 @@ class MainWindow:
         menubar.add_cascade(label="Help", menu=help_menu)
         self.root.config(menu=menubar)
 
-    def _build_banner(self) -> None:
+    def _build_banner(self, first_launch: bool = True, notice: str | None = None) -> None:
         banner = ttk.Frame(self.root, padding=8)
-        text = FIRST_LAUNCH_BANNER.format(path=self.project.dir)
+        lines = []
+        if notice:
+            lines.append(notice)
+        if first_launch:
+            lines.append(FIRST_LAUNCH_BANNER.format(path=self.project.dir))
+        text = "\n\n".join(lines)
         ttk.Label(banner, text=text, wraplength=900, justify="left").pack(side="left")
         ttk.Button(banner, text="X", width=3, command=banner.destroy).pack(side="right")
         banner.pack(fill="x")
@@ -340,17 +351,32 @@ class MainWindow:
         dialogs.export_flow(self.root, self.project)
 
     def _open_project(self) -> None:
+        from pathlib import Path
         from tkinter import filedialog
 
-        from tta.ui.tk.recent import remember_project
+        from tta.core.project import DB_FILENAME, remember_project
 
         chosen = filedialog.askdirectory(parent=self.root, title="Open project folder")
         if not chosen:
             return
-        remember_project(chosen)
-        messagebox.showinfo(
-            "Open Project", "The project opens on next start.", parent=self.root
-        )
+        target = Path(chosen)
+        try:
+            remember_project(target)
+        except OSError as exc:
+            messagebox.showerror(
+                "Open Project",
+                f"Could not remember {target}:\n{type(exc).__name__}: {exc}",
+                parent=self.root,
+            )
+            return
+        # An empty folder is a legitimate choice - the first-launch banner
+        # sends the user here to pick a different location - so say plainly
+        # that the project will be created there (#41, SDD Sec. 9.7).
+        if (target / DB_FILENAME).exists():
+            detail = "The project opens on next start."
+        else:
+            detail = "That folder is not a project yet; it is created there on next start."
+        messagebox.showinfo("Open Project", f"{target}\n\n{detail}", parent=self.root)
 
     def _show_privacy(self) -> None:
         window = tk.Toplevel(self.root)
