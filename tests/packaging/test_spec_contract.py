@@ -15,7 +15,9 @@ import sys
 from tests.packaging.conftest import ADR_PATH, REPO_ROOT, SPEC_PATH, job
 
 FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy")
-GUI_ONLY = ("matplotlib", "tksheet", "tkinter")
+# GUI-only as of #53: matplotlib left the dependency set entirely and is now
+# excluded from BOTH graphs, so it is no longer a per-binary scoping concern.
+GUI_ONLY = ("tksheet", "tkinter")
 
 
 def analysis_calls(source):
@@ -85,21 +87,27 @@ def test_both_analysis_calls_exclude_the_undeclared_numeric_stack(spec_source):
 
 
 def test_the_cli_graph_excludes_the_gui_stack(spec_source):
-    """The CLI cannot reach matplotlib/tksheet/tkinter; it must not carry them.
-
-    nltk imports matplotlib from inside method bodies, so removing it from
-    hiddenimports is not sufficient - the exclude is what does the work.
-    """
+    """The CLI cannot reach tksheet/tkinter; it must not carry them."""
     cli_excludes = list_literal(spec_source, "CLI_EXCLUDES")
     for package in GUI_ONLY:
         assert package in cli_excludes
 
 
 def test_the_gui_graph_does_not_exclude_what_it_needs(spec_source):
-    """Excluding matplotlib globally would break the report view (ADR-0016)."""
+    """The GUI genuinely needs tksheet and tkinter; nothing may exclude them."""
     gui_excludes = list_literal(spec_source, "EXCLUDES")
     for package in GUI_ONLY:
         assert package not in gui_excludes
+
+
+def test_matplotlib_is_excluded_from_both_graphs(spec_source):
+    """#53: nothing under tta/ imports matplotlib since the report became
+    inline SVG (ADR-0016 rev. 2), and dropping it from pyproject.toml is not
+    enough - nltk reaches for it from inside method bodies, so PyInstaller
+    would keep collecting it on any machine that has it installed."""
+    shared = list_literal(spec_source, "EXCLUDES")
+    assert "matplotlib" in shared and "mpl_toolkits" in shared
+    assert "matplotlib" not in list_literal(spec_source, "gui_hiddenimports")
 
 
 def test_hiddenimports_are_scoped_per_binary(spec_source):

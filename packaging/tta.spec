@@ -120,8 +120,6 @@ shared_hiddenimports = [
 gui_hiddenimports = shared_hiddenimports + [
     "tkinter",                                # ADR-0001 toolkit
     "tksheet",                                # the data grid
-    "matplotlib",                             # report view charts (ADR-0016)
-    "matplotlib.backends.backend_tkagg",      # its Tk canvas backend
 ]
 
 # ---- packages that must never enter either graph (ADR-0014) ---------------
@@ -147,26 +145,34 @@ EXCLUDES = [
     "scipy",
     "tqdm.gui",                               # pulls tkinter into the CLI
     "IPython",
+    # matplotlib was GUI-only until the report became inline SVG (ADR-0016
+    # rev. 2). Nothing under tta/ imports it now, so it is excluded from BOTH
+    # graphs (#53) - nltk still reaches for it from inside method bodies, so
+    # dropping it from pyproject.toml is not enough to keep it out.
+    "matplotlib",
+    "mpl_toolkits",
 ]
 
 # ---- additionally kept out of the CLI graph (ADR-0014) --------------------
-# Dropping matplotlib/tksheet/tkinter from the CLI's hiddenimports is NOT
-# enough on its own: nltk reaches for matplotlib from inside method bodies
-# (nltk.probability.FreqDist.plot, nltk.tokenize.texttiling.demo,
+# Note on the matplotlib entry in EXCLUDES above: removing it from
+# pyproject.toml is NOT enough on its own, which is why it is excluded rather
+# than merely undeclared. nltk reaches for matplotlib from inside method
+# bodies (nltk.probability.FreqDist.plot, nltk.tokenize.texttiling.demo,
 # nltk.parse.dependencygraph.demo, nltk.sentiment.util, nltk.draw.*), and
-# PyInstaller follows those, so a plotting stack the CLI can never reach was
-# still landing in it - matplotlib 18.36 MB plus its own pillow / fontTools /
-# kiwisolver / contourpy / freetype / harfbuzz tail.
+# PyInstaller follows those, so a plotting stack nothing can reach would keep
+# landing in both binaries - 18.36 MB plus its pillow / fontTools /
+# kiwisolver / contourpy / freetype / harfbuzz tail - on any machine that
+# happens to have matplotlib installed.
 #
 # Safe to exclude: every one of those import sites is inside a try/except
 # ImportError that raises a clear "requires matplotlib" message, or inside a
 # demo()/__main__ block. ``tta`` uses exactly nltk.sent_tokenize and
-# nltk.word_tokenize (tta/core/modules/tokenize.py), never a plot. And the
-# CLI cannot acquire a real need for them later without breaking the
-# hexagonal boundary invariant (SDD 5.2) that CI already enforces.
+# nltk.word_tokenize (tta/core/modules/tokenize.py), never a plot.
+#
+# tksheet and tkinter stay CLI-only exclusions: the GUI genuinely needs them,
+# and the CLI cannot acquire a real need without breaking the hexagonal
+# boundary invariant (SDD 5.2) that CI already enforces.
 CLI_EXCLUDES = EXCLUDES + [
-    "matplotlib",
-    "mpl_toolkits",
     "tksheet",
     "tkinter",
 ]

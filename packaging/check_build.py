@@ -47,12 +47,16 @@ import sys
 # pyproject.toml and not imported by any tta module; they arrive through
 # function-level optional imports inside pymupdf / nltk / pandas that
 # PyInstaller's static analysis follows. See packaging/tta.spec EXCLUDES.
-FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy")
+# matplotlib joined this list in #53: since the report became inline SVG
+# (ADR-0016 rev. 2) nothing under tta/ imports it, so it belongs in neither
+# binary. It is checked rather than merely undeclared because nltk reaches
+# for it from inside method bodies, which PyInstaller follows.
+FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy", "matplotlib", "mpl_toolkits")
 
 # Packages the GUI binary legitimately needs and the CLI binary must never
 # carry. The hexagonal boundary (SDD 5.2, ADR-0002) is what makes this
 # checkable: nothing under tta/core or tta/cli may import tta.ui.
-GUI_ONLY = ("matplotlib", "mpl_toolkits", "tksheet", "kiwisolver", "contourpy")
+GUI_ONLY = ("tksheet",)
 
 # ...and the other direction, which is the failure the size gate would
 # happily reward: the excludes that keep the plotting stack out of the CLI
@@ -60,7 +64,7 @@ GUI_ONLY = ("matplotlib", "mpl_toolkits", "tksheet", "kiwisolver", "contourpy")
 # be a smaller binary that dies the moment the report view opens (ADR-0016).
 # Only the GUI *launch* check in CI would otherwise notice, and it runs on
 # one of the four targets.
-GUI_REQUIRED = ("matplotlib", "tksheet", "tkinter")
+GUI_REQUIRED = ("tksheet", "tkinter")
 
 # Third element of a PyInstaller TOC entry.
 TOC_KINDS = frozenset(

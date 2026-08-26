@@ -51,6 +51,8 @@ The per-module guard alone left the ceiling for one document at `module_timeout 
 
 The per-thesis default derives from that budget: ADR-0015 budgets ≤ 15 s per thesis on the supported tier and the low-end 2016 dual-core tier runs ≈ 4× slower (≈ 60 s), so **600 s is ~10× the slowest legitimate figure** — generous enough never to fire on honest work on a slow machine, and it sits *above* the per-module timeout deliberately, so for a single stuck module the finer-grained guard reports first and names the culprit. The per-thesis deadline is the belt-and-braces guard for what the module guard cannot see; neither substitutes for [worker-death detection](#failure-policy), which handles the case where nothing is running at all.
 
+**A timed-out document also floors its own future ETA** (#56). The row a timeout records (`status=error`, `reason="timeout after N s"`, `duration_ms=N*1000`) is excluded from the cost fit, which uses successful runs only - so without a floor the next run would under-estimate the same document just as badly. `Repository.thesis_cost_floors` reads those rows back and `progress.estimate` floors that thesis's remaining bucket at the longest timeout recorded against it. Scoped **per thesis, never per module**: a hang is a property of the one document that hung, and re-pricing the module globally would let a single bad PDF distort every estimate in the database.
+
 Both are settable in `tta.toml`, so a user with 500-page scans need not patch the source to raise them:
 
 ```toml

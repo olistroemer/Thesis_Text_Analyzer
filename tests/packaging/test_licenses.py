@@ -200,7 +200,7 @@ def test_declared_closure_covers_the_declared_dependencies(generator):
     """Reads installed metadata, i.e. pyproject.toml's dependency table."""
     closure = generator.declared_closure()
     for name in ("click", "nltk", "textstat", "pypdf", "rich", "tksheet",
-                 "matplotlib", "langdetect"):
+                 "langdetect"):
         assert name in closure, name
     assert "tta" not in closure
 
@@ -211,8 +211,13 @@ def test_declared_closure_honours_the_pymupdf_extra(generator):
 
 
 def test_declared_closure_is_transitive(generator):
-    """numpy is nobody's direct dependency here - it arrives via matplotlib."""
-    assert "numpy" in generator.declared_closure()
+    """markdown-it-py is nobody's direct dependency - it arrives via rich.
+
+    Was numpy-via-matplotlib until #53 dropped matplotlib, which took numpy
+    out of the closure with it."""
+    closure = generator.declared_closure()
+    assert "markdown-it-py" in closure
+    assert "numpy" not in closure
 
 
 # ------------------------------------------------- the generator's hard stops

@@ -39,15 +39,11 @@ def clean_entries(extra=()):
     return entries
 
 
+# #53 removed matplotlib from the dependency set, so the GUI's own stack is
+# just Tk plus the grid widget.
 GUI_EXTRA = [
     ("tkinter", "/usr/lib/python3.12/tkinter/__init__.py", "PYMODULE"),
     ("tksheet", SITE + "/tksheet/__init__.py", "PYMODULE"),
-    ("matplotlib", SITE + "/matplotlib/__init__.py", "PYMODULE"),
-    (
-        "matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf",
-        SITE + "/matplotlib/mpl-data/fonts/ttf/DejaVuSans.ttf",
-        "DATA",
-    ),
 ]
 
 
@@ -274,7 +270,7 @@ def test_gui_only_packages_in_the_cli_graph_fail(check_build, tmp_path):
     failures = check_build.check(str(dist), str(build), CEILING)
     assert len(failures) == 1
     assert "the CLI graph" in failures[0]
-    assert "matplotlib" in failures[0] and "tksheet" in failures[0]
+    assert "tksheet" in failures[0]
 
 
 def test_gui_only_packages_in_the_gui_graph_are_fine(check_build, tmp_path):
@@ -286,13 +282,13 @@ def test_a_gui_graph_stripped_of_its_own_stack_fails(check_build, tmp_path):
     """The mirror image of the CLI gate, and a smaller binary either way.
 
     Applying CLI_EXCLUDES to both Analysis objects would shrink the GUI
-    binary and pass every size gate, then die when the report view opens.
+    binary and pass every size gate, then die the moment the window opens.
     """
     dist, build = make_tree(tmp_path, gui_extra=())
     failures = check_build.check(str(dist), str(build), CEILING)
     assert len(failures) == 1
     assert "the GUI graph" in failures[0] and "MISSING" in failures[0]
-    for package in ("matplotlib", "tksheet", "tkinter"):
+    for package in ("tksheet", "tkinter"):
         assert package in failures[0]
 
 
@@ -392,7 +388,13 @@ def test_read_toc_ignores_non_toc_triples(check_build, tmp_path):
 
 
 def test_forbidden_and_gui_only_lists_do_not_overlap(check_build):
-    """matplotlib is GUI-only, not forbidden: excluding it would break #16."""
+    """A package cannot be both required by the GUI and banned outright."""
     assert not set(check_build.FORBIDDEN) & set(check_build.GUI_ONLY)
-    assert "matplotlib" in check_build.GUI_ONLY
-    assert "matplotlib" not in check_build.FORBIDDEN
+
+
+def test_matplotlib_is_forbidden_outright(check_build):
+    """#53 moved it from GUI-only to forbidden: the report is inline SVG now
+    (ADR-0016 rev. 2), so no binary has any use for the plotting stack."""
+    assert "matplotlib" in check_build.FORBIDDEN
+    assert "matplotlib" not in check_build.GUI_ONLY
+    assert "matplotlib" not in check_build.GUI_REQUIRED
