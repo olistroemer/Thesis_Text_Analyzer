@@ -1,17 +1,21 @@
-# ADR-0011: MVP module catalogue — 12 modules / 29 metrics
+# ADR-0011: MVP module catalogue — 13 modules / 31 metrics
 
-**Status:** Accepted (revision 3 — two title-page modules added: `mod_classify_thesis_type` (#9, +1 metric `thesis_type`) and `mod_determine_publication_year` (#17, +2 metrics `publication_year`, `publication_year_source`); the `theses.type`/`theses.language_hint` override columns are dropped in favour of the detected `thesis_type` metric and the existing `language_code` metric — see [ADR-0019](0019-thesis-type-by-detection.md). 10 → 12 modules, 26 → 29 metrics). Rev. 2 measured hapax as both token-ratio V1/N and type-ratio V1/V (25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
-**Date:** 2026-06-03 (rev. 2: 2026-06-10; rev. 3: 2026-07-22)
+**Status:** Accepted (revision 4 — `mod_extract_filesystem_metadata` added (#18, +2 metrics `file_size_bytes`, `fs_modified_year`); 12 → 13 modules, 29 → 31 metrics). Rev. 3 — two title-page modules added: `mod_classify_thesis_type` (#9, +1 metric `thesis_type`) and `mod_determine_publication_year` (#17, +2 metrics `publication_year`, `publication_year_source`); the `theses.type`/`theses.language_hint` override columns are dropped in favour of the detected `thesis_type` metric and the existing `language_code` metric — see [ADR-0019](0019-thesis-type-by-detection.md). 10 → 12 modules, 26 → 29 metrics). Rev. 2 measured hapax as both token-ratio V1/N and type-ratio V1/V (25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
+**Date:** 2026-06-03 (rev. 2: 2026-06-10; rev. 3: 2026-07-22; rev. 4: 2026-08-26)
 **Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); primary research goal (SDD §2.1 — length over publication date, #17); US-PROF-ATTRS / US-PROF-COMPARE (#9); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
 
 ## Decision
 
-MVP ships exactly the twelve modules listed in SDD §7, producing 29 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
+MVP ships exactly the thirteen modules listed in SDD §7, producing 31 metrics across four artefact kinds (`raw_text`, `language`, `tokens`, `pdf_metadata`). PDF extraction in the first implementation uses **PyMuPDF** (AGPL — development only); alternative extractors are added during the project's library-comparison study.
 
 Two modules parse the **title page** of `raw_text` via a shared parser (`core/modules/_titlepage.py`):
 
-- `mod_classify_thesis_type` (#9, [ADR-0019](0019-thesis-type-by-detection.md)) — produces the `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`} by a keyword heuristic; replaces the dropped `theses.type` column and the add-time type dialog.
-- `mod_determine_publication_year` (#17) — produces the best-estimate `publication_year` (numeric) and `publication_year_source` (text) by fusing the in-text title-page year (primary) with the PDF-metadata `creation_year`/`modification_year` (fallback). `publication_year` — not `creation_year` — is the x-axis of the primary research goal (SDD §2.1, §9.8). Filesystem dates (#18) are out of scope. `mod_extract_pdf_metadata` still produces `creation_year`/`modification_year` as raw PDF signals.
+- `mod_classify_thesis_type` (#9, [ADR-0019](0019-thesis-type-by-detection.md)) — produces the `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`} by a keyword heuristic (`diploma` added for pre-Bologna German theses, #67 / ADR-0019 rev. 2 — a wider value domain for the same one metric, so the 29-metric count is unchanged); replaces the dropped `theses.type` column and the add-time type dialog.
+- `mod_determine_publication_year` (#17) — produces the best-estimate `publication_year` (numeric) and `publication_year_source` (text) by fusing the in-text title-page year (primary) with the PDF-metadata `creation_year`/`modification_year` (fallback). `publication_year` — not `creation_year` — is the x-axis of the primary research goal (SDD §2.1, §9.8). Filesystem dates (#18) stay **out of the fusion**: rev. 4 surfaces `fs_modified_year` as its own labelled weak signal instead of giving an easily-reset timestamp a precedence slot. `mod_extract_pdf_metadata` still produces `creation_year`/`modification_year` as raw PDF signals.
+
+One further root module reads the file itself rather than its text (rev. 4):
+
+- `mod_extract_filesystem_metadata` (#18) — `file_size_bytes` and `fs_modified_year` from stdlib `os.stat`. Only mtime is promoted, at year precision; **atime** (disabled by common mount options, and clobbered by the analysis run itself) and **ctime/creation time** (Windows creation vs POSIX inode-change, with no `st_birthtime` on Linux — incomparable across the shipped platforms) are kept in local-only `notes` instead. See SDD §7.4 for the full reliability caveat.
 
 Module-name convention bakes the library into the identifier when the choice is provisional (`mod_extract_pymupdf`) so the producer-swap mechanism remains visible in the schema, privacy registry, and export.
 
@@ -27,6 +31,7 @@ Flesch reading ease is **language-aware**: Flesch's formula for English [@flesch
 | `mod_classify_language` | langdetect | lightweight, no model file needed | fasttext, lingua, polyglot |
 | `mod_tokenize` | NLTK punkt_tab | language-aware sentence + word tokenisation | spaCy, stanza |
 | `mod_readability` | textstat | implements Flesch + Amstad out of the box | custom implementation |
+| `mod_extract_filesystem_metadata` | stdlib `os.stat` | no dependency can do this better | — |
 
 The library-comparison study (SDD §2.1.1) produces a contracted research output: a ranked recommendation per module class. The distributed `.exe` ships the winners on extraction quality — no longer constrained to non-AGPL candidates (see below).
 

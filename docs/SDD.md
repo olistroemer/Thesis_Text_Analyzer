@@ -440,7 +440,7 @@ Artefact files are stored under the filesystem layout in [§5.4](#54-persistence
 
 # 7. Module Catalogue
 
-Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
+Thirteen modules, thirty-one metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
 
 ## 7.1 Overview
 
@@ -456,8 +456,9 @@ Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue
 | 8 | `mod_redundancy` | `tokens` | — | `bigram_repetition_rate`, `trigram_repetition_rate` | stdlib |
 | 9 | `mod_count_images` | — (PDF directly) | — | `n_images` | pypdf |
 | 10 | `mod_extract_pdf_metadata` | — (PDF directly) | `pdf_metadata` | `page_count_meta`, `producer_category`, `creator_category`, `creation_year`, `modification_year`, `has_outline` | pypdf |
-| 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`unspecified`) | title-page keyword heuristic (#9, ADR-0019); evidence in `notes` |
+| 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`diploma`/`unspecified`) | title-page keyword heuristic (#9, #67, ADR-0019); evidence in `notes` |
 | 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `notes` |
+| 13 | `mod_extract_filesystem_metadata` | — (PDF path directly) | — | `file_size_bytes` (num), `fs_modified_year` (num) | stdlib `os.stat`; run-time file size + mtime year. Weak, easily-reset signals (#18) — see [§7.4](#74-notes-on-specific-modules) |
 
 ## 7.2 Applicability matrix
 
@@ -466,11 +467,12 @@ Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue
 | `mod_extract_pymupdf` | file extension is `.pdf` | not a PDF |
 | `mod_check_extraction_quality` | `raw_text` exists | upstream extraction failed |
 | `mod_classify_language` | `raw_text` exists and has ≥ 200 chars | text too short for confident detection |
-| `mod_tokenize` | `language.code` ∈ {`en`, `de`} | unsupported language |
+| `mod_tokenize` | `language.code` ∈ {`en`, `de`} **and** `raw_text` yields at least one sentence | unsupported language / no sentences in text (an empty `tokens` artefact is never written) |
 | `mod_surface_counts` / `mod_vocabulary` / `mod_redundancy` | `tokens` exists | upstream NA cascade |
 | `mod_readability` | `language.code` ∈ {`en`, `de`} | no Flesch formula for language |
 | `mod_count_images` | file is a PDF | not a PDF |
 | `mod_extract_pdf_metadata` | file is a PDF | not a PDF |
+| `mod_extract_filesystem_metadata` | the file still exists at its recorded path | file not found |
 | `mod_classify_thesis_type` | `raw_text` exists | upstream extraction failed (garbled/sparse text still yields `unspecified`, never `na`) |
 | `mod_determine_publication_year` | `raw_text` and `pdf_metadata` exist | upstream NA cascade (no title-page year and no PDF date still yields an `ok` run with `publication_year` NULL and `publication_year_source='none'`) |
 
@@ -482,13 +484,21 @@ Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf
 
 **`mod_extract_pymupdf`** is the initial implementation. The AGPL release gate that previously required replacing it before the first distributed `.exe` is retired by [ADR-0017](adr/0017-license.md) (the project adopts a copyleft licence, so PyMuPDF may ship); alternative extractors are now compared on quality, not licence ([§2.1.1](#211-methodological-output-library-comparison-study)).
 
+**`mod_tokenize`** must never produce an **empty `tokens` artefact**: three of the thirteen modules read `tokens` (`mod_surface_counts`, `mod_vocabulary`, `mod_redundancy`) and between them carry thirteen of the thirty-one metrics, so an empty-but-`ok` artefact would silently zero out nearly half the catalogue (#34). Two failure modes are therefore made loud rather than silent. (1) If segmentation yields no sentences at all (empty, whitespace-only or word-less `raw_text`), the module raises `NotApplicable` and the run is recorded `na` with a reason — dependents cascade to `na` honestly instead of measuring nothing. (2) If the bundled NLTK **punkt_tab** model cannot be resolved, the module raises a `RuntimeError` naming the missing model, the language and the searched data paths. This is an environment defect, not a property of the thesis, so it is an `error` outcome, never `na`. The message is re-worded deliberately: NLTK's own `LookupError` advises `nltk.download()`, which is wrong here — the model is bundled at build time ([ADR-0014](adr/0014-distribution.md)) and the app never downloads anything (QA-PRIV). Its text also opens with blank lines, so the runner's one-line `reason` ([§6.3](#63-run-lifecycle)) degraded to a bare `LookupError:` with no diagnostic content — the actual defect behind #34.
+
 **`mod_check_extraction_quality`** flags but does NOT block downstream modules. A thesis flagged `garbled` still has all subsequent metrics computed; the grid renders the row with a warning glyph `[!]` in the **State** lead column, and double-clicking that cell opens the details panel ([Sec. 9.9](#99-grid-cell-render-states)).
 
 **`mod_extract_pdf_metadata`** writes the full PDF metadata (including potentially-identifying Author/Title) to a local-only artefact, but stores only a curated set of six safe metrics. Producer and Creator strings are mapped to a small categorical (`latex`/`word`/`openoffice`/…) — the raw strings never reach the DB. Dates are stored to year precision only. Additional PDF-technical fields (encryption flag, form-data flags, etc.) are kept in the local artefact but not promoted to metrics; see §12. See the module's help page for the full rationale.
 
-**`mod_classify_thesis_type`** (#9, [ADR-0019](adr/0019-thesis-type-by-detection.md)) detects the degree from the title page of `raw_text` by a case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English degree terms), producing the single `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`}. It replaces the removed add-time type dialog and the dropped `theses.type` column; correction of a detected value is deferred to editable metrics (#10). Garbled or sparse text yields `unspecified`, never `na`, so the metric is always present. Detection evidence (matched keywords) is written to the run's local-only `notes`.
+**`mod_classify_thesis_type`** (#9, [ADR-0019](adr/0019-thesis-type-by-detection.md)) detects the degree from the title page of `raw_text` by a case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English degree terms), producing the single `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`}. `diploma` covers pre-Bologna German theses whose title page says *Diplomarbeit* (#67, ADR-0019 rev. 2); when several degrees are named in the window the **earliest marker wins**. The diploma keyword set deliberately excludes bare `diplom` and `dipl.`, because supervisor titles ("Betreuer: Dipl.-Inform. X") sit inside the same leading window — the same false-positive reasoning as for bare `ma`/`msc`. It replaces the removed add-time type dialog and the dropped `theses.type` column; correction of a detected value is deferred to editable metrics (#10). Garbled or sparse text yields `unspecified`, never `na`, so the metric is always present. Detection evidence (matched keywords) is written to the run's local-only `notes`.
 
-**`mod_determine_publication_year`** (#17) fuses date signals into a best-estimate `publication_year` for the primary research goal (§2.1). Precedence: (1) the in-text **title-page year** parsed from `raw_text` (most reliable — the submission year printed on the page), then (2) the PDF-metadata **`creation_year`**, then (3) **`modification_year`** (both read from the `pdf_metadata` artefact). The winning signal is recorded in the `publication_year_source` metric (`title_page`/`pdf_creation`/`pdf_modification`/`none`); fusion detail goes in `notes`. When no signal is available the run is still `ok` with `publication_year` NULL and source `none`. Filesystem dates (#18) are a possible future last-resort signal, out of scope here. Both title-page modules share `core/modules/_titlepage.py` so the leading-window extraction and normalisation stay consistent.
+**`mod_determine_publication_year`** (#17) fuses date signals into a best-estimate `publication_year` for the primary research goal (§2.1). Precedence: (1) the in-text **title-page year** parsed from `raw_text` (most reliable — the submission year printed on the page), then (2) the PDF-metadata **`creation_year`**, then (3) **`modification_year`** (both read from the `pdf_metadata` artefact). The winning signal is recorded in the `publication_year_source` metric (`title_page`/`pdf_creation`/`pdf_modification`/`none`); fusion detail goes in `notes`. When no signal is available the run is still `ok` with `publication_year` NULL and source `none`. Filesystem dates are deliberately **not** fused in: `mod_extract_filesystem_metadata` (#18) surfaces `fs_modified_year` as an independent, clearly-labelled weak signal rather than letting it silently win a precedence slot (see its note below). Both title-page modules share `core/modules/_titlepage.py` so the leading-window extraction and normalisation stay consistent.
+
+**`mod_extract_filesystem_metadata`** (#18) is a root module reading the PDF path directly (like `mod_count_images`), via stdlib `os.stat` only. It promotes exactly two metrics: **`file_size_bytes`**, the size observed *at run time* — a second, independent observation of the add-time `theses.pdf_size_bytes` column, so a file swapped between adding and analysing becomes visible — and **`fs_modified_year`**, the mtime reduced to year precision (the same privacy posture as `mod_extract_pdf_metadata`'s dates: no day, no clock time).
+
+**Reliability caveat — these are weak signals, by construction.** Filesystem timestamps describe the *copy of the file on this machine*, not the thesis: copying, downloading, unzipping or syncing resets them, so `fs_modified_year` is at best a very loose upper bound on the submission year. It is therefore surfaced as its own labelled metric and is **not** a precedence step in `mod_determine_publication_year` (#17), which would hide that weakness behind a fused value.
+
+Two timestamps are deliberately **not** promoted. **atime** is worthless: mount options (`noatime`/`relatime`) frequently disable it, and merely analysing the PDF updates it — the metric would partly measure tta itself. **ctime / creation time** is not one fact but two: on Windows it is the creation time, on POSIX the inode-change time, and `st_birthtime` is unavailable on Linux — so the same metric name would carry incomparable meanings across the platforms the app ships on (ADR-0014). The full raw `os.stat` values (all timestamps, at full precision) are kept in the run's local-only `notes` so the discarded signals can still be inspected on the machine that produced them, without becoming exportable metrics.
 
 ---
 
@@ -787,7 +797,7 @@ The report reads from `v_current_metrics`, filtered to `source.kind='local' AND 
 
 A written file cannot re-render itself: rev. 1's "re-render on `RunCompleted` while the tab is active" is **gone**, deliberately ([ADR-016](adr/0016-report-view.md) rev. 2). Its replacement is a post-run offer to generate and open the report (#70, [§9.7](#97-happy-path-walkthrough) step 7).
 
-The **length-over-time** chart plots word count against the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year` (SDD §2.1, [ADR-0016](adr/0016-report-view.md)). Grouping by thesis type (by-type counts, length-by-type box plots) uses the detected **`thesis_type`** metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)); theses with no detected type group under `unspecified`.
+The **length-over-time** chart plots word count against the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year` (SDD §2.1, [ADR-0016](adr/0016-report-view.md)). Grouping by thesis type (by-type counts, length-by-type box plots) uses the detected **`thesis_type`** metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)); the value domain is {`bachelor`, `master`, `diploma`, `unspecified`} (`diploma` added by #67), and theses with no detected type group under `unspecified`.
 
 ### 9.8.3 Behaviour
 
@@ -897,7 +907,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | 0008 | (retired — separate researcher schema; superseded by ADR-006) | Superseded |
 | [0009](adr/0009-privacy-as-code.md) | Privacy metadata as code; statement is rendered | Accepted |
 | [0010](adr/0010-sdd-authoring.md) | SDD authoring — markdown + Mermaid + pandoc/xelatex | Accepted |
-| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 12 modules / 29 metrics | Accepted (rev. 3; AGPL gate superseded by 0017) |
+| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 13 modules / 31 metrics | Accepted (rev. 4; AGPL gate superseded by 0017) |
 | [0012](adr/0012-help-content.md) | Help-content authoring conventions | Accepted |
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |

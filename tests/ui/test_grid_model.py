@@ -271,7 +271,7 @@ def test_basic_mode_columns_are_a_curated_subset():
     basic = metric_columns(registry, extended=False)
     extended = metric_columns(registry, extended=True)
     assert [c.metric for c in basic] == list(BASIC_METRICS)
-    assert len(extended) == 29  # all catalogue metrics (ADR-0011: +thesis_type, +publication_year, +publication_year_source)
+    assert len(extended) == 31  # all catalogue metrics (ADR-0011 rev. 4: +file_size_bytes, +fs_modified_year)
     assert {c.metric for c in basic} < {c.metric for c in extended}
 
 

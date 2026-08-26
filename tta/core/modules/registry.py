@@ -94,6 +94,7 @@ def default_registry() -> ModuleRegistry:
     from tta.core.modules.classify_thesis_type import ClassifyThesisType
     from tta.core.modules.count_images import CountImages
     from tta.core.modules.determine_publication_year import DeterminePublicationYear
+    from tta.core.modules.extract_filesystem_metadata import ExtractFilesystemMetadata
     from tta.core.modules.extract_pdf_metadata import ExtractPdfMetadata
     from tta.core.modules.extract_pymupdf import ExtractPymupdf
     from tta.core.modules.readability import Readability
@@ -116,5 +117,6 @@ def default_registry() -> ModuleRegistry:
             CountImages(),
             ExtractPdfMetadata(),
             DeterminePublicationYear(),
+            ExtractFilesystemMetadata(),
         ]
     )

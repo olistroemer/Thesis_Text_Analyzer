@@ -1,7 +1,7 @@
 # ADR-0019: Thesis type by detection — no add-time dialog, override columns dropped
 
-**Status:** Accepted
-**Date:** 2026-07-22
+**Status:** Accepted (revision 2 - `diploma` added as a third detected type, #67)
+**Date:** 2026-07-22 (rev. 2: 2026-08-26)
 **Drivers:** US-PROF-ATTRS (group analyses by bachelor/master), US-PROF-COMPARE (bachelor-vs-master side-by-side), US-RES-LOW-FRICTION (five-step contribute loop, no friction on add), ADR-0004 (modules only ever write metrics), ADR-0006 rev. 4 (lazy hashing / instant add), ADR-0011 (module catalogue). Resolves #9. (ADR-0018 is the ASCII-source policy — this is the next free number.)
 
 ## Context
@@ -10,7 +10,7 @@ US-PROF-ATTRS asked for a bachelor/master attribute on each thesis "when adding 
 
 ## Decision
 
-**Thesis type is detected, not entered.** A new module `mod_classify_thesis_type` (mirroring `mod_classify_language`) consumes `raw_text` and produces a single `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`} via a lightweight, case-insensitive, accent/umlaut-tolerant **title-page keyword heuristic** (German: "Bachelorarbeit", "Masterarbeit", "Masterthesis", "Bachelorthesis", "Abschlussarbeit", …; English: "Bachelor's thesis", "Master's thesis", "B.Sc.", "M.Sc.", "Master of Science", …) — not ML. Detection evidence goes in the run's `notes` (local-only); there is **no** separate confidence metric (the `thesis_type` metric alone, consistent with the single-metric style). Garbled or sparse `raw_text` yields `unspecified` — a valid answer, not `na`.
+**Thesis type is detected, not entered.** A new module `mod_classify_thesis_type` (mirroring `mod_classify_language`) consumes `raw_text` and produces a single `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`} via a lightweight, case-insensitive, accent/umlaut-tolerant **title-page keyword heuristic** (German: "Bachelorarbeit", "Masterarbeit", "Masterthesis", "Bachelorthesis", "Diplomarbeit", "Diplom-Ingenieur", …; English: "Bachelor's thesis", "Master's thesis", "Diploma thesis", "B.Sc.", "M.Sc.", "Master of Science", …) — not ML. With three named classes the decision is **the marker that appears earliest** in the title-page window (rev. 2: the original pairwise `<` comparison did not generalise). Detection evidence goes in the run's `notes` (local-only); there is **no** separate confidence metric (the `thesis_type` metric alone, consistent with the single-metric style). Garbled or sparse `raw_text` yields `unspecified` — a valid answer, not `na`.
 
 Consequently:
 
@@ -19,6 +19,26 @@ Consequently:
 - **`tta run --type` is removed** — type is detected, not set.
 - **Grid and Report group by the detected `thesis_type` metric** instead of `theses.type`. The grid's "Type" lead column reads the metric; the Report's length-by-type box plots and by-type counts read it too.
 - The shared **title-page parser** (`core/modules/_titlepage.py`) that this module uses is also consumed by the publication-year module (#17), so both title-page heuristics stay consistent.
+
+## Rev. 2: `diploma` as a third type (#67)
+
+German theses awarded before the Bologna switch name neither "Bachelor" nor "Master": their title page says
+*Diplomarbeit*. Those fell to the `unspecified` sentinel — an honest "don't know" that is nevertheless plainly
+wrong when the page states the degree. The value set therefore becomes **{`bachelor`, `master`, `diploma`,
+`unspecified`}**, and the pairwise tie-break is replaced by an earliest-marker-wins rule over all three classes.
+
+**Keyword scope is deliberately narrow.** The diploma set is `diplomarbeit`, `diplom-arbeit`, `diplomthesis`,
+`diploma thesis`, `diplom-ingenieur` (in the normalised form of `_titlepage.normalise`, which case-folds and
+folds accents but does **not** strip hyphens, so hyphenated variants are spelled out). Bare **`diplom`** and
+**`dipl.`** are **excluded**: German title pages carry supervisor and examiner titles ("Betreuer: Dipl.-Inform.
+X", "Prof. Dr.-Ing. Dipl.-Ing. Y") inside the very same leading window the parser scans, so either short form
+would mis-classify a Bachelor- or Masterarbeit as a Diplomarbeit. This is the same false-positive reasoning
+already applied to bare `"ma"` / `"msc"`.
+
+`diplom-ingenieur` is kept despite the same family of risk, because the spelled-out degree ("zur Erlangung des
+akademischen Grades Diplom-Ingenieur") is a strong genuine signal and the abbreviated supervisor form that
+actually appears on title pages is `Dipl.-Ing.`, which does not contain it. The residual risk is a supervisor
+credited with the unabbreviated title; accepted, and revisitable with the labeled-set validation below.
 
 ## US-PROF-ATTRS ↔ US-RES-LOW-FRICTION resolution
 
@@ -40,9 +60,10 @@ Between this ADR (#9) and editable metrics (#10) there is **no in-app way to cor
 - ✅ One correction mechanism for all detected values once #10 lands (editable metrics).
 - ✅ `theses` shrinks to genuinely user-owned/control fields; modules keep to the "metrics only" rule (ADR-0004).
 - ⚠️ No in-app correction until #10 (see interim gap).
+- ✅ Pre-Bologna German theses get their actual degree instead of `unspecified` (rev. 2, #67).
 - ⚠️ Detection quality rests on the title page naming the degree; a validation pass (F1 / confusion matrix) against the labeled exploration-harvest dataset is a deferred follow-up (the dataset is not part of this repo).
 
 ## Revisit when
 
 - Editable metrics (#10) land — the interim correction gap closes.
-- The labeled-set validation shows the heuristic needs more keywords/languages or an ML classifier.
+- The labeled-set validation shows the heuristic needs more keywords/languages or an ML classifier — including whether `diplom-ingenieur` produces supervisor-title false positives in practice (#50 measures F1 / the confusion matrix over the value set as it now stands).

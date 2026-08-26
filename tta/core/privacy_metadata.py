@@ -114,7 +114,7 @@ MODULES: tuple[ModuleEntry, ...] = (
     ModuleEntry("mod_classify_language", (Category.CONTENT,), (Category.METRIC,),
                 "detect the thesis language to select language-aware analyses"),
     ModuleEntry("mod_classify_thesis_type", (Category.CONTENT,), (Category.METRIC,),
-                "detect the degree (bachelor/master) from title-page keywords for grouping"),
+                "detect the degree (bachelor/master/diploma) from title-page keywords for grouping"),
     ModuleEntry("mod_tokenize", (Category.CONTENT,), (Category.CONTENT,),
                 "split the text into sentences and words for counting modules"),
     ModuleEntry("mod_surface_counts", (Category.CONTENT,), (Category.METRIC,),
@@ -131,6 +131,8 @@ MODULES: tuple[ModuleEntry, ...] = (
                 "read PDF tool metadata; only categorised, year-precision values become metrics"),
     ModuleEntry("mod_determine_publication_year", (Category.CONTENT, Category.IDENTIFYING), (Category.METRIC,),
                 "fuse the title-page year and PDF metadata dates into a best-estimate publication year"),
+    ModuleEntry("mod_extract_filesystem_metadata", (Category.IDENTIFYING,), (Category.METRIC,),
+                "read the file's size and modification year from the filesystem; only the year is kept"),
 )
 
 

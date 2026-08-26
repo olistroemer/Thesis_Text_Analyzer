@@ -13,10 +13,11 @@ Die von [mod_classify_thesis_type](module:mod_classify_thesis_type) aus der Tite
 
 - `bachelor` – die Titelseite nennt eine Bachelorarbeit.
 - `master` – die Titelseite nennt eine Masterarbeit.
+- `diploma` – die Titelseite nennt eine Diplomarbeit (Abschlüsse vor der Bologna-Umstellung).
 - `unspecified` – keine eindeutige Angabe gefunden (oder Text unbrauchbar).
 
 ## Verwendung
 
-Diese Metrik gruppiert die Auswertungen im Bericht: Längenverteilung nach Art, Bachelor-gegen-Master-Vergleich (US-PROF-COMPARE). In der Tabelle erscheint sie in der Spalte „Type".
+Diese Metrik gruppiert die Auswertungen im Bericht: Längenverteilung nach Art, Bachelor-gegen-Master-Vergleich (US-PROF-COMPARE); Diplomarbeiten bilden eine eigene Gruppe. In der Tabelle erscheint sie in der Spalte „Type".
 
 `unspecified` ist eine gültige, ehrliche Antwort und kein Fehler. Eine falsch erkannte Art lässt sich – sobald editierbare Metriken (#10) verfügbar sind – manuell korrigieren.
