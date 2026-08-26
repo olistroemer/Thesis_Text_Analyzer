@@ -25,14 +25,7 @@ tta doctor      dump diagnostics for a support / bug report
 
 `tta exclude <id>` mirrors the GUI Excluded checkbox (US-PROF-EXCLUDE, #11): it sets `theses.excluded=1` and, for an already-analysed thesis, **scrubs** the cached analysis (`Repository.purge_analysis`, [ADR-0006](0006-schema.md) rev. 5). Because the scrub is destructive and irreversible (source PDF untouched), it prompts for confirmation; `--yes` skips the prompt for scripts. `tta include <id>` clears the flag, making the thesis eligible again.
 
-`tta doctor` (#42) is the support command: one bundle of everything a bug report needs, so a user never has to be walked through collecting it. It reports the app and module versions, Python and OS/platform (including whether this is a frozen build, [ADR-0014](0014-distribution.md)), the resolved project path with its applied `schema_version` and a SQLite `PRAGMA integrity_check`, the effective configuration, and a set of named **checks** with an `ok`/`warn`/`fail` status each.
-
-Two design constraints follow from what the command is for:
-
-- **It must be read-only.** A diagnostic that repairs what it inspects hides the fault being reported, so `doctor` does not go through `Project.open` (which migrates), never creates a project, and opens the database read-only. A missing project is a `warn`, not a failure - a user filing a bug may have no project yet.
-- **The offline self-check actually blocks the network.** QA-PRIV promises the app never reaches out, and the three third-party pieces that plausibly could (NLTK `punkt_tab`, `langdetect`, `textstat`) are probed with outbound sockets disabled for the duration. Asserting offline-ness in prose is not a check; attempting the work with the network unplugged is.
-
-Exit code is 0 when every check passes or warns and **1** when any check fails - the partial code, so `tta doctor >/dev/null || echo broken` works in a script. `--format json` emits the whole bundle as the scripting contract.
+`tta doctor` (#42) bundles everything a bug report needs — app and module versions, Python and OS (including whether this is a frozen build, [ADR-0014](0014-distribution.md)), the project's applied `schema_version` and a SQLite `PRAGMA integrity_check`, the effective config, and named **checks** each `ok`/`warn`/`fail`. Two constraints follow from what it is for: it is strictly **read-only** (a diagnostic that repairs what it inspects hides the fault being reported, so it bypasses `Project.open`, creates nothing, and opens the DB read-only; a missing project is a `warn`, since a user filing a bug may have none yet), and its **offline self-check really blocks the network** — the three pieces that plausibly could reach out (NLTK `punkt_tab`, `langdetect`, `textstat`) are exercised with outbound sockets disabled, because asserting offline-ness in prose is not a check. Exit code is 1 if any check fails, so `tta doctor >/dev/null || echo broken` scripts; `--format json` is the machine contract. Implementation detail with teeth: those three libraries cost ~0.6 s to import, so `doctor` defers them into the probes — no other command may pay for them.
 
 ## Output rules
 
@@ -56,7 +49,6 @@ The researcher persona iterates on modules and runs analyses headlessly. A CLI i
 - ✅ Researcher iteration loop is fast and scriptable.
 - ✅ Integration tests run via the CLI on fixture inputs; no GUI process needed.
 - ✅ CI checks can `tta run` on test fixtures and diff output.
-- ✅ `tta doctor` makes a bug report one command instead of a checklist (#42).
 - ⚠️ CLI design (subcommands, flags, output formats) needs its own maintenance.
 - ⚠️ Two adapters means double the UI surface to keep in sync; accepted cost.
 
