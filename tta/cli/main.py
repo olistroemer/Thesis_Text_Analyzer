@@ -25,6 +25,7 @@ from rich.table import Table
 
 import tta
 from tta.core import events
+from tta.core import doctor as doctor_core
 from tta.core import privacy_metadata
 from tta.core.db import migrator
 from tta.core.export import ExportPolicy, export_database
@@ -81,6 +82,61 @@ def version(fmt: str) -> None:
     stdout.print(f"tta {tta.__version__}")
     for name, mod_version in modules.items():
         stdout.print(f"  {name} {mod_version}")
+
+
+# -- doctor --------------------------------------------------------------
+
+
+_STATUS_GLYPH = {"ok": "[ok]", "warn": "[!]", "fail": "[x]"}
+
+
+@cli.command()
+@click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
+@click.pass_context
+def doctor(ctx: click.Context, fmt: str) -> None:
+    """Dump diagnostics for a support / bug report (#42, ADR-0003).
+
+    Read-only: never migrates, creates or repairs anything. Exits 1 if any
+    check fails, so `tta doctor >/dev/null || ...` works in a script.
+    """
+    diag = doctor_core.collect(ctx.obj)
+    if fmt == "json":
+        click.echo(json.dumps(diag.to_dict(), indent=2))
+    else:
+        # markup/highlight off throughout: check names and details carry square
+        # brackets ("[ok]", "nltk.punkt_tab[en]") that rich would eat as tags
+        def line(text: str) -> None:
+            stdout.print(text, markup=False, highlight=False)
+
+        database = diag.project["database"]
+        line(f"tta {diag.app['version']} (frozen={diag.app['frozen']})")
+        line(
+            f"  python {diag.runtime['python']} "
+            f"{diag.runtime['python_implementation']} on {diag.runtime['platform']}"
+        )
+        line(f"  project {diag.project['dir']}")
+        line(
+            f"  database {database['path']} "
+            f"(schema {database.get('schema_version')}, "
+            f"integrity {database.get('integrity_check', 'n/a')})"
+        )
+        line(
+            f"  config {diag.config['path']} "
+            f"(present={diag.config['exists']}, workers={diag.config['workers']}, "
+            f"ui_mode={diag.config['ui_mode']})"
+        )
+        line(f"  modules {len(diag.modules)} registered")
+        for name, mod_version in diag.modules.items():
+            line(f"    {name} {mod_version}")
+        line("checks:")
+        for check in diag.checks:
+            glyph = _STATUS_GLYPH.get(check.status, check.status)
+            line(f"  {glyph} {check.name}: {check.detail}")
+        line(f"overall: {diag.status}")
+    if diag.failed:
+        names = ", ".join(c.name for c in diag.failed)
+        stderr.print(f"failing checks: {names}")
+        ctx.exit(EX_PARTIAL)
 
 
 # -- db ------------------------------------------------------------------
