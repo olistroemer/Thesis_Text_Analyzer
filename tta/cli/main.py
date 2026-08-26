@@ -331,19 +331,16 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
 @click.option("--module", "-m", "modules", multiple=True,
               help="Restrict to specific modules (repeatable; US-PROF-SELECT).")
 @click.option("--rerun", is_flag=True, help="Re-run everything regardless of state.")
-@click.option("--stale-only", is_flag=True,
-              help="Only stale/errored/upstream-changed pairs; skip never-run ones (#7).")
 @click.option("--dry-run", is_flag=True, help="Print the plan without executing.")
 @click.option("--workers", type=int, default=None, help="Concurrent theses (default: cores - 1).")
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
-def run(ctx, inputs, modules, rerun, stale_only, dry_run, workers, fmt) -> None:
+def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
     """Add INPUTS (PDF files or directories) and run analyses.
 
     Without INPUTS, runs on all known theses. Default mode runs missing,
-    stale, and previously-errored pairs; --rerun runs everything;
-    --stale-only skips the never-run ones (ADR-0013). Thesis type is detected
-    during the run (mod_classify_thesis_type), not set on add.
+    stale, and previously-errored pairs; --rerun runs everything. Thesis type
+    is detected during the run (mod_classify_thesis_type), not set on add.
     """
     with open_project(ctx, create=True) as project:
         for pdf in _collect_pdfs(inputs):
@@ -364,10 +361,8 @@ def run(ctx, inputs, modules, rerun, stale_only, dry_run, workers, fmt) -> None:
         )
         runner = project.make_runner(bus=bus, workers=workers)
         try:
-            plan = runner.plan(
-                modules=list(modules) or None, rerun=rerun, stale_only=stale_only
-            )
-        except (KeyError, ValueError) as exc:
+            plan = runner.plan(modules=list(modules) or None, rerun=rerun)
+        except KeyError as exc:
             raise click.UsageError(str(exc)) from exc
 
         if dry_run:

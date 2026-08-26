@@ -107,6 +107,8 @@ It is a filter, not a new planning path: `plan(stale_only=True)` drops `plan_rea
 
 `rerun=True` with `stale_only=True` is a contradiction (everything vs. not-everything) and raises `ValueError` rather than picking a winner silently.
 
+**Adapter wiring is pending.** The mode exists and is tested on `Runner.plan`; the CLI's `--stale-only` option and the extended toolbar's "Update stale" button (which still calls the default mode) are one-line changes in `tta/cli/main.py` and `tta/ui/tk/main_window.py`, deliberately left to the lane that owns those files so the third button becomes genuinely distinct. Until then #7's second acceptance criterion is unmet in the adapters even though the decision and the core support are in.
+
 ## Public API
 
 ```python
