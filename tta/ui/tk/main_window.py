@@ -77,6 +77,7 @@ class MainWindow:
         menubar.add_cascade(label="View", menu=view_menu)
 
         help_menu = tk.Menu(menubar, tearoff=False)
+        help_menu.add_command(label="Help topics", command=self._show_help)
         help_menu.add_command(label="Privacy statement", command=self._show_privacy)
         help_menu.add_command(label="About", command=self._show_about)
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -109,7 +110,7 @@ class MainWindow:
         buttons += [
             ("Report", self._show_report),
             ("Export", self._export),
-            ("? Help", self._show_privacy),
+            ("? Help", self._show_help),
         ]
         self._toolbar_buttons = {}
         for label, command in buttons:
@@ -363,6 +364,14 @@ class MainWindow:
         text.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         text.pack(fill="both", expand=True)
+
+    def _show_help(self) -> None:
+        """Open the help viewer over core/help/** (Sec. 9.4.1, #72). The
+        privacy statement stays on its own menu entry - it is not help
+        content."""
+        from tta.ui.tk.help_view import open_help
+
+        self._help_window = open_help(self.root)
 
     def _show_about(self) -> None:
         import tta
