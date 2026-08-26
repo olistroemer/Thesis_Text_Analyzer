@@ -28,7 +28,8 @@ import tta
 from tta.core import events
 from tta.core import privacy_metadata
 from tta.core.db import migrator
-from tta.core.export import ExportPolicy, export_database
+from tta.core.discovery import collect_pdfs
+from tta.core.export import ExportPolicy, export_database, export_profiling
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
@@ -258,6 +259,57 @@ def include(ctx: click.Context, thesis_id: int) -> None:
     stdout.print(f"included thesis {thesis_id}")
 
 
+@cli.command()
+@click.argument("thesis_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt (for scripts).")
+@click.pass_context
+def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
+    """Remove thesis THESIS_ID from the project entirely (#63).
+
+    The harder version of `exclude`, for a PDF added by accident. Exclude
+    keeps the thesis row so its identity is remembered and it is never
+    silently re-analysed; remove deletes the row as well, because a mis-added
+    thesis has no identity worth keeping - so the same PDF can afterwards be
+    added again as a fresh thesis. Its cached analysis (artefacts, metrics,
+    run history) goes with it. Destructive and irreversible; nothing restores
+    it and there is no row left to `include`. The source PDF is not touched.
+    """
+    with open_project(ctx) as project:
+        try:
+            thesis = project.repo.get_thesis(thesis_id)
+        except KeyError as exc:
+            raise DataError(str(exc)) from exc
+        if not yes:
+            confirmed = click.confirm(
+                f"Remove thesis {thesis_id} ({thesis.pdf_filename}) from the project "
+                "and permanently delete its cached analysis from this machine "
+                "(artefacts, metrics, run history)? The thesis is forgotten "
+                "entirely - this cannot be undone, and the source PDF is not "
+                "touched.",
+            )
+            if not confirmed:
+                stdout.print("aborted; no changes made")
+                return
+        remove_error: OSError | None = None
+        try:
+            project.repo.delete_thesis(thesis_id, store=project.store)
+        except OSError as exc:
+            remove_error = exc
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+    if remove_error is None:
+        stdout.print(f"removed thesis {thesis_id}")
+    else:
+        # The rows are gone (DB-first ordering) but the local files are not;
+        # they never leave the machine (ADR-0007) - warn rather than claim a
+        # clean removal, and exit partial so scripts notice.
+        stderr.print(
+            f"removed thesis {thesis_id}; database rows deleted, but some cached "
+            f"files could not be deleted: {artefacts_dir} ({remove_error}). "
+            "They are never exported; delete that folder manually to remove them."
+        )
+        ctx.exit(EX_PARTIAL)
+
+
 # -- module ----------------------------------------------------------------
 
 
@@ -319,13 +371,13 @@ def module_show(name: str) -> None:
 
 
 def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
-    pdfs: list[Path] = []
-    for path in inputs:
-        if path.is_dir():
-            pdfs.extend(sorted(path.rglob("*.pdf")))
-        else:
-            pdfs.append(path)
-    return pdfs
+    """Thin shim over the collector shared with the GUI (#62).
+
+    The walk used to live here, which is why the GUI had no folder add at
+    all; it now lives in ``core.discovery`` and is case-insensitive, so a
+    ``.PDF`` is no longer skipped.
+    """
+    return collect_pdfs(inputs)
 
 
 @cli.command()
@@ -348,9 +400,12 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
     is detected during the run (mod_classify_thesis_type), not set on add.
     """
     with open_project(ctx, create=True) as project:
-        for pdf in _collect_pdfs(inputs):
-            thesis = project.repo.add_thesis(pdf)
-            stderr.print(f"added thesis {thesis.id}: {thesis.pdf_filename}")
+        pdfs = _collect_pdfs(inputs)
+        if pdfs:
+            # one batched transaction for the whole INPUTS set, and one summary
+            # line instead of one per file (#61, SDD Sec. 8.1)
+            added = project.repo.add_theses(pdfs)
+            stderr.print(f"added {len(added)} theses from {len(inputs)} input path(s)")
 
         bus = events.EventBus()
         bus.subscribe(
@@ -434,22 +489,47 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
 @click.argument("out", required=False, type=click.Path(path_type=Path))
 @click.option("--current-only", is_flag=True,
               help="Trim history to the latest run per (thesis, module).")
+@click.option("--profiling", is_flag=True,
+              help="Dump per-run durations as CSV instead of the cohort export (QA-RES).")
 @click.pass_context
-def export(ctx: click.Context, out: Path | None, current_only: bool) -> None:
-    """Produce the researcher export (PII-stripped SQLite, ADR-0007)."""
+def export(
+    ctx: click.Context, out: Path | None, current_only: bool, profiling: bool
+) -> None:
+    """Produce the researcher export (PII-stripped SQLite, ADR-0007).
+
+    With --profiling, writes the flat per-run profiling dataset instead: one
+    CSV row per module run with its duration and the PDF size it was measured
+    on, for checking real timings against the per-module budgets in ADR-0015
+    (#47). Same rules as the cohort export - local source only, no PII column.
+    """
     with open_project(ctx) as project:
-        if out is None:
-            label = project.config.institution or "export"
-            out = project.dir / "exports" / f"{label}-{date.today():%Y-%m-%d}.sqlite"
         policy = ExportPolicy.CURRENT_ONLY if current_only else ExportPolicy.FULL
+        label = project.config.institution or "export"
         try:
-            stats = export_database(project.repo.conn, out, policy)
+            if profiling:
+                if out is None:
+                    out = (
+                        project.dir / "exports"
+                        / f"{label}-profiling-{date.today():%Y-%m-%d}.csv"
+                    )
+                profile_stats = export_profiling(project.repo.conn, out, policy)
+            else:
+                if out is None:
+                    out = project.dir / "exports" / f"{label}-{date.today():%Y-%m-%d}.sqlite"
+                stats = export_database(project.repo.conn, out, policy)
         except FileExistsError as exc:
             raise DataError(str(exc)) from exc
-    stdout.print(
-        f"exported {stats.theses} theses, {stats.runs} runs, "
-        f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
-    )
+    if profiling:
+        stdout.print(
+            f"exported {profile_stats.rows} module runs across "
+            f"{profile_stats.modules} modules ({profile_stats.policy.value}) "
+            f"-> {profile_stats.path}"
+        )
+    else:
+        stdout.print(
+            f"exported {stats.theses} theses, {stats.runs} runs, "
+            f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
+        )
 
 
 @cli.command("import")

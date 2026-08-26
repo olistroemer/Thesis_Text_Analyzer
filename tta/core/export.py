@@ -6,12 +6,18 @@ the local source is exported - imported cohorts on a researcher machine
 are someone else's data and never re-travel.
 
 What never ships (Sec. 8.3.1): `theses.pdf_path/pdf_filename/notes/tags`,
-rows with `excluded=1`, `module_runs.error_traceback/notes`, the whole
-`artefact_files` table; `theses.added_at` is rounded to day.
+rows with `excluded=1` **and the `excluded` column itself** (constant-zero
+once those rows are filtered out, #64), `module_runs.error_traceback/notes`,
+the whole `artefact_files` table; `theses.added_at` is rounded to day.
+
+`export_profiling` is the second, flat output (#47, ADR-0007 rev. 4): a
+CSV of per-run durations for QA-RES benchmarks and `doctor`, under the
+same local-only, no-PII rules.
 """
 
 from __future__ import annotations
 
+import csv
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -38,6 +44,30 @@ class ExportStats:
     policy: ExportPolicy
 
 
+@dataclass
+class ProfilingStats:
+    path: Path
+    rows: int
+    modules: int
+    policy: ExportPolicy
+
+
+#: Column order of the profiling CSV (#47). `ms_per_byte` is derived, not
+#: stored: it is the quantity ADR-0015's per-module budgets are about, and the
+#: same rate the size-weighted ETA consumes (SDD Sec. 5.5).
+PROFILING_COLUMNS = (
+    "thesis_id",
+    "pdf_sha256",
+    "pdf_size_bytes",
+    "module_name",
+    "module_version",
+    "status",
+    "started_at",
+    "duration_ms",
+    "ms_per_byte",
+)
+
+
 # Mirror of the local schema minus PII columns and artefact_files.
 # Views are not exported: they reference stripped columns; the importer's
 # merged DB provides its own.
@@ -57,7 +87,7 @@ CREATE TABLE export.theses (
     source_id      INTEGER NOT NULL,
     pdf_sha256     TEXT,    -- NULL for a thesis added but never analysed (ADR-0006 rev. 4)
     pdf_size_bytes INTEGER,
-    excluded       INTEGER NOT NULL,
+    -- no `excluded`: the row filter below leaves it constant-zero (#64)
     added_at       TEXT NOT NULL
 );
 CREATE TABLE export.module_runs (
@@ -103,7 +133,7 @@ def export_database(
             conn.execute(
                 "INSERT INTO export.theses"
                 " SELECT t.id, t.source_id, t.pdf_sha256, t.pdf_size_bytes,"
-                "        t.excluded, date(t.added_at)"
+                "        date(t.added_at)"
                 " FROM theses t JOIN sources s ON s.id = t.source_id"
                 " WHERE s.kind = 'local' AND t.excluded = 0"
             )
@@ -150,3 +180,77 @@ def export_database(
     finally:
         conn.execute("DETACH DATABASE export")
     return stats
+
+
+def export_profiling(
+    conn: sqlite3.Connection,
+    out_path: Path | str,
+    policy: ExportPolicy = ExportPolicy.FULL,
+) -> ProfilingStats:
+    """Write the per-run profiling dataset of the local source as CSV (#47).
+
+    One row per ``module_runs`` row: which module ran on which thesis, how
+    long it took, and how large the PDF was - which is what QA-RES benchmarks
+    and the ``doctor`` command need to check real durations against ADR-0015's
+    per-module budgets. ``ms_per_byte`` is derived here rather than stored, and
+    is left empty when the size is unknown or zero (no rate exists), matching
+    ``Repository.module_duration_stats``.
+
+    Bound by the same two rules as the cohort export (ADR-0007, SDD Sec. 8.3):
+    the **local** source only - imported durations were measured on someone
+    else's machine and would corrupt a benchmark - and **no PII column**.
+    ``duration_ms`` and ``started_at`` already ship in the cohort export, so
+    this discloses nothing new; only the shape changes, from a relational
+    database to the one flat table a benchmark wants to read.
+
+    ``CURRENT_ONLY`` trims to the latest run per ``(thesis, module)``. Errored
+    and not-applicable runs are kept: a module that reliably fails after 30 s
+    is exactly what a performance investigation is looking for. Refuses to
+    overwrite an existing file, as :func:`export_database` does.
+    """
+    out_path = Path(out_path)
+    if out_path.exists():
+        raise FileExistsError(f"refusing to overwrite existing file: {out_path}")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    run_filter = ""
+    if policy is ExportPolicy.CURRENT_ONLY:
+        run_filter = " AND mr.id IN (SELECT id FROM v_module_run_history WHERE recency_rank = 1)"
+    rows = conn.execute(
+        "SELECT t.id AS thesis_id, t.pdf_sha256, t.pdf_size_bytes,"
+        "       mr.module_name, mr.module_version, mr.status,"
+        "       mr.started_at, mr.duration_ms"
+        " FROM module_runs mr"
+        " JOIN theses t ON t.id = mr.thesis_id"
+        " JOIN sources s ON s.id = t.source_id"
+        " WHERE s.kind = 'local' AND t.excluded = 0" + run_filter +
+        " ORDER BY mr.module_name, t.id, mr.started_at, mr.id"
+    ).fetchall()
+
+    modules = set()
+    with open(out_path, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(PROFILING_COLUMNS)
+        for row in rows:
+            modules.add(row["module_name"])
+            size = row["pdf_size_bytes"]
+            duration = row["duration_ms"]
+            rate = ""
+            if duration is not None and size:  # no rate without both (and size > 0)
+                rate = f"{duration / size:.9f}"
+            writer.writerow(
+                [
+                    row["thesis_id"],
+                    row["pdf_sha256"] if row["pdf_sha256"] is not None else "",
+                    size if size is not None else "",
+                    row["module_name"],
+                    row["module_version"],
+                    row["status"],
+                    row["started_at"],
+                    duration if duration is not None else "",
+                    rate,
+                ]
+            )
+    return ProfilingStats(
+        path=out_path, rows=len(rows), modules=len(modules), policy=policy
+    )

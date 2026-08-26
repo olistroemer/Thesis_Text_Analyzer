@@ -555,6 +555,8 @@ Decision: [ADR-006](adr/0006-schema.md). Single unified schema; `source.kind='lo
 
 Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`](../tta/core/db/migrations/0001_initial.sql). The ERD above lists every persisted column; the domain `Thesis` class ([§6.1](#61-core-entities)) intentionally carries only the subset modules need at run time — persistence/PII columns (`pdf_size_bytes`, `notes`, `tags`, `added_at`) live on the table, not the dataclass. `pdf_sha256` is nullable and stays NULL until a thesis is first analysed ([ADR-0006](adr/0006-schema.md) rev. 4, #38). The former `type`/`language_hint` override columns are gone — thesis type is the detected `thesis_type` metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)) and language is the `language_code` metric.
 
+**Adding a batch of theses is one transaction, not one commit per file (#61).** [ADR-0006](adr/0006-schema.md) rev. 4's "adding is instant" claim held for the *file* work — nothing is read — but not for the *transaction* work: `add_thesis` committed per row, so N PDFs cost N durable commits, one fsync each, which is what actually made adding a folder feel slow. `Repository.add_theses(paths)` is therefore the primitive and `add_thesis` a one-element delegate. It resolves the local `source_id` **once**, `stat`s every path **before** opening the transaction (so a vanished file aborts the chunk with nothing written), replaces the per-file dedup lookup with a single batched `SELECT ... WHERE source_id = ? AND pdf_path IN (...)`, and commits **once**; the rows are read back in one query rather than one `get_thesis` per file. Both adapters go through it — the GUI's file and folder dialogs ([§9.7](#97-happy-path-walkthrough)) and `tta run`'s INPUTS. Very large batches are **chunked** (a few hundred paths per transaction) so a failure part-way through does not discard the chunks that already committed, and so the `IN (...)` list stays well inside SQLite's host-parameter limit. A path repeated inside one batch resolves to one row, exactly as re-adding it would. No `(source_id, pdf_path)` index is added: batching the lookup already reduces it to **one** scan per chunk instead of one per file, so the per-file cost is gone without a schema change — add the index if profiling ever shows that single scan dominating. Measured on 400 PDFs: 920 ms of per-file commits becomes 7.9 ms (2.30 → 0.02 ms per file), and the commit count drops from 400 to 1.
+
 ### 8.1.1 Views
 
 - `v_current_metrics` — latest invocation per `(thesis_id, module_name)`; bound by the data grid.
@@ -583,15 +585,21 @@ Decision: [ADR-007](adr/0007-export-format.md). A single SQLite file mirroring t
 
 Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; the `exports/` directory is created on demand. The user can change the path in the file dialog. Sending the export "back" is then mechanically clear: navigate to `exports/`, attach the file.
 
+**Profiling export (#47, [ADR-0015](adr/0015-performance-budget.md), QA-RES).** `tta export --profiling` writes a **separate, flat profiling dataset** instead of the cohort export: one CSV row per `module_runs` row, carrying `thesis_id`, `pdf_sha256`, `pdf_size_bytes`, `module_name`, `module_version`, `status`, `started_at`, `duration_ms` and the derived `ms_per_byte` — which is the quantity the per-module budgets in ADR-0015 are actually about, and the same rate the size-weighted ETA consumes ([§5.5](#55-runner-orchestration)). `--current-only` composes with it, trimming to the latest run per `(thesis, module)`.
+
+It is bound by exactly the same two rules as the cohort export: **local source only** (imported durations were measured on someone else's machine and would corrupt a benchmark, quite apart from never re-travelling) and **no PII column** — no `pdf_path`, `pdf_filename`, `notes`, `tags`, `error_traceback`, no artefact contents. `duration_ms` and `started_at` already ship in the cohort export ([§8.3.1](#831-anonymisation-rules)), so this adds no new disclosure; it changes the *shape*, from a relational database to the one flat table a benchmark or the `doctor` command wants to read. CSV rather than SQLite for that reason: ADR-0007's "the schema travels with the data" argument buys nothing for a single table with no foreign keys.
+
 ### 8.3.1 Anonymisation rules
 
 | Source table | What ships | What's stripped |
 |---|---|---|
-| `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `excluded`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
+| `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, `excluded` (the **column**, #64 — see below), rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
 | `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `notes` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `notes` |
 | `metric_values` | All | — |
 | `producer_chains` | n/a (no producer-chain table in MVP) | — |
 | `artefact_files` | — (entire table not exported) | — |
+
+The `excluded` **column** is stripped as well as the excluded **rows** (#64). The row filter runs first, so every surviving `theses` row would carry `excluded = 0`: the column can only ever be constant-zero in an export, carries no information, and its presence invites the reader to believe excluded theses might ship. The filter itself stays; only the now-meaningless column goes. Imported rows therefore take the local `excluded` default (they are read-only context anyway — the runner's `kind='local'` filter at [§5.3](#53-module-pipeline-dag) never touches them).
 
 ### 8.3.2 Import (researcher merge)
 
@@ -705,12 +713,14 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 | Step | Screen / dialog | Defaults |
 |---|---|---|
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened); nothing stored outside it (US-PROF-NO-TRACES). |
-| 2. Add | "Add files" toolbar button → multi-select file dialog → added immediately (no further dialog). | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
+| 2. Add | Two affordances, side by side (#62). **"Add files"** → multi-select file dialog → added immediately (no further dialog). **"Add folder"** → single-folder dialog → every PDF **beneath** it, recursively → one count confirmation ("Add 428 PDFs from …?") → added. | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4) and the whole selection is **one transaction** ([§8.1](#81-database-schema), #61); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
 | 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → writes `<project>/reports/report-<YYYY-MM-DD>.html` → opens it in the browser: summary cards + charts + outlier list ([§9.8](#98-report)). | Regenerated from current data on every click; a same-day file is overwritten. |
 | 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
 | 6. Send | Post-export toast with "Show in folder" link. | (Outside the app.) |
 | 7. Post-run offer | When a run finishes with at least one `ok` result, a **non-modal** prompt offers to open the report; a "Don't ask again" checkbox persists the answer (#70). | `ui.open_report_after_run = "ask"`; suppressed for cancelled and all-errored runs. |
+
+**Folder add** is the same operation the CLI has always performed on a directory INPUT, and both adapters now call the **same collector in core**, `core/discovery.collect_pdfs(paths)` (#62, [ADR-0002](adr/0002-ui-core-boundary.md): no walk logic in an adapter). It recurses, matches the `.pdf` suffix **case-insensitively** (`rglob("*.pdf")` is case-sensitive on POSIX, so a `Thesis.PDF` from a Windows machine used to be skipped silently), takes only regular files, and returns a de-duplicated list in a stable order. The GUI confirms the **count before** committing, because a mis-picked folder would otherwise dump thousands of rows and undoing an add is a per-thesis operation ([§9.2](#92-main-window-layout) Remove, #63). Tk's `askdirectory` returns a single directory, so the GUI adds one folder per invocation; the collector itself accepts any number, which is what `tta run DIR1 DIR2 …` passes.
 
 **First-launch banner text:**
 
@@ -718,7 +728,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 
 Dismisses on first interaction; never shown again for this project.
 
-**Basic-mode toolbar** contains exactly four icon+text buttons: **Add files | Run all | Export | Help**. Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection.
+**Basic-mode toolbar** contains the icon+text buttons **Add files | Add folder | Run all | Report | Export | Help** ("Add folder" added by #62; **Report** was added by [ADR-0016](adr/0016-report-view.md) and this sentence's former "exactly four" count had already gone stale before that). Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection. This list is the shipped inventory; the toolbar sketch in [§9.2](#92-main-window-layout) and the Modes table in [§9.3](#93-modes) still omit both **Add folder** and **Report** and are **known-stale** — tracked by #73 (SDD/ADR reconciliation audit), which owns those two sections.
 
 ## 9.8 Report
 

@@ -4,8 +4,10 @@ defaults, one decision per dialog)."""
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
+from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database
 from tta.core.project import Project
 
@@ -21,9 +23,99 @@ def add_files_flow(parent, project: Project) -> int:
     )
     if not filenames:
         return 0
-    for filename in filenames:
-        project.repo.add_thesis(filename)
-    return len(filenames)
+    # one batched transaction, not one commit per file (#61, SDD Sec. 8.1)
+    return len(project.repo.add_theses([Path(name) for name in filenames]))
+
+
+def add_folder_flow(parent, project: Project) -> int:
+    """Pick one folder -> add every PDF beneath it, recursively. Returns count.
+
+    The CLI has always done this for a directory INPUT; the GUI could only
+    multi-select individual files (#62). Both now walk the folder through the
+    same core collector (ADR-0002), so ".PDF" is picked up either way.
+
+    The count is confirmed **before** anything is written: a mis-picked folder
+    (a home directory, a whole drive) would otherwise dump thousands of rows,
+    and undoing an add is a per-thesis operation, not one click. Tk's
+    ``askdirectory`` returns a single directory, so this adds one folder per
+    invocation; ``collect_pdfs`` itself takes any number, which is what
+    ``tta run DIR1 DIR2 ...`` passes."""
+    chosen = filedialog.askdirectory(
+        parent=parent, title="Add all thesis PDFs in a folder (including subfolders)"
+    )
+    if not chosen:
+        return 0
+    folder = Path(chosen)
+    pdfs = collect_pdfs([folder])
+    if not pdfs:
+        messagebox.showinfo(
+            "Add folder", f"No PDFs found in or below:\n{folder}", parent=parent
+        )
+        return 0
+    if not messagebox.askyesno(
+        "Add folder",
+        f"Add {len(pdfs)} PDFs from:\n{folder}\n\n"
+        "Subfolders are included. Nothing is read yet - the documents are "
+        "only analysed when you click Run.",
+        parent=parent,
+    ):
+        return 0
+    return len(project.repo.add_theses(pdfs))
+
+
+def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
+    """Confirm, then remove one thesis from the project. Returns True if it was.
+
+    The harder version of the Excluded checkbox (#63, ADR-0006 rev. 6). The
+    wording has to carry the two things that distinguish it from excluding:
+    the cached analysis is destroyed, and the thesis row itself is forgotten -
+    so nothing can re-include it, and the same PDF adds again as a fresh
+    thesis. The source PDF is untouched.
+
+    An incomplete artefact removal is surfaced rather than swallowed (as in
+    ``export_flow``'s sibling path for exclude, #11): the rows are already
+    gone, the residual files never leave the machine (ADR-0007), and the user
+    is told where they are.
+
+    NOT YET WIRED (#63): the gesture that reaches this - a context-menu entry
+    or a Delete-key binding on the selected row - belongs in
+    ``tta/ui/tk/grid.py``, which another change owns concurrently. The call it
+    needs is ``dialogs.remove_thesis_flow(parent, project, thesis_id)``, and
+    the caller should ``refresh()`` on a True return. Until that lands,
+    ``tta remove`` is the only user-reachable removal path."""
+    try:
+        thesis = project.repo.get_thesis(thesis_id)
+    except KeyError:
+        messagebox.showerror(
+            "Remove thesis", f"Thesis {thesis_id} is no longer in this project.", parent=parent
+        )
+        return False
+    if not messagebox.askyesno(
+        "Remove thesis",
+        f"Remove {thesis.pdf_filename} from the project?\n\n"
+        "Its analysis results (cached text, tokens, metrics and run history) "
+        "are permanently deleted from this machine, and the thesis is "
+        "forgotten entirely - unlike excluding it, there is nothing left to "
+        "re-include. Adding the same file again later creates a new thesis "
+        "with no history.\n\nThe PDF itself is not touched. "
+        "This cannot be undone.",
+        parent=parent,
+        icon="warning",
+        default="no",
+    ):
+        return False
+    try:
+        project.repo.delete_thesis(thesis_id, store=project.store)
+    except OSError as exc:
+        artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
+        messagebox.showwarning(
+            "Remove thesis",
+            f"{thesis.pdf_filename} was removed from the project, but some "
+            f"cached files could not be deleted:\n{artefacts_dir}\n({exc})\n\n"
+            "They are never exported. Delete that folder manually to remove them.",
+            parent=parent,
+        )
+    return True
 
 
 def export_flow(parent, project: Project) -> None:

@@ -1,13 +1,15 @@
 """Migrator + repository tests (SDD Sec. 8.1, ADR-0006)."""
 
+import ast
 import json
+import pathlib
 import shutil
 import sqlite3
 
 import pytest
 
 from tta.core import db
-from tta.core.db import migrator
+from tta.core.db import migrator, repository
 from tta.core.db.repository import Repository
 
 
@@ -95,6 +97,289 @@ def test_assign_content_hash_sets_then_dedups(project, tmp_path):
         project.repo.get_thesis(second.id)
     # the canonical adopted the most-recently-seen path
     assert project.repo.get_thesis(first.id).pdf_filename == "b.pdf"
+
+
+def _make_pdfs(tmp_path, count, prefix="t"):
+    paths = []
+    for n in range(count):
+        pdf = tmp_path / f"{prefix}{n}.pdf"
+        pdf.write_bytes(b"%PDF-" + str(n).encode())
+        paths.append(pdf)
+    return paths
+
+
+class CountingConnection:
+    """Delegating proxy that tallies commits (sqlite3.Connection is immutable,
+    so it cannot be monkeypatched in place)."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.commits = 0
+
+    def commit(self):
+        self.commits += 1
+        return self._conn.commit()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_add_theses_commits_once_per_batch(project, tmp_path):
+    """O(1) commits, not O(N) (#61, SDD Sec. 8.1). One fsync per PDF was
+    the real cost of adding a folder; count the commits to pin it down."""
+    paths = _make_pdfs(tmp_path, 25)
+    counting = CountingConnection(project.conn)
+    repo = Repository(counting)
+
+    added = repo.add_theses(paths)
+
+    assert len(added) == 25
+    assert counting.commits == 1  # one transaction for the batch, not 25
+    assert len(project.repo.list_theses()) == 25
+
+
+def test_add_thesis_one_by_one_would_cost_one_commit_each(project, tmp_path):
+    """The regression this fixes: the per-file loop the adapters used to run
+    cost one durable commit per PDF (#61)."""
+    paths = _make_pdfs(tmp_path, 5)
+    counting = CountingConnection(project.conn)
+    repo = Repository(counting)
+    for path in paths:
+        repo.add_thesis(path)
+    assert counting.commits == 5  # ... which is why the adapters now batch
+
+
+def test_add_thesis_still_commits_once_and_matches_the_batch_path(project, tmp_path):
+    """add_thesis is a one-element delegate; the single-add contract is
+    unchanged (hash NULL, size from stat, path-addressed identity)."""
+    pdf = tmp_path / "solo.pdf"
+    pdf.write_bytes(b"%PDF-solo")
+    single = project.repo.add_thesis(pdf)
+    batched = project.repo.add_theses([pdf])
+    assert batched == [single]  # same row, re-add updates rather than inserts
+    assert single.pdf_sha256 is None
+    assert len(project.repo.list_theses()) == 1
+
+
+def test_add_theses_returns_rows_in_first_appearance_order(project, tmp_path):
+    """One Thesis per distinct path, in input order; a path repeated inside one
+    batch resolves to a single row, exactly as re-adding it would (#61)."""
+    a, b = _make_pdfs(tmp_path, 2)
+    added = project.repo.add_theses([b, a, b, str(b)])
+    assert [t.pdf_filename for t in added] == ["t1.pdf", "t0.pdf"]
+    assert len(project.repo.list_theses()) == 2
+
+
+def test_add_theses_mixes_new_rows_and_re_adds(project, tmp_path):
+    """The batched dedup SELECT must classify each path correctly: existing
+    paths update in place (identity + history kept), new paths insert."""
+    a, b = _make_pdfs(tmp_path, 2)
+    first = project.repo.add_thesis(a)
+    with project.repo.transaction():
+        project.repo.record_run(first.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+    a.write_bytes(b"%PDF-grown-larger")  # size changes; the re-add picks it up
+
+    added = project.repo.add_theses([a, b])
+
+    assert added[0].id == first.id  # same row, not a duplicate
+    assert added[1].id != first.id
+    assert len(project.repo.list_theses()) == 2
+    row = project.conn.execute(
+        "SELECT pdf_size_bytes FROM theses WHERE id = ?", (first.id,)
+    ).fetchone()
+    assert row["pdf_size_bytes"] == len(b"%PDF-grown-larger")
+    assert project.repo.latest_runs()[(first.id, "mod_x")] is not None  # history kept
+
+
+def test_add_theses_chunks_large_batches(project, tmp_path, monkeypatch):
+    """Very large batches are split across transactions so a failure part-way
+    does not discard what already committed (#61)."""
+    monkeypatch.setattr("tta.core.db.repository._ADD_CHUNK", 4)
+    paths = _make_pdfs(tmp_path, 10)
+    added = project.repo.add_theses(paths)
+    assert len(added) == 10
+    assert [t.pdf_filename for t in added] == [p.name for p in paths]
+    assert len(project.repo.list_theses()) == 10
+
+
+def test_add_theses_missing_file_leaves_earlier_chunks_committed(project, tmp_path, monkeypatch):
+    """A vanished path aborts its own chunk with nothing written (the stat
+    happens before the transaction opens), but earlier chunks stay (#61)."""
+    monkeypatch.setattr("tta.core.db.repository._ADD_CHUNK", 2)
+    a, b, c = _make_pdfs(tmp_path, 3)
+    missing = tmp_path / "gone.pdf"
+    with pytest.raises(FileNotFoundError):
+        project.repo.add_theses([a, b, c, missing])
+    # chunk 1 (a, b) committed; chunk 2 (c, missing) wrote nothing at all
+    assert [t.pdf_filename for t in project.repo.list_theses()] == ["t0.pdf", "t1.pdf"]
+
+
+def test_add_theses_empty_batch_is_a_noop(project):
+    assert project.repo.add_theses([]) == []
+
+
+def _analyse(project, thesis, tmp_path, text=b"secret extracted text"):
+    """Give a thesis one cached run with an on-disk artefact."""
+    with project.repo.transaction():
+        run_id = project.repo.record_run(thesis.id, "mod_x", "1.0.0", "ok", metrics={"m": 1})
+        src = tmp_path / f"raw_{thesis.id}.txt"
+        src.write_bytes(text)
+        rel = project.store.store(thesis.id, run_id, "raw_text", src)
+        project.repo.record_artefact(thesis.id, "raw_text", rel, run_id)
+    return run_id
+
+
+def test_delete_thesis_forgets_the_row_and_the_analysis(project, tmp_path):
+    """Remove is the harder version of exclude (#63, ADR-0006 rev. 6): unlike
+    purge_analysis it takes the theses row too, so the same PDF can be added
+    again as a fresh thesis with no history."""
+    pdf = tmp_path / "mistake.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    _analyse(project, thesis, tmp_path)
+    tree = project.dir / "artefacts" / str(thesis.id)
+    assert tree.exists()
+
+    project.repo.delete_thesis(thesis.id, store=project.store)
+
+    for table in ("module_runs", "metric_values", "artefact_files", "theses"):
+        n = project.conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"]
+        assert n == 0, f"{table} still has rows"
+    with pytest.raises(KeyError):
+        project.repo.get_thesis(thesis.id)
+    assert not tree.exists()  # on-disk PII artefacts gone
+    assert pdf.exists() and pdf.read_bytes() == b"%PDF-content"  # source PDF untouched
+
+
+def test_removed_pdf_can_be_re_added_as_a_fresh_thesis(project, tmp_path):
+    """The whole point of deleting the row: the remembered row would otherwise
+    keep blocking a clean re-add of the same file (#63). Re-adding gives a
+    brand-new thesis - no runs, no metrics, hash deferred again. (SQLite may
+    hand back the same integer id, since it reuses a freed rowid; what matters
+    is that nothing of the old thesis survives.)"""
+    pdf = tmp_path / "mistake.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    first = project.repo.add_thesis(pdf)
+    project.repo.assign_content_hash(first)  # hashed, so the row is fully-formed
+    _analyse(project, first, tmp_path)
+    project.repo.delete_thesis(first.id, store=project.store)
+
+    again = project.repo.add_thesis(pdf)
+    assert again.pdf_sha256 is None  # hashing deferred again: no identity carried over
+    assert project.repo.latest_runs() == {}
+    assert project.repo.current_metrics() == []
+    assert project.repo.current_artefacts(again.id) == {}
+    assert len(project.repo.list_theses()) == 1
+
+
+def test_delete_thesis_differs_from_purge_analysis(project, tmp_path):
+    """Side by side: purge keeps the row (identity remembered, excluded=1),
+    delete does not (identity forgotten). Sibling rows are untouched by both."""
+    kept_pdf = tmp_path / "kept.pdf"
+    kept_pdf.write_bytes(b"%PDF-kept")
+    gone_pdf = tmp_path / "gone.pdf"
+    gone_pdf.write_bytes(b"%PDF-gone")
+    other_pdf = tmp_path / "other.pdf"
+    other_pdf.write_bytes(b"%PDF-other")
+    kept, gone, other = project.repo.add_theses([kept_pdf, gone_pdf, other_pdf])
+    for thesis in (kept, gone, other):
+        _analyse(project, thesis, tmp_path)
+
+    project.repo.set_excluded(kept.id, True)
+    project.repo.purge_analysis(kept.id, store=project.store)
+    project.repo.delete_thesis(gone.id, store=project.store)
+
+    assert project.repo.get_thesis(kept.id).excluded is True  # row remembered
+    with pytest.raises(KeyError):
+        project.repo.get_thesis(gone.id)  # row forgotten
+    # the untouched sibling keeps its run and its artefacts
+    assert project.repo.latest_runs()[(other.id, "mod_x")]["status"] == "ok"
+    assert (project.dir / "artefacts" / str(other.id)).exists()
+
+
+def test_delete_thesis_works_without_a_store_or_any_analysis(project, tmp_path):
+    pdf = tmp_path / "never_run.pdf"
+    pdf.write_bytes(b"x")
+    thesis = project.repo.add_thesis(pdf)
+    project.repo.delete_thesis(thesis.id)  # no store, nothing cached: must not raise
+    assert project.repo.list_theses() == []
+
+
+def test_delete_thesis_unknown_id_raises(project):
+    """An adapter must not be able to report a removal that never happened."""
+    with pytest.raises(KeyError):
+        project.repo.delete_thesis(999)
+
+
+def test_delete_thesis_surfaces_disk_failure_after_db_delete(project, tmp_path, monkeypatch):
+    """Same contract as purge_analysis: the DB commit precedes the filesystem
+    step, and an OSError propagates instead of claiming a clean removal."""
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-content")
+    thesis = project.repo.add_thesis(pdf)
+    _analyse(project, thesis, tmp_path)
+
+    def _boom(self, thesis_id):
+        raise PermissionError("file is locked")
+
+    monkeypatch.setattr("tta.core.artefacts.ArtefactStore.purge", _boom)
+    with pytest.raises(OSError):
+        project.repo.delete_thesis(thesis.id, store=project.store)
+
+    # rows already gone (DB-first ordering)
+    with pytest.raises(KeyError):
+        project.repo.get_thesis(thesis.id)
+    assert project.repo.latest_runs() == {}
+
+
+def test_theses_row_delete_exists_in_exactly_one_place():
+    """Structural guard for #63's "one delete implementation" criterion.
+
+    The behavioural test above only covers the fold that exists today. This one
+    reads the module and fails if *any* method grows its own inline copy of the
+    `theses`-row delete, which is how the duplication would come back: a new
+    batched or bulk variant of an existing method is a separate function, so a
+    spy on the shared helper would still pass while two implementations ship.
+    Keep the deletes in `_delete_thesis_rows` and call it."""
+    source = pathlib.Path(repository.__file__).read_text(encoding="utf-8")
+    owners = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for sub in ast.walk(node):
+            if (
+                isinstance(sub, ast.Constant)
+                and isinstance(sub.value, str)
+                and "DELETE FROM theses" in sub.value
+            ):
+                owners.append(node.name)
+    assert owners == ["_delete_thesis_rows"], (
+        "DELETE FROM theses must live in _delete_thesis_rows alone (#63); "
+        f"found it in: {owners or ['nowhere']}"
+    )
+
+
+def test_dedup_fold_uses_the_shared_delete_implementation(project, tmp_path, monkeypatch):
+    """One delete implementation, not two (#63): the content-dedup fold - until
+    now the only place executing DELETE FROM theses - calls the same helper."""
+    a = tmp_path / "a.pdf"
+    a.write_bytes(b"%PDF-identical")
+    b = tmp_path / "b.pdf"
+    b.write_bytes(b"%PDF-identical")
+    first, second = project.repo.add_theses([a, b])
+    project.repo.assign_content_hash(first)
+
+    deleted: list[int] = []
+    real = Repository._delete_thesis_rows
+
+    def spy(self, thesis_id):
+        deleted.append(thesis_id)
+        return real(self, thesis_id)
+
+    monkeypatch.setattr(Repository, "_delete_thesis_rows", spy)
+    assert project.repo.assign_content_hash(second) == first.id
+    assert deleted == [second.id]
+    assert len(project.repo.list_theses()) == 1
 
 
 def test_excluded_filtering(project, tmp_path):

@@ -100,8 +100,12 @@ class MainWindow:
         for child in self.toolbar.winfo_children():
             child.destroy()
         extended = self._extended.get()
-        # Sec. 9.3: basic = Add files | Run all | Report | Export | Help
-        buttons = [("Add files", self._add_files), ("Run all", lambda: self._run(rerun=False))]
+        # Sec. 9.7: basic = Add files | Add folder | Run all | Report | Export | Help
+        buttons = [
+            ("Add files", self._add_files),
+            ("Add folder", self._add_folder),  # recursive folder add (#62)
+            ("Run all", lambda: self._run(rerun=False)),
+        ]
         if extended:
             buttons += [
                 ("Re-run all", lambda: self._run(rerun=True)),
@@ -160,7 +164,14 @@ class MainWindow:
     # -- actions -----------------------------------------------------------------
 
     def _add_files(self) -> None:
-        added = dialogs.add_files_flow(self.root, self.project)
+        self._after_add(dialogs.add_files_flow(self.root, self.project))
+
+    def _add_folder(self) -> None:
+        """Add every PDF beneath a chosen folder, recursively (#62, Sec. 9.7).
+        The dialog confirms the count before anything is written."""
+        self._after_add(dialogs.add_folder_flow(self.root, self.project))
+
+    def _after_add(self, added: int) -> None:
         if added:
             self.refresh()
             self._set_status(f"Added {added} theses - click Run all")

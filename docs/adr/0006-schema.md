@@ -40,7 +40,22 @@ This **deliberately breaks the append-only-history guarantee** (QA-AUDIT) for th
 - The value it adds is **local defence-in-depth**: "I changed my mind — remove the raw text and tokens for this document from my disk now," rather than leaving PII-bearing artefacts cached until the next vacuum. The artefacts (`raw_text`, `tokens`, `pdf_metadata`) are the real PII (`CONTENT`/`IDENTIFYING`, [ADR-0009](0009-privacy-as-code.md)); metrics are non-PII but are scrubbed too for a clean, unambiguous "this thesis carries no analysis" state.
 - Excluding **before** any run needs no scrub: the runner's `plan()` already skips excluded theses, so no `raw_text`/tokens are ever extracted or cached in the first place.
 
-The scrub is destructive and irreversible (locally), but the **source PDF is untouched** — re-including and re-running reconstructs the analysis from scratch. Both adapters reach it after a confirmation step (GUI dialog; CLI `tta exclude` prompt, `--yes` to skip). This is the only sanctioned deletion path in an otherwise append-only schema; `purge_analysis` is the single method that performs it. If the on-disk file removal fails (e.g. a locked file), the DB scrub has already committed and the failure is **surfaced** (GUI warning; CLI stderr + `EX_PARTIAL` exit) rather than silently reported as a clean scrub; the residual files never leave the machine ([ADR-0007](0007-export-format.md)), so this is a local-only warning, not a disclosure.
+The scrub is destructive and irreversible (locally), but the **source PDF is untouched** — re-including and re-running reconstructs the analysis from scratch. Both adapters reach it after a confirmation step (GUI dialog; CLI `tta exclude` prompt, `--yes` to skip). Until rev. 6 this was the *only* sanctioned deletion path; **removal** (next section) is the second, and the two are deliberately different operations. If the on-disk file removal fails (e.g. a locked file), the DB scrub has already committed and the failure is **surfaced** (GUI warning; CLI stderr + `EX_PARTIAL` exit) rather than silently reported as a clean scrub; the residual files never leave the machine ([ADR-0007](0007-export-format.md)), so this is a local-only warning, not a disclosure.
+
+## Removing a mis-added thesis — the second sanctioned deletion path (rev. 6, #63)
+
+`Repository.delete_thesis(thesis_id, store=None)` **forgets** a thesis: in one transaction it deletes the thesis's `metric_values` (joined via its `module_runs`), its `artefact_files` and `module_runs` rows — and then the `theses` row itself — after which `ArtefactStore.purge` removes the on-disk `artefacts/<thesis_id>/` tree. Same ordering and same contract as `purge_analysis`: the DB commit precedes the filesystem step, and an `OSError` from `store.purge` propagates so the caller can warn that local artefact files were not fully removed (those files never leave the machine, [ADR-0007](0007-export-format.md), so it is a local-only warning). The source PDF is untouched.
+
+**Why this is a different operation from exclude, not a stronger setting of it.** The two answer different questions, and the difference is entirely about whether the thesis's *identity* is worth keeping:
+
+- **Exclude** means *"this thesis exists and is deliberately not analysed."* Its identity matters: the `theses` row stays with `excluded=1` so the content-addressed row blocks a silent re-analysis, and un-ticking the box re-admits it. Keeping the row is the point.
+- **Remove** means *"this was a mistake; forget it."* A PDF added by fat-fingering the wrong folder has no identity worth remembering — remembering it is precisely the harm, because the remembered row would keep blocking a clean re-add of the same file. So the row goes too, and the same PDF can afterwards be added again as a fresh thesis with a fresh id and no history.
+
+Consequently exclude is **not** a prerequisite for remove, and remove is **not** reversible by including: there is nothing left to include.
+
+**One delete implementation, three callers.** The row-level deletes live in a single private helper; `delete_thesis` wraps it in a transaction and adds the filesystem purge, and the content-dedup fold in `assign_content_hash` calls the same helper *inside its own* transaction (the fold must apply the canonical row's path update and the duplicate's removal atomically, so it cannot nest `delete_thesis`'s transaction). Before rev. 6 the fold carried its own copy of the four `DELETE`s — the only place in the codebase that executed `DELETE FROM theses`, and unreachable by a user.
+
+Both adapters gate removal behind a confirmation that says plainly that the analysis results are destroyed and the row is forgotten (`tta remove <id>`, `--yes` to skip for scripts; a GUI dialog). Removal is destructive and irreversible.
 
 ## Why content-addressed identity (`pdf_sha256`)
 
@@ -65,10 +80,10 @@ The tradeoff: between add and first run, a moved/renamed file added under a new 
 ## Consequences
 
 - ✅ Content-addressed identity makes renaming/moving PDFs safe (reunited at first run, rev. 4).
-- ✅ Adding theses is instant regardless of file size or count (rev. 4, #38): no file is read until analysis.
+- ✅ Adding theses is instant regardless of file **size** (rev. 4, #38: no file is read until analysis) and scales in **count** (#61: a batch of adds is one transaction, so N PDFs cost O(1) commits rather than N fsyncs - see SDD Sec. 8.1).
 - ⚠️ `pdf_sha256` is NULL for a thesis added but never analysed; any code relying on it (export identity, content-dedup) must tolerate NULL until the first run. Export keeps the column nullable and never fabricates a hash.
 - ✅ Append-only history surfaces stale-row detection (`module_runs.module_version` vs live module version) and supports module-version diagnosis.
-- ⚠️ Append-only history has exactly one sanctioned exception: `purge_analysis` deletes an excluded thesis's cached analysis (rev. 5, #11). Scoped, confirmed, and privacy-motivated; documented above.
+- ⚠️ Append-only history has exactly **two** sanctioned exceptions, both scoped, both confirmed in the adapters, both documented above: `purge_analysis` deletes an excluded thesis's cached analysis but keeps its row (rev. 5, #11), and `delete_thesis` deletes the row as well for a thesis added by mistake (rev. 6, #63). No other code path deletes rows; the content-dedup fold shares `delete_thesis`'s implementation.
 - ✅ Single schema serves both modes; if we ever split the tools, no schema migration needed.
 - ✅ Views isolate query complexity from caller code.
 - ✅ Migrations testable from scratch every test run.

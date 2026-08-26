@@ -71,14 +71,16 @@ def import_export(conn: sqlite3.Connection, export_path: Path | str, name: str) 
 
             thesis_ids: dict[int, int] = {}
             for row in conn.execute("SELECT * FROM src.theses"):
+                # No `excluded`: exports do not carry the column (#64, ADR-0007
+                # rev. 3) - the local default applies. Imported theses are
+                # read-only context anyway (runner filter, SDD Sec. 5.3).
                 cur = conn.execute(
                     "INSERT INTO theses (source_id, pdf_sha256, pdf_size_bytes,"
-                    " excluded, added_at) VALUES (?, ?, ?, ?, ?)",
+                    " added_at) VALUES (?, ?, ?, ?)",
                     (
                         source_id,
                         row["pdf_sha256"],
                         row["pdf_size_bytes"],
-                        row["excluded"],
                         row["added_at"],
                     ),
                 )

@@ -78,7 +78,7 @@ FIELDS: tuple[Field, ...] = (
     _f("theses", "pdf_size_bytes", Category.TECHNICAL, "coarse size statistics", True),
     _f("theses", "pdf_path", Category.IDENTIFYING, "re-open the file locally (may contain user/student names)", False),
     _f("theses", "pdf_filename", Category.IDENTIFYING, "display label in the grid (may contain student names)", False),
-    _f("theses", "excluded", Category.TECHNICAL, "confidential theses opt-out (US-PROF-EXCLUDE)", True),
+    _f("theses", "excluded", Category.TECHNICAL, "confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)", False),
     _f("theses", "notes", Category.IDENTIFYING, "free-form user notes", False),
     _f("theses", "tags", Category.IDENTIFYING, "free-form user tags", False),
     _f("theses", "added_at", Category.TECHNICAL, "audit trail (exported at day precision only)", True),
