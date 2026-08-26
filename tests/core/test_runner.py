@@ -281,7 +281,7 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
     assert summary.error == 0
     latest = project.repo.latest_runs()
     statuses = {name: row["status"] for (_, name), row in latest.items()}
-    assert len(statuses) == 12  # ADR-0011 (+mod_classify_thesis_type #9, +mod_determine_publication_year #17)
+    assert len(statuses) == 13  # ADR-0011 (+mod_classify_thesis_type #9, +mod_determine_publication_year #17, +mod_extract_filesystem_metadata #18)
     assert all(s == "ok" for s in statuses.values()), statuses
 
     values = {

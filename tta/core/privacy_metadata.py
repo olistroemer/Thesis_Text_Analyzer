@@ -131,6 +131,8 @@ MODULES: tuple[ModuleEntry, ...] = (
                 "read PDF tool metadata; only categorised, year-precision values become metrics"),
     ModuleEntry("mod_determine_publication_year", (Category.CONTENT, Category.IDENTIFYING), (Category.METRIC,),
                 "fuse the title-page year and PDF metadata dates into a best-estimate publication year"),
+    ModuleEntry("mod_extract_filesystem_metadata", (Category.IDENTIFYING,), (Category.METRIC,),
+                "read the file's size and modification year from the filesystem; only the year is kept"),
 )
 
 
