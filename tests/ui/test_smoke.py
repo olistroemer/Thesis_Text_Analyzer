@@ -1,14 +1,18 @@
 """GUI smoke test - needs a display; skipped headless.
 
 Builds the real MainWindow over a populated project, pumps the Tk event
-loop once, exercises mode switch, grid render, and report render.
+loop once, exercises mode switch, grid render, report generation, and the
+post-run report offer.
 """
 
 import os
 import tkinter
+import webbrowser
+from types import SimpleNamespace
 
 import pytest
 
+from tta.core import events
 from tta.core.project import Project
 from tta.ui.tk.columns import LEAD_COLUMNS
 
@@ -31,7 +35,7 @@ pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
 
 
 @pytest.mark.slow
-def test_main_window_builds_and_renders(tmp_path, english_pdf):
+def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
     from tta.ui.tk.main_window import MainWindow
 
     with Project.open(tmp_path / "proj", create=True) as project:
@@ -75,16 +79,26 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             window.root.update_idletasks()
             assert len(window.grid_view.sheet.headers()) > basic_cols
 
-            # report renders without error (matplotlib lazy import)
+            # #51: the Report button writes a stand-alone HTML file and
+            # opens it in the browser - there is no Report tab any more.
+            opened: list[str] = []
+            monkeypatch.setattr(webbrowser, "open", opened.append)
             window._show_report()
             window.root.update_idletasks()
-            assert "2 theses analysed" in window.report_view.cards["text"]
+            written = sorted((project.dir / "reports").glob("report-*.html"))
+            assert len(written) == 1
+            document = written[0].read_text("utf-8")
+            assert document.startswith("<!DOCTYPE html>")
+            assert "Cohort report" in document
+            assert "english_thesis.pdf" not in document  # no PII in a written file
+            assert opened == [written[0].as_uri()]
+            assert not hasattr(window, "report_view")
+            assert not hasattr(window, "notebook")
 
             # #12: a real header click on the word_count column sorts rows.
             # default order is by filename (english_thesis, shorter_thesis);
             # ascending word_count puts the smaller (shorter_thesis) first.
             grid = window.grid_view
-            window.notebook.select(grid)
             window.root.update_idletasks()
             headers = grid.sheet.headers()
             col = headers.index("word_count")
@@ -119,5 +133,27 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf):
             window.root.update_idletasks()
             assert "Run all" in window._toolbar_buttons
             assert "Cancel run" not in window._toolbar_buttons
+
+            # #70: a finished run offers the report through a non-modal
+            # prompt; "Don't ask again" persists the answer to tta.toml.
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=3)), False)
+            window.root.update_idletasks()
+            prompt = window._report_prompt_window
+            assert prompt is not None and prompt.winfo_exists()
+            assert not prompt.grab_status()  # non-modal
+            prompt.destroy()
+            window._report_prompt_window = None
+
+            # an all-errored run and a cancelled run stay quiet
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=0)), False)
+            window._maybe_offer_report(events.RunCancelled(1, 2), True)
+            assert window._report_prompt_window is None
+
+            # ...and "always" opens it without asking
+            window.project.config.open_report_after_run = "always"
+            opened.clear()
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=1)), False)
+            assert opened == [written[0].as_uri()]
+            assert window._report_prompt_window is None
         finally:
             window.root.destroy()

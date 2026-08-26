@@ -14,6 +14,7 @@ import re
 import signal
 import sys
 import traceback
+import webbrowser
 from datetime import date
 from importlib import resources
 from pathlib import Path
@@ -31,6 +32,7 @@ from tta.core.export import ExportPolicy, export_database
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
+from tta.core import report
 
 stdout = Console()
 stderr = Console(stderr=True)
@@ -333,9 +335,12 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
 @click.option("--rerun", is_flag=True, help="Re-run everything regardless of state.")
 @click.option("--dry-run", is_flag=True, help="Print the plan without executing.")
 @click.option("--workers", type=int, default=None, help="Concurrent theses (default: cores - 1).")
+@click.option("--open-report", is_flag=True,
+              help="Write the HTML report and open it in a browser when the run "
+                   "finishes (off by default; Sec. 9.8.3, #70).")
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
-def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
+def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None:
     """Add INPUTS (PDF files or directories) and run analyses.
 
     Without INPUTS, runs on all known theses. Default mode runs missing,
@@ -388,6 +393,17 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
         finally:
             signal.signal(signal.SIGINT, previous_handler)
 
+        # --open-report is the explicit ask, so it ignores the GUI's
+        # ui.open_report_after_run preference - but it still honours the
+        # suppression rules (nothing to show after a cancelled or all-errored
+        # run, Sec. 9.8.3). Writing happens here, opening after the project
+        # closes.
+        report_path = None
+        if open_report and report.should_offer_report(
+            "always", cancelled=summary.cancelled, ok=summary.ok
+        ) == "open":
+            report_path = _write_report(report.default_report_path(project.dir), project)
+
     payload = {
         "theses_completed": summary.theses_completed,
         "ok": summary.ok,
@@ -404,6 +420,9 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
             f"{summary.theses_completed} theses | {summary.ok} ok | "
             f"{summary.na} na | {summary.error} errors | {payload['duration_s']} s{cancelled_note}"
         )
+    if report_path is not None:
+        stderr.print(f"report written to {report_path}")
+        webbrowser.open(report_path.as_uri())
     if summary.error or summary.cancelled:
         ctx.exit(EX_PARTIAL)
 
@@ -479,6 +498,35 @@ def privacy_report(fmt: str) -> None:
             controller_stub=_load_stub("controller_stub.md"),
         )
     )
+
+
+# -- report -----------------------------------------------------------------------
+
+
+def _write_report(out: Path, project: Project) -> Path:
+    """Render in core, write in the adapter (ADR-0002). Overwrites."""
+    document = report.render_html(report.collect(project.repo))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(document, encoding="utf-8")
+    return out
+
+
+@cli.command("report")
+@click.option("--out", type=click.Path(path_type=Path), default=None,
+              help="Where to write it (default: <project>/reports/report-<date>.html).")
+@click.pass_context
+def write_report(ctx: click.Context, out: Path | None) -> None:
+    """Write the stand-alone HTML cohort report (Sec. 9.8, ADR-0016 rev. 2).
+
+    One self-contained file: every style rule and every chart inline, no
+    external request, and no file names, paths, notes or document text
+    (Sec. 9.8.3). It is written, not opened - a CLI must not launch a
+    browser unasked; `tta run --open-report` does that on request.
+    """
+    with open_project(ctx) as project:
+        theses = report.collect(project.repo).theses
+        written = _write_report(out or report.default_report_path(project.dir), project)
+    stdout.print(f"report over {theses} theses -> {written}")
 
 
 # -- help -------------------------------------------------------------------------

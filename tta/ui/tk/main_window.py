@@ -1,4 +1,4 @@
-"""Main window (Sec. 9.2): menu bar, toolbar, Grid/Report tabs, status line.
+"""Main window (Sec. 9.2): menu bar, toolbar, thesis grid, status line.
 
 Runs execute on a background thread; domain events are marshalled into
 the Tk loop via a queue drained by ``root.after`` (ADR-0002 invariant 3).
@@ -10,9 +10,11 @@ import queue
 import threading
 import time
 import tkinter as tk
+import webbrowser
+from pathlib import Path
 from tkinter import messagebox, ttk
 
-from tta.core import events, progress
+from tta.core import events, progress, report
 from tta.core.config import save_config
 from tta.core.modules.registry import default_registry
 from tta.core.privacy_metadata import render_report_md
@@ -20,7 +22,6 @@ from tta.core.project import Project
 from tta.ui.tk import dialogs
 from tta.ui.tk.columns import metric_columns
 from tta.ui.tk.grid import GridView
-from tta.ui.tk.report import ReportView
 
 POLL_MS = 100
 
@@ -51,7 +52,7 @@ class MainWindow:
         if first_launch:
             self._build_banner()
         self._build_toolbar()
-        self._build_tabs()
+        self._build_grid()
         self.status = ttk.Label(self.root, anchor="w", padding=(8, 2))
         self.status.pack(fill="x", side="bottom")
 
@@ -118,13 +119,11 @@ class MainWindow:
             self._toolbar_buttons[label] = button
         self._update_report_button()
 
-    def _build_tabs(self) -> None:
-        self.notebook = ttk.Notebook(self.root)
-        self.grid_view = GridView(self.notebook, self.project.repo, self.project.store)
-        self.report_view = ReportView(self.notebook, self.project.repo)
-        self.notebook.add(self.grid_view, text="Grid")
-        self.notebook.add(self.report_view, text="Report")
-        self.notebook.pack(fill="both", expand=True)
+    def _build_grid(self) -> None:
+        # No notebook: the report is a generated HTML file opened in the
+        # browser, so the grid owns the whole window (Sec. 9.8, ADR-0016 rev. 2).
+        self.grid_view = GridView(self.root, self.project.repo, self.project.store)
+        self.grid_view.pack(fill="both", expand=True)
 
     # -- state ------------------------------------------------------------------
 
@@ -246,9 +245,9 @@ class MainWindow:
                     self.refresh()
                     cancelled = isinstance(event, events.RunCancelled)
                     self._set_status("Run cancelled" if cancelled else "Run finished")
-                    # Sec. 9.8.2: re-render while Report tab is active
-                    if self.notebook.index("current") == 1:
-                        self.report_view.render()
+                    # Sec. 9.8.3: offer the report (#70). The tab that used to
+                    # re-render itself here is gone (ADR-0016 rev. 2).
+                    self._maybe_offer_report(event, cancelled)
         except queue.Empty:
             pass
         self.root.after(POLL_MS, self._drain_events)
@@ -332,9 +331,90 @@ class MainWindow:
             text = f"{est.done}/{est.total} pairs - ~{progress.format_eta(est.eta_seconds)} left"
         self._progress_label.configure(text=text)
 
+    #: the open post-run prompt, if any (#70). Class-level so the attribute
+    #: exists before the first run finishes.
+    _report_prompt_window = None
+
     def _show_report(self) -> None:
-        self.report_view.render()
-        self.notebook.select(self.report_view)
+        """Generate the stand-alone HTML report and open it in the browser
+        (Sec. 9.8, ADR-0016 rev. 2). Core renders the document as a string;
+        writing the file and launching the browser are the adapter's job."""
+        path = self._write_report()
+        if path is None:
+            return
+        self._set_status(f"Report written to {path}")
+        webbrowser.open(path.as_uri())
+
+    def _write_report(self) -> Path | None:
+        """Write `<project>/reports/report-<date>.html`, overwriting a
+        same-day file. Returns None (after an error dialog) if it could not
+        be written."""
+        path = report.default_report_path(self.project.dir)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(report.render_html(report.collect(self.project.repo)), "utf-8")
+        except OSError as exc:
+            messagebox.showerror(
+                "Report", f"Could not write the report:\n{exc}", parent=self.root
+            )
+            return None
+        return path
+
+    def _maybe_offer_report(self, event, cancelled: bool) -> None:
+        """Post-run offer (#70, Sec. 9.8.3). The policy is core's - a
+        cancelled or all-errored run produced nothing to look at - and this
+        only renders the decision."""
+        summary = getattr(event, "summary", None)
+        decision = report.should_offer_report(
+            self.project.config.open_report_after_run,
+            cancelled=cancelled,
+            ok=getattr(summary, "ok", 0) or 0,
+        )
+        if decision == "open":
+            self._show_report()
+        elif decision == "ask":
+            self._report_prompt()
+
+    def _report_prompt(self) -> None:
+        """Non-modal "open the report?" prompt: no ``grab_set``, so the grid
+        stays usable. "Don't ask again" persists the answer to tta.toml as
+        `ui.open_report_after_run` = always/never (#70)."""
+        existing = self._report_prompt_window
+        if existing is not None and existing.winfo_exists():
+            existing.lift()  # one prompt at a time, however many runs finish
+            return
+        window = tk.Toplevel(self.root)
+        window.title("Report")
+        window.transient(self.root)
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="The run finished. Open the report for this project now?",
+            wraplength=360,
+            justify="left",
+        ).pack(anchor="w")
+        remember = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frame, text="Don't ask again", variable=remember).pack(
+            anchor="w", pady=(8, 12)
+        )
+
+        def answer(open_it: bool) -> None:
+            if remember.get():
+                self.project.config.open_report_after_run = "always" if open_it else "never"
+                save_config(self.project.dir, self.project.config)
+            self._report_prompt_window = None
+            window.destroy()
+            if open_it:
+                self._show_report()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(anchor="e")
+        ttk.Button(buttons, text="Not now", command=lambda: answer(False)).pack(
+            side="left", padx=(0, 6)
+        )
+        ttk.Button(buttons, text="Open report", command=lambda: answer(True)).pack(side="left")
+        self._report_prompt_window = window
 
     def _export(self) -> None:
         dialogs.export_flow(self.root, self.project)

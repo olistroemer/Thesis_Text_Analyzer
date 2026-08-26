@@ -280,3 +280,82 @@ def test_full_contribute_loop(project_dir, english_pdf, tmp_path):
     # duplicate name -> data error
     result = runner.invoke(cli, ["-C", str(research_dir), "import", str(exports[0]), "--name", "FH Wedel 2026"])
     assert result.exit_code == 65
+
+
+# -- report (#51) -----------------------------------------------------------
+
+
+def test_report_writes_one_self_contained_html_file(project_dir):
+    _seed_thesis(project_dir, analysed=True)
+    result = invoke("-C", project_dir, "report")
+    written = sorted((project_dir / "reports").glob("report-*.html"))
+    assert len(written) == 1
+    assert written[0].name in result.output.replace("\n", "")
+    document = written[0].read_text("utf-8")
+    assert document.startswith("<!DOCTYPE html>")
+    assert document.endswith("</html>\n")
+    # QA-PRIV: an offline app must not write a file that phones home
+    assert "http://" not in document and "https://" not in document
+    assert "<script" not in document
+    # ...and no identifying value reaches it (Sec. 9.8.3)
+    assert "seed.pdf" not in document
+
+
+def test_report_out_overrides_the_default_path(project_dir, tmp_path):
+    _seed_thesis(project_dir, analysed=True)
+    target = tmp_path / "elsewhere" / "cohort.html"
+    invoke("-C", project_dir, "report", "--out", target)
+    assert "Cohort report" in target.read_text("utf-8")
+    assert not (project_dir / "reports").exists()
+
+
+def test_report_without_a_project_exits_65(tmp_path):
+    invoke("-C", tmp_path / "nope", "report", expect_exit=65)
+
+
+# -- run --open-report (#70) ------------------------------------------------
+
+
+def _fake_execute(summary):
+    return lambda self, plan: summary
+
+
+def test_run_open_report_writes_and_opens_the_report(project_dir, english_pdf, monkeypatch):
+    """--open-report is the explicit ask, so it may launch a browser; without
+    the flag a CLI must never do so (Sec. 9.8.3, #70)."""
+    import webbrowser
+
+    from tta.core.runner import RunSummary, Runner
+
+    monkeypatch.setattr(
+        Runner, "execute", _fake_execute(RunSummary(theses_total=1, theses_completed=1, ok=1))
+    )
+    opened: list[str] = []
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+
+    invoke("-C", project_dir, "run", english_pdf, "--open-report")
+    written = sorted((project_dir / "reports").glob("report-*.html"))
+    assert len(written) == 1
+    assert opened == [written[0].as_uri()]
+
+    opened.clear()
+    invoke("-C", project_dir, "run")  # flag off by default
+    assert opened == []
+
+
+def test_run_open_report_is_suppressed_for_a_cancelled_run(project_dir, english_pdf, monkeypatch):
+    import webbrowser
+
+    from tta.core.runner import RunSummary, Runner
+
+    monkeypatch.setattr(
+        Runner,
+        "execute",
+        _fake_execute(RunSummary(theses_total=2, theses_completed=1, ok=1, cancelled=True)),
+    )
+    opened: list[str] = []
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+
+    invoke("-C", project_dir, "run", english_pdf, "--open-report", expect_exit=1)
+    assert opened == []
+    assert not (project_dir / "reports").exists()
