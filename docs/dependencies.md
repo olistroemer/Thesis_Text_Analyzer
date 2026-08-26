@@ -61,7 +61,6 @@ the distributed binaries.
 | `rich` | 15.0.0 | MIT | CLI tables and markdown help rendering ([ADR-0012](adr/0012-help-content.md)). | ✅ compatible |
 | `tomli-w` | 1.2.0 | MIT | Writing `tta.toml`. (Reading uses stdlib `tomllib` — no dependency.) | ✅ compatible |
 | `tksheet` | 7.6.0 | MIT | The data grid with per-cell styling ([ADR-0001](adr/0001-ui-toolkit.md)). | ✅ compatible |
-| `matplotlib` | 3.10.8 | Matplotlib License (PSF-derived, BSD-style) | Report-view charts ([ADR-0016](adr/0016-report-view.md)). | ✅ compatible |
 
 ### 2.1 The PDF extractor (optional extra, but shipped)
 
@@ -87,15 +86,7 @@ that requires them.
 | `joblib` | 1.5.3 | BSD-3-Clause | nltk | NLTK-internal parallelism helper; unused by our modules. | ✅ compatible |
 | `tqdm` | 4.67.3 | **MPL-2.0 AND MIT** | nltk | NLTK-internal progress bars; never surfaced in our UI. | ✅ compatible |
 | `six` | 1.17.0 | MIT | langdetect | Py2/Py3 compatibility shim langdetect still imports. | ✅ compatible |
-| `numpy` | 2.4.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | matplotlib | Array backing for the report-view charts. | ✅ compatible |
-| `pillow` | 12.2.0 | MIT-CMU | matplotlib | Raster image handling in the matplotlib backend. | ✅ compatible |
-| `contourpy` | 1.3.3 | BSD-3-Clause | matplotlib | Contour computation. | ✅ compatible |
-| `cycler` | 0.12.1 | BSD-3-Clause | matplotlib | Style/colour cycling. | ✅ compatible |
-| `fonttools` | 4.62.1 | MIT | matplotlib | Font parsing for text rendering in charts. | ✅ compatible |
-| `kiwisolver` | 1.5.0 | BSD-3-Clause | matplotlib | Constraint solver behind `tight_layout`/`constrained_layout`. | ✅ compatible |
-| `pyparsing` | 3.3.2 | MIT | matplotlib | Mathtext expression parsing. | ✅ compatible |
-| `python-dateutil` | 2.9.0.post0 | BSD-3-Clause OR Apache-2.0 (dual) | matplotlib | Date-axis tick locating — relevant to the publication-year charts. | ✅ compatible |
-| `packaging` | 26.0 | Apache-2.0 OR BSD-2-Clause | matplotlib, pytest, pyinstaller | Version parsing. | ✅ compatible |
+| `packaging` | 26.0 | Apache-2.0 OR BSD-2-Clause | pytest, pyinstaller | Version parsing. | ✅ compatible |
 | `markdown-it-py` | 4.2.0 | MIT | rich | Markdown parsing for the rendered help pages. | ✅ compatible |
 | `mdurl` | 0.1.2 | MIT | rich (via markdown-it-py) | URL handling inside the markdown parser. | ✅ compatible |
 | `pygments` | 2.20.0 | BSD-2-Clause | rich | Syntax highlighting in rich output. | ✅ compatible |
@@ -115,8 +106,6 @@ artefact*. This is the part a naive `pip`-metadata scraper misses entirely.
 | NLTK **`punkt_tab`** models (19 languages, ~4.3 MB) | `nltk_data`, pretrained by Jan Strunk / Tibor Kiss | **No licence statement in the package** (see F6) | Yes — `packaging/tta.spec` `datas`, resolved at build time by `nltk.data.find`, exposed by `packaging/rthook_nltk.py` | Only `english` and `german` are ever loaded (`mod_tokenize.NLTK_LANGUAGES`); the other 17 ride along. Provenance and bias: [`model-limitations.md`](model-limitations.md) §2. |
 | **CMUdict** 0.7a (127,069 entries) | Carnegie Mellon University, via the NLTK `cmudict` corpus | BSD-2-Clause (CMU 1993–2008) | **No — and it should be** (see F7) | textstat's primary English syllable source. Absent from `packaging/tta.spec`; `textstat` silently calls `nltk.download('cmudict')` when missing. This is both a licensing gap and an offline-promise bug. |
 | **Pyphen** hyphenation dictionaries (~84 files, 6.1 MB) | LibreOffice / OpenOffice.org dictionaries, from TeX pattern files | GPL / LGPL-2-or-later / MPL, per dictionary. `hyph_de_AT/CH/DE.dic`: LGPL-2-or-later over LPPL `dehyphn.tex`. `hyph_en_GB/US.dic`: BSD-style over `ukhyphen.tex`/`hyph_en_US`. | Yes — inside the `pyphen` wheel | Only `de_AT` and `en_GB` are actually consulted, by accident of pyphen's short-code resolution ([`model-limitations.md`](model-limitations.md) §4.2). |
-| matplotlib **DejaVu** fonts | Bitstream Vera + Arev derivatives | Bitstream Vera Fonts Copyright (permissive, with a font-name restriction); DejaVu changes public domain | Yes — `matplotlib/mpl-data/fonts/ttf` | Default chart font. Attribution required in `THIRD_PARTY_LICENSES.txt`. |
-| matplotlib **STIX** fonts | STI Pub companies, converted to TTF | OFL-1.1 | Yes — same directory | Mathtext font. OFL requires the licence to travel with the fonts. |
 | SQL migrations, help markdown | This project | GPL-3.0-or-later | Yes | First-party, listed for completeness. |
 
 ---
@@ -290,7 +279,7 @@ def deps(name):
     return out
 
 seen, stack = {}, ["langdetect", "nltk", "textstat", "pypdf", "click",
-                   "rich", "tomli-w", "tksheet", "matplotlib", "pymupdf"]
+                   "rich", "tomli-w", "tksheet", "pymupdf"]
 while stack:
     n = stack.pop()
     if n.lower() in seen:
@@ -309,7 +298,7 @@ PY
 #    metadata strings (finding F1).
 python - <<'PY'
 import importlib.metadata as md
-for n in ("langdetect", "pyphen", "regex", "tqdm", "matplotlib", "pymupdf"):
+for n in ("langdetect", "pyphen", "regex", "tqdm", "pymupdf"):
     d = md.distribution(n)
     print(n, [str(f) for f in (d.files or [])
               if any(k in str(f).upper() for k in ("LICEN", "COPYING", "NOTICE"))])

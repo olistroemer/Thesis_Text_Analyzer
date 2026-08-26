@@ -18,7 +18,7 @@ The report is a **generated, self-contained HTML file**, opened in the user's br
 - Design and interactivity freedom. Two of rev. 1's six panels (summary cards, notable theses) were plain `ttk.Label`s — text pretending to be a report. HTML gives typography, layout, and tables for free; Tk gives none of it.
 - The report becomes an **artefact the professor can keep, print, and send** rather than a screen that vanishes with the window. This is what "the professor's reward" actually looks like.
 - The aggregation was on the wrong side of the boundary. `collect()` was toolkit-agnostic domain logic sitting in the Tk adapter, which is why the CLI had **no report at all** and why the report had **no unit test** — coverage reached it only through the GUI smoke test.
-- Not a size argument. The matplotlib cluster is ~26 MB uncompressed, roughly 10 MB of the binary — rev. 1's estimate was accurate, and 10 MB was never the problem. Dropping the dependency from `pyproject.toml` and the PyInstaller spec is a **separate follow-up**, not part of this decision.
+- Not a size argument. The matplotlib cluster is ~26 MB uncompressed, roughly 10 MB of the binary — rev. 1's estimate was accurate, and 10 MB was never the problem. Dropping the dependency from `pyproject.toml` and the PyInstaller spec was a **separate follow-up**, done in #53.
 
 ## Content
 
@@ -74,7 +74,7 @@ Finishing a run is the natural point to look at the report (SDD [§9.7](../SDD.m
 - ✅ `collect()` is unit-testable without a display, and the CLI has a report for the first time (`tests/core/test_report.py`, QA-TEST).
 - ✅ The GUI drops matplotlib and `FigureCanvasTkAgg` from its import graph entirely; the main window is a grid plus a toolbar.
 - ✅ One file, zero external requests — QA-PRIV holds trivially, and the file survives being copied onto a stick.
-- ⚠️ The chart maths is ours now. Mitigated by unit tests, including equivalence against matplotlib/numpy while they are still installed.
+- ⚠️ The chart maths is ours now. Mitigated by unit tests, including an equivalence check against matplotlib/numpy. Since #53 removed matplotlib from the dependency set that check is `importorskip`-guarded: it runs for a developer who has matplotlib installed and skips everywhere else, so it is a corroboration, not a gate.
 - ⚠️ Hand-rolled SVG has no free polish: no interactive tooltips, no automatic legend layout, no font metrics. Axis ticks and label placement are chosen by simple rules and can look cramped on unusual data.
 - ⚠️ Losing the live re-render is a real regression for someone watching a long batch. #70's post-run offer covers the common case, not that one.
 - ⚠️ `<project>/reports/` is a new directory in the project folder. It is derived data: safe to delete, regenerated on demand, and never exported.

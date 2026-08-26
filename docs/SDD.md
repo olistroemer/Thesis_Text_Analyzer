@@ -170,7 +170,7 @@ Headline stories driving load-bearing decisions:
 | US-PROF-EXPORT | Export results into a single file | Export format ([ADR-007](adr/0007-export-format.md)) |
 | US-PROF-QUALITY | See garbled extractions flagged in the grid | `mod_check_extraction_quality` |
 | US-PROF-AUTO-OPEN | App remembers last project across runs | Startup resolution in `tta.core.project`, pointer in the default project's `tta.toml` (§5.6.1, [ADR-014](adr/0014-distribution.md)) |
-| **US-PROF-NO-TRACES** | No writes outside the project folder by default | No `~/.config` state at all; write-path audit and the matplotlib cache redirect (§5.6.2, [ADR-014](adr/0014-distribution.md)) |
+| **US-PROF-NO-TRACES** | No writes outside the project folder by default | No `~/.config` state at all; write-path audit (§5.6.2, [ADR-014](adr/0014-distribution.md)) |
 | US-PWR-EXTENDED | Extended mode with more settings | UI modes |
 | **US-RES-LOW-FRICTION** | Contribute-loop fits in five low-friction steps | Distribution, export, defaults throughout the UI |
 | US-RES-CLI | Run analyses from the CLI; use GUI only as viewer | CLI as first-class ([ADR-003](adr/0003-cli-first-class.md)) |
@@ -325,9 +325,8 @@ Opening a project **is** the act of remembering it: the pointer is written when 
 
 ### 5.6.2 Write-path audit (US-PROF-NO-TRACES)
 
-Everything persistent lives under the project directory: `tta.toml`, `tta.sqlite`, the defensive `tta.sqlite.bak.<version>`, `artefacts/`, and `exports/`. Two further paths were found outside it and are handled here:
+Everything persistent lives under the project directory: `tta.toml`, `tta.sqlite`, the defensive `tta.sqlite.bak.<version>`, `artefacts/`, and `exports/`. One further path was found outside it and is handled here:
 
-- **Matplotlib's config/cache directory.** The Report view imports matplotlib lazily, and matplotlib unconditionally creates `~/.config/matplotlib` plus a font cache under `~/.cache/matplotlib` on first import. The GUI entry point therefore sets `MPLCONFIGDIR` to `<project>/.cache/matplotlib` before the window is built (both directories follow that one variable), keeping the cache inside the project.
 - **Transient scratch space.** The runner gives each module a `tempfile.mkdtemp` workdir and removes it in a `finally` after the module returns, and a frozen `--onefile` binary unpacks itself into a temporary directory that the bootloader cleans up on exit. Both are transient scratch, not persistent state, and both are accepted rather than relocated — noted in the release notes for honesty.
 
 OS-level caches that any GUI process touches (fontconfig, GPU shader caches) are outside the application's control and outside this guarantee.

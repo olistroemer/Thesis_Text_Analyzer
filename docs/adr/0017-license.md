@@ -22,7 +22,7 @@ The earlier ADRs treated a copyleft dependency as a hazard because they carried 
 Two facts make copyleft cheap here, and one tempers it:
 
 - **The app is offline (US-ALL-OFFLINE, QA-PRIV, §2.3).** AGPL's only substantive difference from GPL-3.0 is its §13 network-interaction clause. With no network use, §13 is **dormant**, so AGPL and GPL impose the same practical obligations: provide source to those you distribute to.
-- **Dependencies are already compatible.** tksheet (MIT), matplotlib (PSF/BSD-style), click (BSD), rich (MIT), langdetect & nltk (Apache-2.0, one-way-compatible with GPLv3/AGPLv3), textstat/pypdf/tomli-w (MIT/BSD), tkinter (PSF). PyInstaller is GPL **with a bundling exception** that does not bind the frozen app. A one-time license audit should confirm this before release.
+- **Dependencies are already compatible.** tksheet (MIT), click (BSD), rich (MIT), langdetect & nltk (Apache-2.0, one-way-compatible with GPLv3/AGPLv3), textstat/pypdf/tomli-w (MIT/BSD), tkinter (PSF). PyInstaller is GPL **with a bundling exception** that does not bind the frozen app. A one-time license audit should confirm this before release.
 - **Auditability is a property of open-sourcing, not of AGPL specifically.** The privacy benefit — a professor's IT/ethics board can read the code and verify "local-only, no PII export" — would hold under any open license. Copyleft's distinct contribution is keeping derivatives and forks open, which suits a publication-linked measurement tool.
 
 ## Open question
