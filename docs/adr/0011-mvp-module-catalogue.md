@@ -10,7 +10,7 @@ MVP ships exactly the twelve modules listed in SDD §7, producing 29 metrics acr
 
 Two modules parse the **title page** of `raw_text` via a shared parser (`core/modules/_titlepage.py`):
 
-- `mod_classify_thesis_type` (#9, [ADR-0019](0019-thesis-type-by-detection.md)) — produces the `thesis_type` metric ∈ {`bachelor`, `master`, `unspecified`} by a keyword heuristic; replaces the dropped `theses.type` column and the add-time type dialog.
+- `mod_classify_thesis_type` (#9, [ADR-0019](0019-thesis-type-by-detection.md)) — produces the `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`} by a keyword heuristic (`diploma` added for pre-Bologna German theses, #67 / ADR-0019 rev. 2 — a wider value domain for the same one metric, so the 29-metric count is unchanged); replaces the dropped `theses.type` column and the add-time type dialog.
 - `mod_determine_publication_year` (#17) — produces the best-estimate `publication_year` (numeric) and `publication_year_source` (text) by fusing the in-text title-page year (primary) with the PDF-metadata `creation_year`/`modification_year` (fallback). `publication_year` — not `creation_year` — is the x-axis of the primary research goal (SDD §2.1, §9.8). Filesystem dates (#18) are out of scope. `mod_extract_pdf_metadata` still produces `creation_year`/`modification_year` as raw PDF signals.
 
 Module-name convention bakes the library into the identifier when the choice is provisional (`mod_extract_pymupdf`) so the producer-swap mechanism remains visible in the schema, privacy registry, and export.
