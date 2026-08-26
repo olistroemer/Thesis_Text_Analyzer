@@ -251,6 +251,29 @@ def test_render_html_timestamp_is_injectable(project):
     assert "2026-08-26 09:05" in out
 
 
+# -- should_offer_report (#70) ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "mode,cancelled,ok,expected",
+    [
+        ("ask", False, 3, "ask"),
+        ("always", False, 3, "open"),
+        ("never", False, 3, "skip"),
+        ("nonsense", False, 3, "ask"),  # unknown preference falls back to asking
+        ("always", True, 3, "skip"),  # cancelled runs never nag
+        ("always", False, 0, "skip"),  # an all-errored run produced nothing
+        ("ask", False, 0, "skip"),
+    ],
+)
+def test_should_offer_report(mode, cancelled, ok, expected):
+    assert report.should_offer_report(mode, cancelled=cancelled, ok=ok) == expected
+
+
+def test_open_report_modes_are_the_documented_three():
+    assert report.OPEN_REPORT_MODES == ("ask", "always", "never")
+
+
 # -- default_report_path -----------------------------------------------------
 
 

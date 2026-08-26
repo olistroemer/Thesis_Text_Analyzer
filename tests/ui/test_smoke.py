@@ -1,15 +1,18 @@
 """GUI smoke test - needs a display; skipped headless.
 
 Builds the real MainWindow over a populated project, pumps the Tk event
-loop once, exercises mode switch, grid render, and report generation.
+loop once, exercises mode switch, grid render, report generation, and the
+post-run report offer.
 """
 
 import os
 import tkinter
 import webbrowser
+from types import SimpleNamespace
 
 import pytest
 
+from tta.core import events
 from tta.core.project import Project
 from tta.ui.tk.columns import LEAD_COLUMNS
 
@@ -131,5 +134,26 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             assert "Run all" in window._toolbar_buttons
             assert "Cancel run" not in window._toolbar_buttons
 
+            # #70: a finished run offers the report through a non-modal
+            # prompt; "Don't ask again" persists the answer to tta.toml.
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=3)), False)
+            window.root.update_idletasks()
+            prompt = window._report_prompt_window
+            assert prompt is not None and prompt.winfo_exists()
+            assert not prompt.grab_status()  # non-modal
+            prompt.destroy()
+            window._report_prompt_window = None
+
+            # an all-errored run and a cancelled run stay quiet
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=0)), False)
+            window._maybe_offer_report(events.RunCancelled(1, 2), True)
+            assert window._report_prompt_window is None
+
+            # ...and "always" opens it without asking
+            window.project.config.open_report_after_run = "always"
+            opened.clear()
+            window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=1)), False)
+            assert opened == [written[0].as_uri()]
+            assert window._report_prompt_window is None
         finally:
             window.root.destroy()

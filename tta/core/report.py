@@ -34,6 +34,9 @@ from tta.core.db.repository import Repository
 
 TRUSTWORTHY_METRICS = ("avg_word_len", "std_sentence_len", "yules_k", "flesch_reading_ease")
 
+#: Post-run auto-open preference (`ui.open_report_after_run` in tta.toml, #70).
+OPEN_REPORT_MODES = ("ask", "always", "never")
+
 #: Where adapters put the generated file, relative to the project (Sec. 9.8.3).
 REPORTS_DIRNAME = "reports"
 
@@ -131,6 +134,26 @@ def collect(repo: Repository) -> ReportData:
             # written file (ADR-0016 rev. 2 "Privacy", Sec. 9.8.3)
             data.notable.append((f"thesis {tid}", flagged))
     return data
+
+
+# -- post-run policy (#70) ----------------------------------------------------
+
+
+def should_offer_report(mode: str, *, cancelled: bool, ok: int) -> str:
+    """Decide what a finished run should do about the report (Sec. 9.8.3).
+
+    Returns "open" (generate and open without asking), "ask" (prompt), or
+    "skip". A cancelled run and a run with no successful pair produced
+    nothing worth reporting, so both skip regardless of the preference.
+    Pure on purpose: both adapters share it and it is testable without a
+    display (the ``core/progress.py`` pattern)."""
+    if cancelled or ok <= 0:
+        return "skip"
+    if mode == "never":
+        return "skip"
+    if mode == "always":
+        return "open"
+    return "ask"  # "ask", and any unknown value, falls back to asking
 
 
 # -- chart statistics (was matplotlib's) --------------------------------------

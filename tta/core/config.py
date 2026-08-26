@@ -22,6 +22,9 @@ class Config:
     workers: int | None = None  # None -> runner default max(1, cpus - 1)
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
     outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
+    # post-run report offer: ask | always | never (Sec. 9.8.3, #70). Validated
+    # where it is consumed (`core.report.should_offer_report`), not here.
+    open_report_after_run: str = "ask"
     institution: str | None = None  # used in export filenames and sources row
     raw: dict | None = None  # full parsed file, for round-tripping
 
@@ -39,6 +42,7 @@ def load_config(project_dir: Path | str) -> Config:
         workers=raw.get("runner", {}).get("workers"),
         ui_mode=ui_mode,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
+        open_report_after_run=raw.get("ui", {}).get("open_report_after_run", "ask"),
         institution=raw.get("project", {}).get("institution"),
         raw=raw,
     )
@@ -54,6 +58,7 @@ def save_config(project_dir: Path | str, config: Config) -> None:
     ui = dict(raw.get("ui", {}))
     ui["mode"] = config.ui_mode
     ui["outlier_scheme"] = config.outlier_scheme
+    ui["open_report_after_run"] = config.open_report_after_run
     project = dict(raw.get("project", {}))
     if config.institution is None:
         project.pop("institution", None)

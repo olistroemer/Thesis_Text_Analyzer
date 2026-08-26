@@ -245,8 +245,9 @@ class MainWindow:
                     self.refresh()
                     cancelled = isinstance(event, events.RunCancelled)
                     self._set_status("Run cancelled" if cancelled else "Run finished")
-                    # No report re-render here any more: the report is a
-                    # written file and cannot re-render itself (ADR-0016 rev. 2).
+                    # Sec. 9.8.3: offer the report (#70). The tab that used to
+                    # re-render itself here is gone (ADR-0016 rev. 2).
+                    self._maybe_offer_report(event, cancelled)
         except queue.Empty:
             pass
         self.root.after(POLL_MS, self._drain_events)
@@ -330,6 +331,10 @@ class MainWindow:
             text = f"{est.done}/{est.total} pairs - ~{progress.format_eta(est.eta_seconds)} left"
         self._progress_label.configure(text=text)
 
+    #: the open post-run prompt, if any (#70). Class-level so the attribute
+    #: exists before the first run finishes.
+    _report_prompt_window = None
+
     def _show_report(self) -> None:
         """Generate the stand-alone HTML report and open it in the browser
         (Sec. 9.8, ADR-0016 rev. 2). Core renders the document as a string;
@@ -354,6 +359,62 @@ class MainWindow:
             )
             return None
         return path
+
+    def _maybe_offer_report(self, event, cancelled: bool) -> None:
+        """Post-run offer (#70, Sec. 9.8.3). The policy is core's - a
+        cancelled or all-errored run produced nothing to look at - and this
+        only renders the decision."""
+        summary = getattr(event, "summary", None)
+        decision = report.should_offer_report(
+            self.project.config.open_report_after_run,
+            cancelled=cancelled,
+            ok=getattr(summary, "ok", 0) or 0,
+        )
+        if decision == "open":
+            self._show_report()
+        elif decision == "ask":
+            self._report_prompt()
+
+    def _report_prompt(self) -> None:
+        """Non-modal "open the report?" prompt: no ``grab_set``, so the grid
+        stays usable. "Don't ask again" persists the answer to tta.toml as
+        `ui.open_report_after_run` = always/never (#70)."""
+        existing = self._report_prompt_window
+        if existing is not None and existing.winfo_exists():
+            existing.lift()  # one prompt at a time, however many runs finish
+            return
+        window = tk.Toplevel(self.root)
+        window.title("Report")
+        window.transient(self.root)
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="The run finished. Open the report for this project now?",
+            wraplength=360,
+            justify="left",
+        ).pack(anchor="w")
+        remember = tk.BooleanVar(value=False)
+        ttk.Checkbutton(frame, text="Don't ask again", variable=remember).pack(
+            anchor="w", pady=(8, 12)
+        )
+
+        def answer(open_it: bool) -> None:
+            if remember.get():
+                self.project.config.open_report_after_run = "always" if open_it else "never"
+                save_config(self.project.dir, self.project.config)
+            self._report_prompt_window = None
+            window.destroy()
+            if open_it:
+                self._show_report()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(anchor="e")
+        ttk.Button(buttons, text="Not now", command=lambda: answer(False)).pack(
+            side="left", padx=(0, 6)
+        )
+        ttk.Button(buttons, text="Open report", command=lambda: answer(True)).pack(side="left")
+        self._report_prompt_window = window
 
     def _export(self) -> None:
         dialogs.export_flow(self.root, self.project)
