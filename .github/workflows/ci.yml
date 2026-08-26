@@ -18,6 +18,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      # python3-tk pulls in the libtcl/libtk shared objects the setup-python
+      # interpreter's tkinter links against; xvfb gives the display-gated GUI
+      # tests somewhere to draw (see the GUI step below).
+      - name: Install Tk and Xvfb (system)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb
+
       - name: Install package (dev extras)
         run: |
           pip install -e '.[dev]'
@@ -46,9 +54,26 @@ jobs:
             exit 1
           fi
 
-      # GUI smoke test self-skips headless (no DISPLAY) — expected, no xvfb.
-      - name: Run tests
-        run: python -m pytest -q
+      # Includes the slow-marked tests (full pipeline, GUI smoke) - nothing
+      # deselects them. The display-gated GUI tests self-skip here; the step
+      # after this one runs them for real under Xvfb.
+      #
+      # Coverage gate (QA-TEST, issue #3): 85 % on tta/core, which is the
+      # number SDD 10 has always specified and nothing enforced. Measured
+      # 94.6 % line / 93.8 % branch when the gate was added, so the 85 %
+      # floor leaves headroom rather than freezing today's figure.
+      - name: Run tests (with the QA-TEST coverage gate)
+        run: |
+          python -m pytest -q \
+            --cov=tta.core --cov-branch \
+            --cov-report=term-missing --cov-fail-under=85
+
+      # Without this the display-gated tests under tests/ui NEVER run in CI -
+      # they self-skip, which reads as a pass. Issue #3 allows either, but a
+      # permanently skipped test is untested code. Kept as its own step so an
+      # Xvfb problem is instantly distinguishable from a real failure.
+      - name: GUI tests under Xvfb
+        run: xvfb-run -a python -m pytest tests/ui -q
 
   # Frozen release binaries (issue #4, ADR-0014). Linux only - NO mac/win
   # matrix. Builds the two --onefile executables from packaging/tta.spec and
