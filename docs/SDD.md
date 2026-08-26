@@ -688,6 +688,10 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 - "NA" cells are visually distinct from "error" and "missing"; **double-clicking** the cell opens a read-only **details panel** that explains the reason ([§9.9](#99-grid-cell-render-states)). The grid carries **no hover tooltips** (#66) — every explanation is reachable by an explicit gesture instead.
 - "Garbled extraction" rows get a warning glyph `[!]` in the dedicated **State** lead column ([§9.9](#99-grid-cell-render-states)) — *not* prefixed onto the file name, so the marker is sortable and file names no longer shift horizontally from row to row.
 
+**Help menu.** Three entries: **Help topics** — the help viewer over `core/help/` ([§9.4](#94-help-system)); **Privacy statement** — the generated GDPR statement ([ADR-009](adr/0009-privacy-as-code.md)); **About**. The `? Help` toolbar button opens the help viewer (#72).
+
+**About.** A small read-only window (not a message box) with four facts: application name and version, the project attribution line, the SPDX licence expression `GPL-3.0-or-later` ([ADR-017](adr/0017-license.md)), and the **repository URL**. Because the binary ships under the GPL and bundles copyleft dependencies, a recipient must be able to find the corresponding source, so the URL is not decoration: it sits in a selectable read-only field with a **Copy** button (#71). It is deliberately **not** a hyperlink — About never calls `webbrowser`, keeping QA-PRIV's "runs fully offline, no network access" literally true, with no browser hand-off to caveat. The same URL is declared as `[project.urls]` `Homepage`/`Source` in `pyproject.toml`; a test pins the two together so they cannot drift.
+
 ## 9.3 Modes
 
 | Mode | Default for | Toolbar buttons (left to right) | Differences from basic |
@@ -722,9 +726,39 @@ Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 Decision: [ADR-012](adr/0012-help-content.md). Help content under `core/help/`, organised as `modules/`, `metrics/`, and `concepts/`. Markdown with YAML front-matter; cross-references via `metric:` / `module:` / `concept:` URI schemes; citations via BibTeX in `references.bib`.
 
 Three render targets:
-- **GUI**: tk Text widget via `markdown` library; clickable cross-refs.
+- **GUI**: `ui/tk/help_view.py` — two panes (topic tree | read-only `tk.Text`), fed by a self-contained markdown-subset renderer; clickable cross-refs.
 - **CLI**: `tta help <topic>`, rendered by `rich`.
 - **PDF**: pandoc + xelatex for the SDD and standalone help bundle.
+
+### 9.4.1 GUI help viewer
+
+Two entry points, both opening the same window (a second activation raises the existing one instead of stacking another):
+
+- the **`? Help` toolbar button**, in both modes ([§9.3](#93-modes)),
+- **Help → Help topics** in the menu bar ([§9.2](#92-main-window-layout)).
+
+The **privacy statement** is *not* help content: it keeps its own `Help → Privacy statement` entry ([ADR-009](adr/0009-privacy-as-code.md)) and never appears in the topic tree. (Until #72 the `? Help` button opened the privacy statement, which left the help corpus unreachable from the GUI — that was drift, not design.)
+
+Layout: left pane a `ttk.Treeview` listing every installed page grouped under **Modules / Metrics / Concepts**, labelled by the front-matter `title` and falling back to the slug; right pane the rendered page in a read-only `tk.Text` with a scrollbar — the same read-only text-window pattern as the privacy statement. Pages are discovered through `importlib.resources` over `tta.core/help/`, so the frozen build works unchanged (the PyInstaller spec already bundles `help/**/*.md`, [ADR-014](adr/0014-distribution.md)). An empty corpus is not an error: the viewer shows the CLI's `no help topics installed yet` placeholder.
+
+The renderer handles a **documented markdown subset**, implemented inside `ui/tk` with no extra runtime dependency (QA-RES; ADR-012's GUI render-target row revised accordingly):
+
+| Construct | Rendering |
+|---|---|
+| ATX headings `#`…`###` (deeper clamped to `###`) | bold, size-stepped |
+| paragraphs (consecutive lines joined) | word-wrapped body text |
+| `-` / `*` / `+` bullets | indented `-` items |
+| fenced ```` ``` ```` and 4-space-indented blocks | fixed-pitch, unwrapped |
+| `>` quotes | indented body text |
+| GFM tables, footnotes, math | plain source lines, fixed-pitch (ADR-012 already accepts plain-text math in the GUI) |
+| `**bold**`, `*italic*`, `` `code` `` | corresponding tags |
+| `[label](target)` | see cross-references below |
+
+Underscore emphasis (`_x_`) is deliberately **not** supported: identifiers such as `mod_classify_thesis_type` and `publication_year_source` are pervasive in this corpus and would emphasise their own middles.
+
+Front matter is parsed, never rendered. `title` and `kind` label the tree; `see_also` is appended as a trailing **See also** block, mirroring the CLI target.
+
+Cross-references: a link target of the form `module:` / `metric:` / `concept:` + slug is clickable and navigates in place, with the topic tree following the selection. A target that resolves to no installed page renders as **inert text** — the corpus legitimately points at pages #2 has not authored yet, so a dangling reference must not raise. `http(s)` targets render as `label (url)` text and are **never handed to a browser**: the application makes no network calls and launches no browser for help content (QA-PRIV). Citations render as their `[@key]` source in the MVP viewer; the bibliography panel of ADR-012 is deferred with the rest of `references.bib` support.
 
 CI enforces coverage: every registered module and metric has a help page; every cross-reference resolves; every BibTeX key exists.
 

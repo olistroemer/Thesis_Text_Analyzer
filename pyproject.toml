@@ -23,6 +23,13 @@ dependencies = [
     "matplotlib>=3.8",    # report view charts (ADR-0016)
 ]
 
+# Source-availability pointer for the copyleft licence (ADR-0017, #71);
+# the same URL is shown in the GUI About window and pinned by a test.
+[project.urls]
+Homepage = "https://github.com/olistroemer/Thesis_Text_Analyzer"
+Source = "https://github.com/olistroemer/Thesis_Text_Analyzer"
+Issues = "https://github.com/olistroemer/Thesis_Text_Analyzer/issues"
+
 [project.scripts]
 tta = "tta.cli.main:main"
 

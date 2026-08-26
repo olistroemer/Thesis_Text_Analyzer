@@ -53,7 +53,7 @@ Given §2.3 commits the project to offline operation, GPL-3.0 is "enough" and AG
 - ✅ The CI surface shrinks: the AGPL gate is deleted from the boundary checks.
 - ⚠️ **Copyleft constrains the future catalogue.** All future modules — including the §12 LM-based and citation modules, and especially **word-list-based vocabulary metrics** (word lists often carry non-commercial or bespoke licenses) — must be license-compatible. Flag in §12.
 - ⚠️ **AGPL (if chosen) carries adoption-policy risk** — some institutions/IT departments are AGPL-averse, a mild tension with US-RES-LOW-FRICTION / QA-PORT.
-- ⚠️ **Ongoing obligation:** the distributed binary's exact Corresponding Source must stay available; release-tag hygiene matters.
+- ⚠️ **Ongoing obligation:** the distributed binary's exact Corresponding Source must stay available; release-tag hygiene matters. The binary carries the pointer itself: the repository URL sits in the **About** window as copyable text plus `[project.urls]` in `pyproject.toml` (#71, SDD [§9.2](../SDD.md#92-main-window-layout)), so a recipient with only the executable can still find the source.
 - ℹ️ **Per-file license headers: declined.** A single root `LICENSE` plus the `pyproject` `license = "GPL-3.0-or-later"` field is sufficient; the maintainer opted against per-file SPDX identifiers (#8). Third-party bundled licences ship as `THIRD_PARTY_LICENSES.txt` from the build (#4/#37).
 
 ## Revisit when

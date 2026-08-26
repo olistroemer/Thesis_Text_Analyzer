@@ -25,7 +25,7 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 
 | Target | Renderer | Cross-refs | Math | Citations |
 |---|---|---|---|---|
-| GUI (Tk Text widget) | `markdown` lib → custom Tk renderer | clickable internal links | plain text (MVP) | resolved to bibliography panel |
+| GUI (Tk Text widget) | built-in markdown-**subset** renderer in `ui/tk/help_view.py`, no extra dependency (rev. 2) | clickable internal links | plain text (MVP) | `[@key]` inline (MVP); bibliography panel deferred |
 | CLI (`tta help <topic>`) | `rich` library's Markdown renderer | "see also" trailing block | plain text | `[Flesch 1948]` inline |
 | PDF | pandoc + `--citeproc` + xelatex | pandoc internal refs | LaTeX math | full citations |
 
@@ -53,9 +53,10 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 - ✅ Same files render to GUI, terminal, and PDF.
 - ✅ External researchers contributing modules follow a template; the contribution surface is small and clear.
 - ⚠️ Adding a module is now a two-step PR (code + help); CI enforces.
+- ⚠️ **Rev. 2 (2026-08-26, #72):** the GUI target renders a documented markdown *subset* (SDD [§9.4.1](../SDD.md#941-gui-help-viewer)) instead of the full CommonMark + GFM surface: tables, footnotes and math fall back to their plain source lines, and `references.bib` citations stay as `[@key]`. Reason: pulling the `markdown` library into the frozen single-file bundle for a handful of read-only pages is not defensible against QA-RES, and a Tk renderer has to be hand-written either way. The **authoring** rules in this ADR (front matter, subset, cross-ref URIs, BibTeX) are unchanged — only the GUI renderer's implementation and its citation fidelity are.
 - ⚠️ Math in the GUI is plain text until a v2 with KaTeX or similar.
 
 ## Revisit when
 
 - A language beyond the MVP's **German-only** help corpus is needed (e.g. an English or third-language corpus). The MVP help is authored German-first per SDD §9.6; ADR-0012's authoring conventions are language-agnostic and unchanged.
-- Mathematical content becomes load-bearing enough in the GUI that plain-text math is insufficient.
+- Mathematical content becomes load-bearing enough in the GUI that plain-text math is insufficient — or GFM tables / citation rendering in the GUI become load-bearing enough to justify a real markdown dependency, reverting rev. 2's subset renderer.
