@@ -114,6 +114,22 @@ class SuicidalExtract(Module):
         os._exit(9)
 
 
+class SleepyQuality(Module):
+    """A dependent module that hangs, so a cancel has an extractor result
+    already committed and one module still in flight."""
+
+    spec = ModuleSpec(
+        name="mod_fake_quality",
+        version="1.0.0",
+        consumes=(artefact_kinds.RAW_TEXT,),
+        produces_metrics=("extraction_quality",),
+    )
+
+    def run(self, ctx: RunContext) -> RunResult:
+        time.sleep(30)
+        return RunResult(metrics={"extraction_quality": "ok"})
+
+
 def make_runner(project, modules, **kwargs):
     bus = events.EventBus()
     seen = []
@@ -486,18 +502,91 @@ def test_timeouts_are_configurable_from_tta_toml(tmp_path):
     key for it (#56)."""
     from tta.core.config import Config, save_config
     from tta.core.project import Project
-    from tta.core.runner import DEFAULT_MODULE_TIMEOUT_S, DEFAULT_THESIS_TIMEOUT_S
+    from tta.core.runner import (
+        DEFAULT_CANCEL_GRACE_S,
+        DEFAULT_MODULE_TIMEOUT_S,
+        DEFAULT_THESIS_TIMEOUT_S,
+    )
 
     project_dir = tmp_path / "proj"
     with Project.open(project_dir, create=True) as project:
         runner = project.make_runner()
         assert runner.module_timeout_s == DEFAULT_MODULE_TIMEOUT_S
         assert runner.thesis_timeout_s == DEFAULT_THESIS_TIMEOUT_S
+        assert runner.cancel_grace_s == DEFAULT_CANCEL_GRACE_S
 
-    save_config(project_dir, Config(module_timeout_s=12.5, thesis_timeout_s=99.0))
+    save_config(
+        project_dir,
+        Config(module_timeout_s=12.5, thesis_timeout_s=99.0, cancel_grace_s=0.25),
+    )
     with Project.open(project_dir) as project:
         assert project.config.module_timeout_s == 12.5
         assert project.config.thesis_timeout_s == 99.0
+        assert project.config.cancel_grace_s == 0.25
         runner = project.make_runner()
         assert runner.module_timeout_s == 12.5
         assert runner.thesis_timeout_s == 99.0
+        assert runner.cancel_grace_s == 0.25
+
+
+def test_cancel_does_not_wait_for_an_in_flight_thesis(project, tmp_path):
+    """Bounded-grace cancel (#57). cancel() used only to stop *scheduling*, so
+    the user waited up to a full thesis per worker - here 30 s of module sleep.
+    Control must come back within the grace plus the join timeouts instead."""
+    for i in range(2):
+        add_fake_pdf(project, tmp_path, name=f"t{i}.pdf")
+    runner, seen = make_runner(
+        project, [SleepyExtract()], workers=1, cancel_grace_s=0.3
+    )
+    runner.bus.subscribe(events.ThesisStarted, lambda evt: runner.cancel())
+
+    started = time.monotonic()
+    summary = runner.execute(runner.plan())
+    elapsed = time.monotonic() - started
+    assert elapsed < 15, elapsed  # nowhere near the module's 30 s sleep
+
+    assert summary.cancelled is True
+    assert summary.theses_abandoned == 1
+    assert summary.theses_skipped == 1
+    assert summary.theses_completed == 0
+    cancelled_evt = seen[-1]
+    assert type(cancelled_evt).__name__ == "RunCancelled"
+    assert cancelled_evt.abandoned == 1 and cancelled_evt.skipped == 1
+
+    # progress terminates: the abandoned pair is reported, not left dangling
+    completed = [e for e in seen if isinstance(e, events.ModuleCompleted)]
+    assert [(e.module_name, e.status) for e in completed] == [
+        ("mod_fake_extract", events.MODULE_SKIPPED)
+    ]
+
+    # ...but nothing was written, so pause/resume picks the work up cleanly
+    # (ADR-0015) rather than resuming against invented failures
+    assert project.repo.latest_runs() == {}
+    replanned = {pm.plan_reason for tp in runner.plan().theses for pm in tp.modules}
+    assert replanned == {"missing"}
+
+
+def test_cancel_commits_what_the_abandoned_worker_already_reported(project, tmp_path):
+    """Partial results survive the terminate: the extractor finished and is
+    committed, the module still in flight leaves no row at all (#57)."""
+    add_fake_pdf(project, tmp_path)
+    runner, seen = make_runner(
+        project, [FakeExtract(), SleepyQuality()], workers=1, cancel_grace_s=0.5
+    )
+    runner.bus.subscribe(events.ThesisStarted, lambda evt: runner.cancel())
+
+    summary = runner.execute(runner.plan())
+
+    assert summary.cancelled is True and summary.theses_abandoned == 1
+    assert summary.ok == 1
+    statuses = {name: row["status"] for (_, name), row in project.repo.latest_runs().items()}
+    assert statuses == {"mod_fake_extract": "ok"}
+    # the committed module's artefact is in the store, usable by the resumed run
+    artefacts = project.repo.current_artefacts(1)
+    assert artefact_kinds.RAW_TEXT in artefacts
+    assert project.store.resolve(artefacts[artefact_kinds.RAW_TEXT]).exists()
+
+    by_name = {
+        e.module_name: e.status for e in seen if isinstance(e, events.ModuleCompleted)
+    }
+    assert by_name == {"mod_fake_extract": "ok", "mod_fake_quality": events.MODULE_SKIPPED}

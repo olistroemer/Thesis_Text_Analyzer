@@ -23,6 +23,7 @@ class Config:
     # ADR-0013 "Timeouts": None -> the runner's own defaults (300 s / 600 s)
     module_timeout_s: float | None = None
     thesis_timeout_s: float | None = None
+    cancel_grace_s: float | None = None  # None -> runner default 2 s (#57)
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
     outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
     institution: str | None = None  # used in export filenames and sources row
@@ -42,6 +43,7 @@ def load_config(project_dir: Path | str) -> Config:
         workers=raw.get("runner", {}).get("workers"),
         module_timeout_s=raw.get("runner", {}).get("module_timeout_s"),
         thesis_timeout_s=raw.get("runner", {}).get("thesis_timeout_s"),
+        cancel_grace_s=raw.get("runner", {}).get("cancel_grace_s"),
         ui_mode=ui_mode,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
         institution=raw.get("project", {}).get("institution"),
@@ -59,6 +61,7 @@ def save_config(project_dir: Path | str, config: Config) -> None:
     for key, value in (
         ("module_timeout_s", config.module_timeout_s),
         ("thesis_timeout_s", config.thesis_timeout_s),
+        ("cancel_grace_s", config.cancel_grace_s),
     ):
         if value is None:
             runner.pop(key, None)

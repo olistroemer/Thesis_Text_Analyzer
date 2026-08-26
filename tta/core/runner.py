@@ -9,7 +9,8 @@
 - Per-module timeout kills the stuck worker; a worker that dies without
   reporting is detected and fails its thesis the same way; failures cascade
   as ``na`` to dependents and unreachable pairs are reported as ``skipped``
-  so adapter progress closes; cancellation is skip-pending.
+  so adapter progress closes; cancellation is skip-pending with a bounded
+  grace, after which in-flight workers are terminated.
 """
 
 from __future__ import annotations
@@ -45,6 +46,13 @@ DEFAULT_MODULE_TIMEOUT_S = 300.0
 #: Deliberately above DEFAULT_MODULE_TIMEOUT_S so that for a single stuck
 #: module the finer-grained guard fires first and names the culprit.
 DEFAULT_THESIS_TIMEOUT_S = 600.0
+
+#: How long an in-flight thesis may keep running after the user cancels before
+#: its worker is terminated (ADR-0013 "Cancellation", #57). Long enough that
+#: cancelling a batch 95 % through its current thesis does not throw that work
+#: away - the largest ADR-0015 per-module budget is 6 s - and two orders of
+#: magnitude below the old worst case of one full thesis per worker.
+DEFAULT_CANCEL_GRACE_S = 2.0
 
 #: How long a worker must be observed dead (``is_alive()`` false) with no
 #: ``thesis_done`` before its thesis is failed. A process can exit a few
@@ -106,7 +114,8 @@ class RunPlan:
 class RunSummary:
     theses_total: int = 0
     theses_completed: int = 0
-    theses_skipped: int = 0
+    theses_skipped: int = 0  # never started (cancelled before their turn)
+    theses_abandoned: int = 0  # in flight when the cancel grace ran out (#57)
     ok: int = 0
     na: int = 0
     error: int = 0
@@ -203,6 +212,8 @@ class _ActiveWorker:
     done: bool = False
     #: first poll at which the process was seen dead without a ``thesis_done``
     dead_since: float | None = None
+    #: terminated by a cancel rather than finishing or failing (#57)
+    abandoned: bool = False
 
 
 class Runner:
@@ -215,6 +226,7 @@ class Runner:
         workers: int | None = None,
         module_timeout_s: float | None = None,
         thesis_timeout_s: float | None = None,
+        cancel_grace_s: float | None = None,
     ):
         self.repo = repo
         self.store = store
@@ -228,7 +240,11 @@ class Runner:
         self.thesis_timeout_s = (
             DEFAULT_THESIS_TIMEOUT_S if thesis_timeout_s is None else thesis_timeout_s
         )
+        self.cancel_grace_s = (
+            DEFAULT_CANCEL_GRACE_S if cancel_grace_s is None else cancel_grace_s
+        )
         self._cancelled = False
+        self._cancel_requested_monotonic: float | None = None
 
     # -- plan phase (deterministic, side-effect-free) ----------------------
 
@@ -320,8 +336,17 @@ class Runner:
     # -- execute phase (stateful: events + DB writes) -----------------------
 
     def cancel(self) -> None:
-        """Skip-pending: in-flight theses complete; no new ones start."""
+        """Skip-pending with a bounded grace (ADR-0013 "Cancellation", #57).
+
+        No new theses start, and in-flight ones get ``cancel_grace_s`` to
+        finish on their own - long enough not to throw away a thesis that is
+        nearly done - after which the poll loop terminates their workers. Safe
+        to call from another thread (the GUI's Cancel button): it only writes
+        two fields that the loop reads.
+        """
         self._cancelled = True
+        if self._cancel_requested_monotonic is None:
+            self._cancel_requested_monotonic = time.monotonic()
 
     def _apply_lazy_hashing(self, plan: RunPlan) -> None:
         """Compute + persist ``pdf_sha256`` for each planned thesis whose hash
@@ -355,6 +380,7 @@ class Runner:
     def execute(self, plan: RunPlan) -> RunSummary:
         t0 = time.monotonic()
         self._cancelled = False
+        self._cancel_requested_monotonic = None
         self._apply_lazy_hashing(plan)
         summary = RunSummary(theses_total=len(plan.theses))
         self.bus.publish(events.RunStarted(plan))
@@ -383,7 +409,9 @@ class Runner:
                 self._drain_queue(worker)
                 if worker.done:
                     continue
-                if self._module_timed_out(worker):
+                if self._cancel_grace_elapsed():
+                    self._abandon_worker(worker)
+                elif self._module_timed_out(worker):
                     self._kill_timed_out(worker)
                 elif self._thesis_timed_out(worker):
                     self._kill_over_deadline(worker)
@@ -398,11 +426,19 @@ class Runner:
                 time.sleep(0.02)
 
         summary.theses_skipped = len(pending)
-        summary.cancelled = self._cancelled and summary.theses_skipped > 0
+        # A cancel that caught the last thesis of a batch in flight skips
+        # nothing, but is still a cancel (#57).
+        summary.cancelled = self._cancelled and (
+            summary.theses_skipped > 0 or summary.theses_abandoned > 0
+        )
         summary.duration_s = time.monotonic() - t0
         if summary.cancelled:
             self.bus.publish(
-                events.RunCancelled(completed=summary.theses_completed, skipped=summary.theses_skipped)
+                events.RunCancelled(
+                    completed=summary.theses_completed,
+                    skipped=summary.theses_skipped,
+                    abandoned=summary.theses_abandoned,
+                )
             )
         else:
             self.bus.publish(events.RunCompleted(summary))
@@ -445,6 +481,43 @@ class Runner:
             worker.module_started_monotonic is not None
             and time.monotonic() - worker.module_started_monotonic > self.module_timeout_s
         )
+
+    def _cancel_grace_elapsed(self) -> bool:
+        """True once the user's cancel has gone unanswered for the grace."""
+        return (
+            self._cancel_requested_monotonic is not None
+            and time.monotonic() - self._cancel_requested_monotonic >= self.cancel_grace_s
+        )
+
+    def _abandon_worker(self, worker: _ActiveWorker) -> None:
+        """Terminate a worker still in flight when the cancel grace ran out.
+
+        Deliberately *not* a failure: outcomes already received are committed,
+        but modules that never reported get **no row** - no error, no ``na``.
+        A cancelled pair must stay ``missing``, or ADR-0015's pause/resume
+        ("close the laptop, continue tomorrow") would resume against a history
+        full of failures the user never caused. They do get ``skipped`` events,
+        so progress still reaches a terminal state.
+        """
+        self._drain_queue(worker)
+        if worker.done:
+            return  # finished inside the grace after all
+        logger.info(
+            "cancel: abandoning thesis %s after %.1f s grace (%d of %d modules committed)",
+            worker.plan.thesis.id,
+            self.cancel_grace_s,
+            len(worker.outcomes),
+            len(worker.plan.modules),
+        )
+        self._terminate(worker)
+        for pm in self._unreported(worker):
+            self.bus.publish(
+                events.ModuleCompleted(
+                    worker.plan.thesis.id, pm.name, events.MODULE_SKIPPED, None
+                )
+            )
+        worker.abandoned = True
+        worker.done = True
 
     def _thesis_timed_out(self, worker: _ActiveWorker) -> bool:
         """The per-thesis wall-clock deadline (#56): the belt-and-braces guard
@@ -657,5 +730,8 @@ class Runner:
         summary.ok += status_counts["ok"]
         summary.na += status_counts["na"]
         summary.error += status_counts["error"]
-        summary.theses_completed += 1
+        if worker.abandoned:
+            summary.theses_abandoned += 1
+        else:
+            summary.theses_completed += 1
         self.bus.publish(events.ThesisCompleted(thesis_id, status_counts))

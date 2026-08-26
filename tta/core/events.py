@@ -71,6 +71,7 @@ class RunCompleted:
 class RunCancelled:
     completed: int  # theses finished before the cancel took effect
     skipped: int  # theses never started
+    abandoned: int = 0  # in flight when the cancel grace ran out (#57)
 
 
 class EventBus:

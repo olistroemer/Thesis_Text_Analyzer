@@ -80,4 +80,5 @@ class Project:
             workers=workers or self.config.workers,
             module_timeout_s=self.config.module_timeout_s,
             thesis_timeout_s=self.config.thesis_timeout_s,
+            cancel_grace_s=self.config.cancel_grace_s,
         )
