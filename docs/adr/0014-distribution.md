@@ -46,15 +46,26 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 |---|---|
 | Linux x86_64 | **150 MB** |
 
-Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21, `--onefile`, UPX off, CPython 3.12.13):
+Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0, `--onefile`, UPX off, CPython 3.12.13). Both rows are real freezes of the *same* tree on the same machine: "before" re-runs the pre-#52 spec with the user site live, "after" is `PYTHONNOUSERSITE=1` plus the excludes below.
 
-| | `tta` (CLI) | `tta-gui` | uncompressed graph |
+| | `tta` (CLI) | `tta-gui` (GUI) |
+|---|---|---|
+| contaminated build (before) | 212,788,216 B / 202.9 MiB | 212,005,368 B / 202.2 MiB |
+| clean build + excludes (after) | **99,033,064 B / 94.4 MiB** | **110,169,728 B / 105.1 MiB** |
+| **saved** | **-113.8 MB (-53.5 %)** | **-101.8 MB (-48.0 %)** |
+
+The dependency graphs behind those numbers, uncompressed, per binary:
+
+| graph | before | after | dropped from it |
 |---|---|---|---|
-| contaminated build (before) | 212,449,248 B / 202.6 MiB | 211,666,400 B / 201.9 MiB | 590 MB |
-| clean build + excludes (after) | 113,340,488 B / 108.1 MiB | 110,054,328 B / 105.0 MiB | 298 MB |
-| **saved** | **-99.1 MB (-46.7 %)** | **-101.6 MB (-48.0 %)** | **-292 MB** |
+| CLI (`Analysis-00.toc`) | 591.3 MB / 4734 entries | 264.5 MB / 2642 entries | llvmlite 168.04, scipy 84.60, pandas 26.07, numba 9.66 (undeclared) + matplotlib 18.36, kiwisolver 5.74, tksheet 1.18, contourpy 1.03, mpl_toolkits 0.24 (GUI-only), in MB |
+| GUI (`Analysis-01.toc`) | 589.6 MB / 4562 entries | 291.3 MB / 2830 entries | the undeclared numeric stack only — the plotting and grid stack stays, because the report view executes it |
 
-No feature was removed and no dependency was dropped to get there. The ceiling sits ~39 % above the larger measured binary, which absorbs ordinary dependency drift while leaving no room for the numeric stack to return (`scipy` alone is 85 MB uncompressed). Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
+**345 files in each "before" graph were collected from `~/.local/lib/python3.12/site-packages`** (llvmlite and numba). The "after" graphs collect nothing from a user site directory; `packaging/check_build.py` gates on exactly that, and on the absence of the four undeclared packages.
+
+Note the ordering flip, which is what the per-binary scoping buys: before the fix the CLI was the *larger* of the two binaries; after it the CLI is 11.1 MB *smaller* than the GUI, and the difference is precisely the plotting and grid stack that only the GUI runs.
+
+No feature was removed and no dependency was dropped to get there. The Linux ceiling sits ~43 % above the larger measured binary, which absorbs ordinary dependency drift while leaving no room for the numeric stack to return (`scipy` alone is 85 MB uncompressed, and a re-contaminated build lands at ~203 MiB, well over the ceiling). Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
 
 **The `hiddenimports` split is necessary but not sufficient.** `nltk` reaches for matplotlib from *inside method bodies* (`nltk.probability.FreqDist.plot`, `nltk.tokenize.texttiling.demo`, `nltk.parse.dependencygraph.demo`, `nltk.sentiment.util`, `nltk.draw.*`), so the CLI graph kept collecting the whole plotting stack -- matplotlib 18.4 MB plus its pillow / fontTools / kiwisolver / contourpy / freetype / harfbuzz tail -- even after the split. The spec therefore gives the CLI its own `CLI_EXCLUDES = EXCLUDES + [matplotlib, mpl_toolkits, tksheet, tkinter]`. This is safe for the same reason as the numeric stack: every one of those nltk import sites is inside a `try`/`except ImportError` that raises a "requires matplotlib" message, or inside a `demo()`/`__main__` block, and `tta` uses exactly `nltk.sent_tokenize` and `nltk.word_tokenize`. It stays safe because [ADR-0002](0002-ui-core-boundary.md)'s boundary invariant forbids `tta/core` and `tta/cli` from importing `tta.ui`, so the CLI cannot acquire a genuine need for a GUI dependency without a CI failure first.
 
@@ -107,7 +118,7 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ✅ Licence compliance is a build output: the binary cannot be produced without its third-party notices, and the GPL Corresponding-Source pointer travels with it (ADR-0017).
 - ⚠️ The manifest reflects the *build environment*, so it is only as honest as the clean-environment clause above; a contaminated build would also over-report licences.
 - ⚠️ Startup ~1–3 s due to PyInstaller unpacking.
-- ⚠️ Binary size ~100 MB; CI ceiling 150 MB per executable.
+- ⚠️ Binary size ~94 MB (CLI) / ~105 MB (GUI) on Linux x86_64; CI ceiling 150 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
 - ⚠️ Per-OS CI build matrix required.
