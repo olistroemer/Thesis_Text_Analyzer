@@ -56,8 +56,9 @@ def test_cell_states_cover_the_four_render_states(project, tmp_path):
 
 
 def test_error_cell_carries_reason_and_traceback(project, tmp_path):
-    """Sec. 9.9 folded error tooltip: the cell keeps the one-line reason and
-    the exception text, and cell_tooltip surfaces both."""
+    """Sec. 9.9 details panel: the cell keeps the one-line reason and the
+    exception text, and cell_details surfaces the traceback in extended mode
+    only (#66)."""
     pdf = tmp_path / "e.pdf"
     pdf.write_bytes(b"%PDF-e")
     thesis = project.repo.add_thesis(pdf)
@@ -72,9 +73,12 @@ def test_error_cell_carries_reason_and_traceback(project, tmp_path):
     assert cell.status == "error"
     assert cell.reason == "ValueError: boom"
     assert cell.detail is not None and "Traceback" in cell.detail
-    tip = grid_model.cell_tooltip(cell)
-    assert "ValueError: boom" in tip  # one-line reason
-    assert "Traceback" in tip  # folded exception text
+    extended = grid_model.cell_details(cell, extended=True)
+    assert "ValueError: boom" in extended  # one-line reason
+    assert "Traceback" in extended  # plus the traceback, extended mode only
+    basic = grid_model.cell_details(cell, extended=False)
+    assert "ValueError: boom" in basic
+    assert "Traceback" not in basic
 
 
 def test_row_carries_detected_thesis_type(project, tmp_path):
@@ -92,13 +96,17 @@ def test_row_carries_detected_thesis_type(project, tmp_path):
     assert grid_model.load_rows(project.repo, [])[0].thesis_type == "bachelor"
 
 
-def test_cell_tooltip_per_render_state():
+def test_cell_details_per_render_state():
+    """Sec. 9.9 details-panel body per render state (#66). An 'ok' cell has
+    nothing to explain, so double-clicking it opens no panel."""
     Cell = grid_model.Cell
-    assert grid_model.cell_tooltip(Cell(status="ok", value=1.0)) is None
-    assert grid_model.cell_tooltip(Cell(status="na", reason="no formula: it")) == "no formula: it"
-    assert grid_model.cell_tooltip(Cell(status="missing")) == grid_model.NOT_YET_RUN_HINT
-    err = grid_model.cell_tooltip(Cell(status="error", reason="boom"))
-    assert err == "Error: boom"
+    details = grid_model.cell_details
+    assert details(Cell(status="ok", value=1.0), extended=True) is None
+    assert details(Cell(status="na", reason="no formula: it"), extended=False) == "no formula: it"
+    assert details(Cell(status="na"), extended=False) == "Not applicable for this thesis."
+    assert details(Cell(status="missing"), extended=False) == grid_model.NOT_YET_RUN_DETAIL
+    assert details(Cell(status="error", reason="boom"), extended=True) == "Error: boom"
+    assert details(Cell(status="error"), extended=True) == "Error: module raised an exception"
 
 
 def test_outlier_bounds_iqr(project, tmp_path):

@@ -1,7 +1,7 @@
-"""Grid hover tooltips (Sec. 9.9) surfaced on the real tksheet widget.
+"""Grid rendering and interactions on the real tksheet widget (Sec. 9.2/9.9).
 
-Needs a display; skipped headless. Asserts that the reason/hint/header notes
-the grid_model carries actually land on the sheet's cell/header options.
+Needs a display; skipped headless. Covers the lead-column rendering (#65) and
+the details panel that replaced the hover tooltips (#66).
 """
 
 import os
@@ -10,11 +10,12 @@ import tkinter
 import pytest
 
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
+from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
 
 LEAD = len(LEAD_COLUMNS)
-FILE_COL = LEAD_COLUMNS.index("file")
+EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
 STATE_COL = LEAD_COLUMNS.index("state")
+FILE_COL = LEAD_COLUMNS.index("file")
 
 
 def _display_available() -> bool:
@@ -37,18 +38,8 @@ COLUMNS = [
 ]
 
 
-def _cell_note(sheet, r, c):
-    opts = sheet.MT.cell_options.get((r, c))
-    return opts["note"]["note"] if opts and "note" in opts else None
-
-
-def _header_note(sheet, c):
-    opts = sheet.CH.cell_options.get(c)
-    return opts["note"]["note"] if opts and "note" in opts else None
-
-
-@pytest.mark.slow
-def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
+def _seed_four_states(project, tmp_path):
+    """One thesis with an ok / na / error / missing cell, flagged garbled."""
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-a")
     thesis = project.repo.add_thesis(pdf)
@@ -67,6 +58,112 @@ def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
             thesis.id, "mod_check_extraction_quality", "0.1.0", "ok",
             metrics={"extraction_quality": "garbled"},
         )
+    return thesis
+
+
+def _cell_note(sheet, r, c):
+    opts = sheet.MT.cell_options.get((r, c))
+    return opts["note"]["note"] if opts and "note" in opts else None
+
+
+def _header_note(sheet, c):
+    opts = sheet.CH.cell_options.get(c)
+    return opts["note"]["note"] if opts and "note" in opts else None
+
+
+def _checkbox_kwargs(sheet, c):
+    """Column-level checkbox options tksheet registered for column ``c``."""
+    return sheet.MT.col_options.get(c, {}).get("checkbox")
+
+
+def _panel_text(window):
+    return window.winfo_children()[0].get("1.0", "end")
+
+
+def _toplevels(grid):
+    # the panel is parented on the GridView frame, so it lands among its children
+    return [w for w in grid.winfo_children() if isinstance(w, tkinter.Toplevel)]
+
+
+def _open_details(grid, r, c):
+    """Select a cell, double-click it, and return the Toplevel that opened (or
+    None when the cell has nothing to explain)."""
+    before = set(_toplevels(grid))
+    grid.sheet.select_cell(r, c)
+    grid._on_double_click(None)
+    opened = [w for w in _toplevels(grid) if w not in before]
+    return opened[0] if opened else None
+
+
+@pytest.mark.slow
+def test_grid_has_no_hover_tooltips(project, tmp_path):
+    """#66: tksheet's tooltip popup is off and no cell or header note is set -
+    the explanations moved to the details panel."""
+    _seed_four_states(project, tmp_path)
+
+    from tta.ui.tk.grid import GridView
+
+    root = tkinter.Tk()
+    try:
+        grid = GridView(root, project.repo, project.store)
+        grid.reload(COLUMNS, show_artefacts=True)
+        root.update_idletasks()
+
+        sheet = grid.sheet
+        assert sheet.ops.tooltips is False
+        assert not any("note" in opts for opts in sheet.MT.cell_options.values())
+        assert not any("note" in opts for opts in sheet.CH.cell_options.values())
+        for c in range(len(grid._column_names())):
+            assert _header_note(sheet, c) is None
+            assert _cell_note(sheet, 0, c) is None
+    finally:
+        root.destroy()
+
+
+@pytest.mark.slow
+def test_error_cell_details_panel_carries_the_traceback_in_extended_mode(project, tmp_path):
+    """#66 / Sec. 9.9: double-clicking an error cell opens a read-only panel with
+    the one-line reason, the column help and - extended mode only - the
+    traceback."""
+    _seed_four_states(project, tmp_path)
+
+    from tta.ui.tk.grid import GridView
+
+    root = tkinter.Tk()
+    try:
+        grid = GridView(root, project.repo, project.store)
+        grid.reload(COLUMNS, show_artefacts=True)  # extended
+        root.update_idletasks()
+        err_col = grid._column_names().index("yules_k")
+
+        window = _open_details(grid, 0, err_col)
+        assert window is not None
+        text = _panel_text(window)
+        assert "a.pdf - yules_k" in text  # heading names row and column
+        assert column_help("yules_k") in text
+        assert "Error: ValueError: boom" in text
+        assert "Traceback" in text
+        body = window.winfo_children()[0]
+        assert str(body["state"]) == "disabled"  # read-only
+        window.destroy()
+
+        # basic mode: same panel, reason only, no traceback
+        grid.reload(COLUMNS, show_artefacts=False)
+        root.update_idletasks()
+        err_col = grid._column_names().index("yules_k")
+        window = _open_details(grid, 0, err_col)
+        text = _panel_text(window)
+        assert "Error: ValueError: boom" in text
+        assert "Traceback" not in text
+    finally:
+        root.destroy()
+
+
+@pytest.mark.slow
+def test_na_missing_and_state_cells_explain_themselves_ok_cells_do_not(project, tmp_path):
+    """#66: every state that used to have a tooltip has a panel instead - except
+    ok cells, which open nothing."""
+    _seed_four_states(project, tmp_path)
 
     from tta.ui.tk.grid import GridView
 
@@ -75,70 +172,27 @@ def test_grid_surfaces_reason_hint_and_header_tooltips(project, tmp_path):
         grid = GridView(root, project.repo, project.store)
         grid.reload(COLUMNS, show_artefacts=False)
         root.update_idletasks()
+        names = grid._column_names()
 
-        sheet = grid.sheet
-        offset = LEAD  # LEAD_COLUMNS = (excluded, state, file, type)
-        col = {c.metric: offset + i for i, c in enumerate(COLUMNS)}
+        window = _open_details(grid, 0, names.index("flesch_reading_ease"))
+        assert "no formula for language: it" in _panel_text(window)
+        window.destroy()
 
-        # na cell surfaces the reason string verbatim
-        assert _cell_note(sheet, 0, col["flesch_reading_ease"]) == "no formula for language: it"
+        window = _open_details(grid, 0, names.index("n_images"))
+        assert grid_model.NOT_YET_RUN_DETAIL in _panel_text(window)
+        window.destroy()
 
-        # error cell surfaces the one-line reason AND the folded exception text
-        err = _cell_note(sheet, 0, col["yules_k"])
-        assert "ValueError: boom" in err and "Traceback" in err
+        # the garbled marker in the State column explains the whole row
+        window = _open_details(grid, 0, STATE_COL)
+        assert grid_model.GARBLED_DETAIL in _panel_text(window)
+        window.destroy()
 
-        # not-yet-run cell surfaces the hint
-        assert _cell_note(sheet, 0, col["n_images"]) == grid_model.NOT_YET_RUN_HINT
-
-        # ok cell carries no note
-        assert _cell_note(sheet, 0, col["word_count"]) is None
-
-        # garbled row explains itself on the State cell, where the marker now
-        # lives (#65) - the file cell carries the bare name and no note
-        assert _cell_note(sheet, 0, STATE_COL) == grid_model.GARBLED_TOOLTIP
-        assert _cell_note(sheet, 0, FILE_COL) is None
-
-        # column headers explain their metric / lead column
-        assert _header_note(sheet, col["yules_k"]) == column_help("yules_k")
-        assert _header_note(sheet, FILE_COL) == column_help("file")
+        # an ok cell, the Excluded checkbox and the Type cell open nothing
+        assert _open_details(grid, 0, names.index("word_count")) is None
+        assert _open_details(grid, 0, EXCLUDED_COL) is None
+        assert _open_details(grid, 0, names.index("type")) is None
     finally:
         root.destroy()
-
-
-@pytest.mark.slow
-def test_stale_notes_cleared_on_reload(project, tmp_path):
-    """A re-render with a shrunk row set must not leave stale hover text."""
-    for i in range(2):
-        pdf = tmp_path / f"t{i}.pdf"
-        pdf.write_bytes(b"%PDF" + str(i).encode())
-        thesis = project.repo.add_thesis(pdf)
-        with project.repo.transaction():
-            project.repo.record_run(
-                thesis.id, "mod_readability", "0.1.0", "na", reason=f"reason {i}"
-            )
-
-    from tta.ui.tk.grid import GridView
-
-    columns = [MetricColumn("flesch_reading_ease", "mod_readability")]
-    root = tkinter.Tk()
-    try:
-        grid = GridView(root, project.repo, project.store)
-        grid.reload(columns, show_artefacts=False)
-        root.update_idletasks()
-        assert _cell_note(grid.sheet, 1, LEAD) is not None
-
-        # drop to a single row and re-render; row index 1 must be clear again
-        grid.rows = grid.rows[:1]
-        grid._render()
-        root.update_idletasks()
-        assert _cell_note(grid.sheet, 1, LEAD) is None
-    finally:
-        root.destroy()
-
-
-def _checkbox_kwargs(sheet, c):
-    """Column-level checkbox options tksheet registered for column ``c``."""
-    return sheet.MT.col_options.get(c, {}).get("checkbox")
 
 
 @pytest.mark.slow
@@ -187,7 +241,6 @@ def test_artefact_columns_are_read_only_checkboxes(project, tmp_path, monkeypatc
         project.repo.record_artefact(thesis.id, "raw_text", "artefacts/1/raw_text.txt", run_id)
 
     from tta.ui.tk import grid as grid_module
-    from tta.ui.tk.columns import ARTEFACT_COLUMNS
     from tta.ui.tk.grid import GridView
 
     opened = []
@@ -208,7 +261,7 @@ def test_artefact_columns_are_read_only_checkboxes(project, tmp_path, monkeypatc
             kwargs = _checkbox_kwargs(grid.sheet, LEAD + i)
             assert kwargs is not None and kwargs["state"] == "disabled"
         # the editable Excluded checkbox is untouched by that
-        assert _checkbox_kwargs(grid.sheet, LEAD_COLUMNS.index("excluded"))["state"] == "normal"
+        assert _checkbox_kwargs(grid.sheet, EXCLUDED_COL)["state"] == "normal"
 
         # the handler a real click reaches (MainTable.click_checkbox, via
         # open_cell) must not flip a disabled cell. Sheet.click_checkbox is the

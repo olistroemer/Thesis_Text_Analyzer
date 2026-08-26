@@ -15,9 +15,10 @@ from tta.ui.tk.columns import ARTEFACT_COLUMNS, MetricColumn
 
 OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
-# Sec. 9.9 tooltip copy (ASCII only, ADR-0018).
-NOT_YET_RUN_HINT = "Not yet analysed - click Run to compute."
-GARBLED_TOOLTIP = (
+# Sec. 9.9 details-panel copy (ASCII only, ADR-0018). These used to be hover
+# tooltips; the grid has no tooltips any more (#66).
+NOT_YET_RUN_DETAIL = "Not yet analysed - click Run to compute."
+GARBLED_DETAIL = (
     "Text extraction was flagged as garbled for this thesis; every metric in "
     "this row may be unreliable (US-PROF-QUALITY)."
 )
@@ -181,20 +182,23 @@ def sort_rows(rows: list[ThesisRow], key: str | None, reverse: bool) -> list[The
     return sorted(rows, key=key_func, reverse=reverse)
 
 
-def cell_tooltip(cell: Cell) -> str | None:
-    """Hover text for a metric cell, per its render state (Sec. 9.9).
+def cell_details(cell: Cell, *, extended: bool) -> str | None:
+    """Body text for the Sec. 9.9 details panel, per the cell's render state.
 
-    ``ok`` cells have no tooltip. ``na`` surfaces the reason; ``error`` shows a
-    one-line reason and, folded below it, the exception text; ``missing`` shows
-    the not-yet-run hint. Returns None when there is nothing to show.
+    ``ok`` cells have nothing to explain (the value speaks for itself) and
+    return None, so double-clicking one opens no panel. ``na`` surfaces the
+    module's reason; ``missing`` the not-yet-run hint; ``error`` the one-line
+    reason plus, in **extended** mode only, the exception traceback - the
+    traceback is the one payload that is power-user material (Sec. 9.9). Pure,
+    so the panel copy is unit-testable without Tk (ADR-0002).
     """
     if cell.status == NA:
         return cell.reason or "Not applicable for this thesis."
     if cell.status == ERROR:
         text = "Error: " + (cell.reason or "module raised an exception")
-        if cell.detail:
+        if extended and cell.detail:
             text += "\n\n" + cell.detail
         return text
     if cell.status == MISSING:
-        return NOT_YET_RUN_HINT
+        return NOT_YET_RUN_DETAIL
     return None
