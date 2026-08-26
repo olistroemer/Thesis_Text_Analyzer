@@ -15,7 +15,7 @@ tta module      list / show module details
 tta exclude     exclude a thesis (scrub its cached analysis; --yes skips the prompt)
 tta include     re-include a previously excluded thesis
 tta remove      remove a thesis from the project entirely (--yes skips the prompt)
-tta export      produce researcher export
+tta export      produce researcher export (--profiling dumps per-run durations)
 tta import      import a researcher export
 tta db          init / migrate / vacuum
 tta help        render help topics

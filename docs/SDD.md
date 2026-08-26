@@ -578,6 +578,10 @@ Decision: [ADR-007](adr/0007-export-format.md). A single SQLite file mirroring t
 
 Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; the `exports/` directory is created on demand. The user can change the path in the file dialog. Sending the export "back" is then mechanically clear: navigate to `exports/`, attach the file.
 
+**Profiling export (#47, [ADR-0015](adr/0015-performance-budget.md), QA-RES).** `tta export --profiling` writes a **separate, flat profiling dataset** instead of the cohort export: one CSV row per `module_runs` row, carrying `thesis_id`, `pdf_sha256`, `pdf_size_bytes`, `module_name`, `module_version`, `status`, `started_at`, `duration_ms` and the derived `ms_per_byte` — which is the quantity the per-module budgets in ADR-0015 are actually about, and the same rate the size-weighted ETA consumes ([§5.5](#55-runner-orchestration)). `--current-only` composes with it, trimming to the latest run per `(thesis, module)`.
+
+It is bound by exactly the same two rules as the cohort export: **local source only** (imported durations were measured on someone else's machine and would corrupt a benchmark, quite apart from never re-travelling) and **no PII column** — no `pdf_path`, `pdf_filename`, `notes`, `tags`, `error_traceback`, no artefact contents. `duration_ms` and `started_at` already ship in the cohort export ([§8.3.1](#831-anonymisation-rules)), so this adds no new disclosure; it changes the *shape*, from a relational database to the one flat table a benchmark or the `doctor` command wants to read. CSV rather than SQLite for that reason: ADR-0007's "the schema travels with the data" argument buys nothing for a single table with no foreign keys.
+
 ### 8.3.1 Anonymisation rules
 
 | Source table | What ships | What's stripped |
