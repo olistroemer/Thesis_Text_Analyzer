@@ -62,3 +62,17 @@ def test_execute_on_worker_thread_with_thread_local_connection(tmp_path):
         assert values["text_chars"] == 120.0
         artefacts = project.repo.current_artefacts(thesis.id)
         assert artefact_kinds.RAW_TEXT in artefacts
+
+
+def test_project_connections_are_in_wal_mode(tmp_path):
+    """WAL is what makes the two-connection story cheap (ADR-0006, #59):
+    it takes the rollback-journal fsync out of every commit, and lets this
+    background-thread connection read while the main one writes."""
+    with Project.open(tmp_path / "proj", create=True) as project:
+        assert project.repo.conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+        assert project.repo.conn.execute("PRAGMA synchronous").fetchone()[0] == 1  # NORMAL
+        repo = project.connect()
+        try:
+            assert repo.conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+        finally:
+            repo.conn.close()
