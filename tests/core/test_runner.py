@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import queue
+import shutil
 import sys
 import time
 
@@ -768,3 +769,70 @@ def test_silent_modules_add_no_stdout_key(project, tmp_path):
         "SELECT notes FROM module_runs WHERE module_name = 'mod_fake_extract'"
     ).fetchone()
     assert row["notes"] is None
+
+
+def test_stale_only_skips_never_run_pairs(project, tmp_path):
+    """"Update stale" is a distinct third mode (#7): stale + errored +
+    upstream-changed, but never a never-run pair."""
+    analysed = add_fake_pdf(project, tmp_path, name="old.pdf")
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()])
+    runner.execute(runner.plan())
+
+    add_fake_pdf(project, tmp_path, name="new.pdf")  # never run
+    bumped = FakeQuality()
+    bumped.spec = dataclasses.replace(FakeQuality.spec, version="1.1.0")
+    runner2, _ = make_runner(project, [FakeExtract(), bumped])
+
+    # the default mode takes both: 2 pairs for the new thesis + the stale one
+    assert runner2.plan().pair_count == 3
+
+    stale = runner2.plan(stale_only=True)
+    assert [tp.thesis.id for tp in stale.theses] == [analysed.id]
+    assert [(pm.name, pm.plan_reason) for pm in stale.theses[0].modules] == [
+        ("mod_fake_quality", "stale")
+    ]
+    # and it is genuinely different from --rerun
+    assert runner2.plan(rerun=True).pair_count == 4
+
+
+def test_stale_only_keeps_upstream_changed_and_the_artefact_closure(project, tmp_path):
+    """Two properties of *where* the filter sits (#7): a consumer of a
+    re-planned producer still comes along, and a producer pulled in because its
+    cached artefact is gone still runs - filtering it out would plan the stale
+    module only for it to fail as an na upstream cascade."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()])
+    runner.execute(runner.plan())
+
+    # a stale producer drags its consumer in as upstream-changed
+    bumped = FakeExtract()
+    bumped.spec = dataclasses.replace(FakeExtract.spec, version="1.1.0")
+    runner2, _ = make_runner(project, [bumped, FakeQuality()])
+    reasons = {
+        pm.name: pm.plan_reason
+        for tp in runner2.plan(stale_only=True).theses
+        for pm in tp.modules
+    }
+    assert reasons == {"mod_fake_extract": "stale", "mod_fake_quality": "upstream-changed"}
+
+    # now delete the cached artefact: the producer is 'missing' but required,
+    # so the closure must still pull it in under stale_only
+    shutil.rmtree(project.dir / "artefacts")
+    bumped_quality = FakeQuality()
+    bumped_quality.spec = dataclasses.replace(FakeQuality.spec, version="1.1.0")
+    runner3, _ = make_runner(project, [FakeExtract(), bumped_quality])
+    reasons = {
+        pm.name: pm.plan_reason
+        for tp in runner3.plan(stale_only=True).theses
+        for pm in tp.modules
+    }
+    assert reasons == {"mod_fake_extract": "missing", "mod_fake_quality": "stale"}
+    summary = runner3.execute(runner3.plan(stale_only=True))
+    assert summary.ok == 2 and summary.na == 0  # no cascade: the input was rebuilt
+
+
+def test_rerun_and_stale_only_together_are_rejected(project, tmp_path):
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [FakeExtract()])
+    with pytest.raises(ValueError):
+        runner.plan(rerun=True, stale_only=True)

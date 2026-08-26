@@ -77,7 +77,8 @@ DEAD_WORKER_GRACE_S = 0.25
 #: ``terminate()`` (SIGTERM) to ``kill()`` (SIGKILL).
 JOIN_TIMEOUT_S = 5.0
 
-# Plan reasons per run mode (SDD Sec. 5.5): default = missing + stale + errored.
+# Plan reasons per run mode (SDD Sec. 5.5): default = missing + stale +
+# errored; --rerun = everything; --stale-only = the default set minus missing.
 REASON_MISSING = "missing"
 REASON_STALE = "stale"
 REASON_ERRORED = "errored"
@@ -310,7 +311,16 @@ class Runner:
         theses: list[Thesis] | None = None,
         modules: list[str] | None = None,
         rerun: bool = False,
+        stale_only: bool = False,
     ) -> RunPlan:
+        """The three MVP run modes (ADR-0013).
+
+        ``rerun`` plans every pair; ``stale_only`` plans the default set
+        *minus* never-run pairs ("Update stale", US-PROF-UPDATE, #7). The two
+        are contradictory, so passing both raises.
+        """
+        if rerun and stale_only:
+            raise ValueError("rerun and stale_only are contradictory run modes")
         if theses is None:
             theses = self.repo.list_theses(local_only=True, include_excluded=False)
         else:
@@ -326,6 +336,8 @@ class Runner:
             for module in selected:
                 reason = self._needs_run(latest.get((thesis.id, module.spec.name)), module, rerun)
                 if reason:
+                    if stale_only and reason == REASON_MISSING:
+                        continue  # "Update stale": never-run pairs stay pending
                     planned[module.spec.name] = PlannedModule(module, reason)
             # downstream propagation (US-PROF-UPDATE): a planned producer
             # changes the inputs of its consumers, so they re-run too

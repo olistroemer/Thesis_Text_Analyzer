@@ -104,7 +104,7 @@ class MainWindow:
         if extended:
             buttons += [
                 ("Re-run all", lambda: self._run(rerun=True)),
-                ("Update stale", lambda: self._run(rerun=False)),
+                ("Update stale", lambda: self._run(stale_only=True)),
             ]
         buttons += [
             ("Report", self._show_report),
@@ -166,14 +166,14 @@ class MainWindow:
             self.refresh()
             self._set_status(f"Added {added} theses - click Run all")
 
-    def _run(self, rerun: bool) -> None:
+    def _run(self, rerun: bool = False, stale_only: bool = False) -> None:
         if self._run_thread and self._run_thread.is_alive():
             messagebox.showinfo("Run", "A run is already in progress.", parent=self.root)
             return
         self._set_status("Planning...")
         self._show_cancel_control()
         self._run_thread = threading.Thread(
-            target=self._run_worker, args=(rerun,), daemon=True
+            target=self._run_worker, args=(rerun, stale_only), daemon=True
         )
         self._run_thread.start()
 
@@ -206,7 +206,7 @@ class MainWindow:
             button.configure(state="disabled")
         self._set_status("Cancelling - finishing in-flight theses...")
 
-    def _run_worker(self, rerun: bool) -> None:
+    def _run_worker(self, rerun: bool, stale_only: bool = False) -> None:
         """Background run: own the DB connection here, since sqlite3
         connections are thread-affine (#27). Events still marshal to the
         Tk thread via the queue drained by ``root.after``."""
@@ -215,7 +215,7 @@ class MainWindow:
         repo = self.project.connect()
         try:
             self._runner = self.project.make_runner(repo=repo, bus=bus)
-            plan = self._runner.plan(rerun=rerun)
+            plan = self._runner.plan(rerun=rerun, stale_only=stale_only)
             if plan.pair_count == 0:
                 self._event_queue.put(events.RunCompleted(None))
                 return
