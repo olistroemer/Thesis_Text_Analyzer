@@ -50,13 +50,29 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
-  # Frozen release binaries (issue #4, ADR-0014). Linux only — NO mac/win
+  # Frozen release binaries (issue #4, ADR-0014). Linux only - NO mac/win
   # matrix. Builds the two --onefile executables from packaging/tta.spec and
   # uploads them as a workflow artifact. PyMuPDF may ship (ADR-0017).
+  #
+  # ADR-0014 clean-environment clause (#52): PYTHONNOUSERSITE=1 is set for
+  # the WHOLE job, so the user site directory can never contribute to the
+  # frozen binary. The first 212 MB release build picked up llvmlite (168 MB
+  # uncompressed) and numba (10 MB) from the builder's ~/.local that way -
+  # neither is a declared dependency. The spec refuses to build without it.
   build-linux:
     name: build-linux (onefile)
     runs-on: ubuntu-latest
     needs: lint-and-test
+    env:
+      PYTHONNOUSERSITE: "1"
+      # ...and pip must not install *into* the user site either, or the
+      # freeze would not find the dependencies it just installed.
+      PIP_USER: "0"
+      # ADR-0014 size gate: per-executable ceiling, in bytes (150 MB).
+      # A regression tripwire, not a target. Raising it requires an ADR
+      # revision with a measurement - the reflex on a failure is to look
+      # for undeclared packages in build/tta/Analysis-*.toc first.
+      TTA_MAX_EXE_BYTES: "157286400"
 
     steps:
       - name: Checkout
@@ -84,6 +100,16 @@ jobs:
 
       - name: Build onefile binaries
         run: pyinstaller packaging/tta.spec --noconfirm --distpath dist --workpath build
+
+      # ADR-0014 build gates (#52): per-executable size ceiling, plus proof
+      # that neither dependency graph carries the undeclared numeric stack,
+      # that nothing was collected from a user site directory, and that the
+      # CLI graph is free of the GUI-only stack. The logic lives in a
+      # committed script so it is unit-tested by tests/packaging/.
+      - name: Build gates (ADR-0014)
+        run: |
+          python packaging/check_build.py \
+            --dist dist --build build/tta --max-bytes "$TTA_MAX_EXE_BYTES"
 
       # Headless CLI smoke test: prove the frozen binary boots, the bundled
       # SQL migrations run, and the NLTK-dependent modules succeed end to end

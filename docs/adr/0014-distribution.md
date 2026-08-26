@@ -46,7 +46,17 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 |---|---|
 | Linux x86_64 | **150 MB** |
 
-Measured on the clean-environment build that introduced the gate (Linux x86_64, PyInstaller 6.21, `--onefile`, UPX off): see the recorded before/after figures in #52. Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
+Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21, `--onefile`, UPX off, CPython 3.12.13):
+
+| | `tta` (CLI) | `tta-gui` | uncompressed graph |
+|---|---|---|---|
+| contaminated build (before) | 212,449,248 B / 202.6 MiB | 211,666,400 B / 201.9 MiB | 590 MB |
+| clean build + excludes (after) | 113,340,488 B / 108.1 MiB | 110,054,328 B / 105.0 MiB | 298 MB |
+| **saved** | **-99.1 MB (-46.7 %)** | **-101.6 MB (-48.0 %)** | **-292 MB** |
+
+No feature was removed and no dependency was dropped to get there. The ceiling sits ~39 % above the larger measured binary, which absorbs ordinary dependency drift while leaving no room for the numeric stack to return (`scipy` alone is 85 MB uncompressed). Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
+
+**The `hiddenimports` split is necessary but not sufficient.** `nltk` reaches for matplotlib from *inside method bodies* (`nltk.probability.FreqDist.plot`, `nltk.tokenize.texttiling.demo`, `nltk.parse.dependencygraph.demo`, `nltk.sentiment.util`, `nltk.draw.*`), so the CLI graph kept collecting the whole plotting stack -- matplotlib 18.4 MB plus its pillow / fontTools / kiwisolver / contourpy / freetype / harfbuzz tail -- even after the split. The spec therefore gives the CLI its own `CLI_EXCLUDES = EXCLUDES + [matplotlib, mpl_toolkits, tksheet, tkinter]`. This is safe for the same reason as the numeric stack: every one of those nltk import sites is inside a `try`/`except ImportError` that raises a "requires matplotlib" message, or inside a `demo()`/`__main__` block, and `tta` uses exactly `nltk.sent_tokenize` and `nltk.word_tokenize`. It stays safe because [ADR-0002](0002-ui-core-boundary.md)'s boundary invariant forbids `tta/core` and `tta/cli` from importing `tta.ui`, so the CLI cannot acquire a genuine need for a GUI dependency without a CI failure first.
 
 The gate is enforced in `.github/workflows/ci.yml` (`build-linux`) rather than in `pytest`, because it is a property of a produced artefact, not of the source tree. What `pytest` *does* assert is the build **contract** — that the spec still carries the excludes, still keeps the GUI-only imports out of the CLI graph, and that CI still sets `PYTHONNOUSERSITE` — so a regression is caught in the fast suite even when no binary is built (`tests/packaging/`).
 
