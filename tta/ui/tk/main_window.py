@@ -374,14 +374,12 @@ class MainWindow:
         self._help_window = open_help(self.root)
 
     def _show_about(self) -> None:
-        import tta
+        """Version, attribution, SPDX licence and the copyable repository URL
+        (Sec. 9.2, #71) - a Toplevel, because a messagebox cannot offer a
+        selectable field and the source URL is a GPL compliance item."""
+        from tta.ui.tk.about_view import show_about
 
-        messagebox.showinfo(
-            "About",
-            f"Thesis Text Analyzer {tta.__version__}\n"
-            "Data Science Project Group SS26 - FH Wedel",
-            parent=self.root,
-        )
+        self._about_window = show_about(self.root)
 
     def run(self) -> None:
         self.root.mainloop()

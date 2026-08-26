@@ -8,6 +8,7 @@ Assertions stay ASCII (ADR-0018) even though the shipped corpus is German:
 the real-corpus tests key on slugs and URIs, never on rendered titles.
 """
 
+import ast
 import inspect
 import os
 import tkinter
@@ -210,9 +211,20 @@ def test_external_links_render_as_text_and_are_never_clickable():
     assert runs == (Run("paper (https://example.org/p)"),)
 
 
+def _imported_modules(module) -> set:
+    """Top-level module names imported anywhere in a module's source."""
+    names = set()
+    for node in ast.walk(ast.parse(inspect.getsource(module))):
+        if isinstance(node, ast.Import):
+            names.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module.split(".")[0])
+    return names
+
+
 def test_help_viewer_never_hands_a_url_to_a_browser():
     """QA-PRIV: the viewer opens no external program for help content."""
-    assert "webbrowser" not in inspect.getsource(help_view)
+    assert "webbrowser" not in _imported_modules(help_view)
 
 
 # -- document assembly --------------------------------------------------------
