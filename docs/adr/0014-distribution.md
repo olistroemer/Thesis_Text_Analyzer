@@ -55,7 +55,7 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 
 | target | ceiling (per executable) | basis |
 |---|---|---|
-| Linux x86_64 | **150 MB** | measured: 93.0 MiB CLI / 104.8 MiB GUI (below) |
+| Linux x86_64 | **100 MB** | measured: 69.3 MiB CLI / 70.7 MiB GUI (below) |
 | Windows x86_64 | **200 MB** | **provisional** — no measurement yet |
 | macOS arm64 | **200 MB** | **provisional** — no measurement yet |
 | macOS x86_64 | **200 MB** | **provisional** — no measurement yet |
@@ -67,8 +67,9 @@ Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0
 | | `tta` (CLI) | `tta-gui` (GUI) |
 |---|---|---|
 | contaminated build (before) | 212,788,216 B / 202.9 MiB | 212,005,368 B / 202.2 MiB |
-| clean build + excludes (after) | **97,539,152 B / 93.0 MiB** | **109,881,080 B / 104.8 MiB** |
-| **saved** | **-114.9 MB (-54.1 %)** | **-101.8 MB (-48.1 %)** |
+| clean build + excludes (#52) | 97,539,152 B / 93.0 MiB | 109,881,080 B / 104.8 MiB |
+| matplotlib dropped (#53) | **72,700,872 B / 69.3 MiB** | **74,118,464 B / 70.7 MiB** |
+| **saved overall** | **-140.1 MB (-65.8 %)** | **-137.9 MB (-65.0 %)** |
 
 The dependency graphs behind those numbers, uncompressed, per binary:
 
@@ -81,7 +82,7 @@ The dependency graphs behind those numbers, uncompressed, per binary:
 
 **345 files in each "before" graph were collected from `~/.local/lib/python3.12/site-packages`** (llvmlite and numba). The "after" graphs collect nothing from a user site directory; `packaging/check_build.py` gates on exactly that, and on the absence of the four undeclared packages.
 
-Note the ordering flip, which is what the per-binary scoping buys: before the fix the CLI was the *larger* of the two binaries; after it the CLI is 12.3 MB *smaller* than the GUI, and the difference is precisely the plotting and grid stack that only the GUI runs.
+Note the ordering flip, which is what the per-binary scoping buys: before the fix the CLI was the *larger* of the two binaries; after it the CLI was 12.3 MB *smaller* than the GUI. Since #53 removed matplotlib the gap is only 1.4 MB, which is Tk plus tksheet - matplotlib and the numeric/imaging tail it required were most of what the GUI carried alone.
 
 No feature was removed and no dependency was dropped to get there. The Linux ceiling sits ~43 % above the larger measured binary, which absorbs ordinary dependency drift while leaving no room for the numeric stack to return (`scipy` alone is 85 MB uncompressed, and a re-contaminated build lands at ~203 MiB, well over the ceiling). Raising a ceiling requires an ADR revision that states why the growth is a genuine dependency cost; the reflex on a failure is to inspect the build's `Analysis-*.toc` for undeclared packages *first*.
 
@@ -149,7 +150,7 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ✅ Licence compliance is a build output: the binary cannot be produced without its third-party notices, and the GPL Corresponding-Source pointer travels with it (ADR-0017).
 - ⚠️ The manifest reflects the *build environment*, so it is only as honest as the clean-environment clause above; a contaminated build would also over-report licences.
 - ⚠️ Startup ~1–3 s due to PyInstaller unpacking.
-- ⚠️ Binary size ~94 MB (CLI) / ~105 MB (GUI) on Linux x86_64; CI ceiling 150 MB per executable.
+- ⚠️ Binary size ~73 MB (CLI) / ~74 MB (GUI) on Linux x86_64; CI ceiling 100 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
 - ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published.

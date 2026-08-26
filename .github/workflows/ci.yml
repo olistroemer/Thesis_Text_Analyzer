@@ -141,13 +141,13 @@ jobs:
       matrix:
         include:
           # ADR-0014 size gate, per target, in bytes. Linux is measured
-          # (94.4 MiB CLI / 105.1 MiB GUI); the other three are PROVISIONAL
+          # (69.3 MiB CLI / 70.7 MiB GUI); the other three are PROVISIONAL
           # placeholders that the first green run must replace with a
           # measurement - see the ADR's ceiling table.
           - target: linux-x86_64
             os: ubuntu-latest
             exe_suffix: ""
-            max_exe_bytes: "157286400"    # 150 MB, measured
+            max_exe_bytes: "104857600"    # 100 MB, measured
           - target: windows-x86_64
             os: windows-latest
             exe_suffix: ".exe"

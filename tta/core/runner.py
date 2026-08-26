@@ -30,7 +30,7 @@ from pathlib import Path
 
 from tta.core import events
 from tta.core.artefacts import ArtefactStore
-from tta.core.db.repository import Repository
+from tta.core.db.repository import TIMEOUT_REASON_PREFIX, Repository
 from tta.core.modules.base import Module, NotApplicable, RunContext, RunResult
 from tta.core.modules.registry import ModuleRegistry
 from tta.core.types import Thesis
@@ -703,7 +703,7 @@ class Runner:
         self._fail_worker(
             worker,
             timed_out,
-            reason=f"timeout after {self.module_timeout_s:.0f} s",
+            reason=f"{TIMEOUT_REASON_PREFIX}{self.module_timeout_s:.0f} s",
             duration_ms=int(self.module_timeout_s * 1000),
         )
 

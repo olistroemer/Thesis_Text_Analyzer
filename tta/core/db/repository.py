@@ -62,6 +62,14 @@ def _row_to_thesis(row: sqlite3.Row) -> Thesis:
 _ADD_CHUNK = 500
 
 
+#: Prefix of the ``module_runs.reason`` that a timeout kill records. Written by
+#: ``Runner._kill_timed_out`` and read back by :meth:`Repository.thesis_cost_floors`
+#: (#56). It lives here rather than in the runner because the runner imports this
+#: module, not the other way round.
+TIMEOUT_REASON_PREFIX = "timeout after "
+_TIMEOUT_REASON_LIKE = TIMEOUT_REASON_PREFIX + "%"
+
+
 class Repository:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -470,6 +478,29 @@ class Repository:
             "SELECT * FROM v_module_run_history WHERE recency_rank = 1"
         ).fetchall()
         return {(r["thesis_id"], r["module_name"]): r for r in rows}
+
+    def thesis_cost_floors(self) -> dict[int, float]:
+        """Per-thesis ETA floor in ms, from timed-out runs (#56, SDD Sec. 5.5).
+
+        ``module_duration_stats`` fits **successful** runs only, so a module the
+        timeout killed contributes nothing to the cost model and the next run
+        would under-estimate that same document just as badly. This reads the
+        timeout rows back and reports, per thesis, the longest timeout recorded
+        against it; ``progress.estimate`` floors that thesis's remaining bucket
+        at the value.
+
+        Deliberately scoped per **thesis**, not per module: a hang is a property
+        of the one document that hung - a corrupt or pathological PDF - so
+        re-pricing the module globally would let a single bad file distort every
+        estimate in the database (ADR-0013).
+        """
+        rows = self.conn.execute(
+            "SELECT thesis_id, MAX(duration_ms) AS floor_ms FROM module_runs"
+            " WHERE status = 'error' AND reason LIKE ? AND duration_ms IS NOT NULL"
+            " GROUP BY thesis_id",
+            (_TIMEOUT_REASON_LIKE,),
+        ).fetchall()
+        return {int(row["thesis_id"]): float(row["floor_ms"]) for row in rows}
 
     def module_duration_stats(self) -> dict[str, tuple[float, float]]:
         """Per-module affine cost model for the ETA (#39, #54, SDD Sec. 5.5).
