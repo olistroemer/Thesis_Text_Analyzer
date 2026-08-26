@@ -762,7 +762,7 @@ Whole-row indicator: theses with `extraction_quality = garbled` get a warning gl
 
 ### QA-PORT — Cross-platform
 
-The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required. Each target carries a per-OS binary size ceiling enforced in CI ([ADR-014](adr/0014-distribution.md)); the download size is a portability concern, since the professor's happy path begins with fetching one file.
+The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required. Each target carries a per-OS binary size ceiling enforced in CI ([ADR-014](adr/0014-distribution.md)); the download size is a portability concern, since the professor's happy path begins with fetching one file. Portability is asserted per build rather than per claim: CI freezes both binaries on all four targets (Linux x86_64, Windows x86_64, macOS arm64 and x86_64) on every push, and drives the frozen CLI through a real project - run, list, export - on each of them; the GUI binary is additionally launched on Linux under Xvfb. The one stated gap is that no CI runner launches the *GUI* binary on Windows or macOS (ADR-014, "Packaged-binary acceptance").
 
 ### QA-RES — Resource-light
 
