@@ -12,7 +12,7 @@ import re
 import subprocess
 import sys
 
-from tests.packaging.conftest import ADR_PATH, REPO_ROOT, SPEC_PATH
+from tests.packaging.conftest import ADR_PATH, REPO_ROOT, SPEC_PATH, job
 
 FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy")
 GUI_ONLY = ("matplotlib", "tksheet", "tkinter")
@@ -202,10 +202,24 @@ def test_pythonnousersite_is_what_the_fix_message_says_it_is():
 
 
 def test_build_job_disables_the_user_site(workflow_source):
-    build_job = workflow_source.split("build-linux:", 1)[1]
+    build_job = job(workflow_source, "build")
     assert re.search(r'PYTHONNOUSERSITE:\s*"1"', build_job), (
-        "the build-linux job must set PYTHONNOUSERSITE=1 (ADR-0014)"
+        "the build job must set PYTHONNOUSERSITE=1 (ADR-0014)"
     )
+
+
+def test_the_user_site_is_disabled_for_every_matrix_target(workflow_source):
+    """It is job-level env, so it must sit outside the per-target entries.
+
+    A per-step or per-target setting is the version of this that ships a
+    contaminated Windows binary while Linux stays clean.
+    """
+    build_job = job(workflow_source, "build")
+    env_block = build_job.split("\n    env:\n", 1)
+    assert len(env_block) == 2, "the build job has no job-level env block"
+    assert re.search(
+        r'PYTHONNOUSERSITE:\s*"1"', env_block[1].split("\n    ", 1)[0]
+    ), "PYTHONNOUSERSITE is not set at job level"
 
 
 def test_build_job_runs_the_build_gates(workflow_source):
@@ -213,18 +227,33 @@ def test_build_job_runs_the_build_gates(workflow_source):
     assert "--max-bytes" in workflow_source
 
 
-def test_workflow_ceiling_matches_the_adr(workflow_source):
-    """The size gate's number must not drift away from the documented one."""
-    match = re.search(r'TTA_MAX_EXE_BYTES:\s*"(\d+)"', workflow_source)
-    assert match, "no size ceiling declared in the workflow"
-    ceiling = int(match.group(1))
+def test_the_size_gate_is_wired_to_the_matrix_ceiling(workflow_source):
+    """Every target's gate reads its own ceiling from the matrix.
 
+    The per-target numbers are cross-checked against ADR-0014's table in
+    tests/packaging/test_ci_workflow.py; this asserts the plumbing.
+    """
+    build_job = job(workflow_source, "build")
+    assert "TTA_MAX_EXE_BYTES: ${{ matrix.max_exe_bytes }}" in build_job
+    assert '--max-bytes "$TTA_MAX_EXE_BYTES"' in build_job
+
+
+def test_the_linux_ceiling_still_matches_the_adr(workflow_source):
+    """The one measured row, kept honest here as well as per-target."""
     adr = ADR_PATH.read_text(encoding="utf-8")
     documented = re.search(r"\|\s*Linux x86_64\s*\|\s*\*\*(\d+) MB\*\*", adr)
     assert documented, "ADR-0014 has no Linux size-gate row"
-    assert ceiling == int(documented.group(1)) * 1024 * 1024, (
-        "workflow ceiling %d bytes disagrees with ADR-0014's %s MB"
-        % (ceiling, documented.group(1))
+    expected = int(documented.group(1)) * 1024 * 1024
+    build_job = job(workflow_source, "build")
+    linux = re.search(
+        r"target:\s*linux-x86_64.*?max_exe_bytes:\s*\"(\d+)\"",
+        build_job,
+        re.S,
+    )
+    assert linux, "no linux-x86_64 matrix entry with a ceiling"
+    assert int(linux.group(1)) == expected, (
+        "workflow ceiling %s bytes disagrees with ADR-0014's %s MB"
+        % (linux.group(1), documented.group(1))
     )
 
 

@@ -12,13 +12,26 @@ a number someone picked.
 
 import re
 
-from tests.packaging.conftest import REPO_ROOT
+import pytest
+
+from tests.packaging.conftest import REPO_ROOT, job, workflow_jobs
 
 SDD_PATH = REPO_ROOT / "docs" / "SDD.md"
 
 
 def build_job(workflow_source):
-    return workflow_source.split("build-linux:", 1)[0]
+    """The test job. Named for history; it is `lint-and-test`."""
+    return job(workflow_source, "lint-and-test")
+
+
+def sdd_coverage_targets():
+    """(line, branch) from QA-TEST itself, so CI cannot drift from the SDD."""
+    sdd = SDD_PATH.read_text(encoding="utf-8")
+    documented = re.search(
+        r"Coverage target:\s*(\d+)\s*%\s*line\s*/\s*(\d+)\s*%\s*branch", sdd
+    )
+    assert documented, "SDD QA-TEST no longer states a coverage target"
+    return int(documented.group(1)), int(documented.group(2))
 
 
 # ------------------------------------------------------------- triggers
@@ -30,17 +43,17 @@ def test_workflow_runs_on_push_and_pull_request(workflow_source):
     assert re.search(r"^\s*pull_request:", header, re.M)
 
 
+def test_the_workflow_parses_as_yaml(workflow_source):
+    """A malformed workflow is a silently disabled workflow."""
+    yaml = pytest.importorskip("yaml")
+    parsed = yaml.safe_load(workflow_source)
+    # PyYAML resolves the unquoted key `on` to True (YAML 1.1 booleans).
+    triggers = parsed.get("on", parsed.get(True))
+    assert triggers, "no triggers in the workflow"
+    assert set(parsed["jobs"]) == {"lint-and-test", "build", "release"}
+
+
 # ------------------------------------------------------- the coverage gate
-
-
-def sdd_coverage_targets():
-    """(line, branch) from QA-TEST itself, so CI cannot drift from the SDD."""
-    sdd = SDD_PATH.read_text(encoding="utf-8")
-    documented = re.search(
-        r"Coverage target:\s*(\d+)\s*%\s*line\s*/\s*(\d+)\s*%\s*branch", sdd
-    )
-    assert documented, "SDD QA-TEST no longer states a coverage target"
-    return int(documented.group(1)), int(documented.group(2))
 
 
 def test_coverage_gate_exists_and_is_scoped_to_core(workflow_source):
@@ -106,6 +119,149 @@ def test_coverage_artefacts_are_written_outside_the_checkout(workflow_source):
     assert "COVERAGE_FILE" in test_job
     assert "runner.temp" in test_job
     assert "--cov-report=json:\"$RUNNER_TEMP" in test_job
+
+
+# --------------------------------------------- the per-OS build matrix (#4)
+
+
+def test_a_v_tag_triggers_the_workflow(workflow_source):
+    """#4: "a tagged release produces working single-file binaries"."""
+    header = workflow_source.split("jobs:", 1)[0]
+    assert re.search(r'tags:\s*\["v\*"\]', header), (
+        "no v* tag trigger, so a tagged release builds nothing"
+    )
+
+
+def test_every_target_os_in_adr_0014_has_a_matrix_entry(workflow_source):
+    """ADR-0014: Windows, macOS (arm64 + amd64), Linux."""
+    matrix = job(workflow_source, "build")
+    for target in ("linux-x86_64", "windows-x86_64", "macos-arm64",
+                   "macos-x86_64"):
+        assert "target: %s" % target in matrix, "no %s matrix entry" % target
+    for runner in ("ubuntu-latest", "windows-latest", "macos-14", "macos-13"):
+        assert runner in matrix, "no %s runner" % runner
+
+
+def test_windows_binaries_are_addressed_with_their_exe_suffix(workflow_source):
+    matrix = job(workflow_source, "build")
+    assert 'exe_suffix: ".exe"' in matrix
+    assert "matrix.exe_suffix" in matrix
+
+
+def test_one_platform_failure_does_not_hide_the_others(workflow_source):
+    assert "fail-fast: false" in job(workflow_source, "build")
+
+
+def test_every_matrix_ceiling_matches_its_adr_row(workflow_source):
+    """Each target's size gate must be the number ADR-0014 documents."""
+    from tests.packaging.conftest import ADR_PATH
+
+    adr = ADR_PATH.read_text(encoding="utf-8")
+    rows = dict(
+        (label.strip(), int(mb))
+        for label, mb in re.findall(
+            r"^\|\s*(Linux x86_64|Windows x86_64|macOS arm64|macOS x86_64)\s*"
+            r"\|\s*\*\*(\d+) MB\*\*",
+            adr,
+            re.M,
+        )
+    )
+    assert len(rows) == 4, "ADR-0014's ceiling table lost a target: %s" % rows
+
+    labels = {
+        "linux-x86_64": "Linux x86_64",
+        "windows-x86_64": "Windows x86_64",
+        "macos-arm64": "macOS arm64",
+        "macos-x86_64": "macOS x86_64",
+    }
+    matrix = job(workflow_source, "build")
+    entries = re.findall(
+        r"target:\s*(\S+).*?max_exe_bytes:\s*\"(\d+)\"", matrix, re.S
+    )
+    assert len(entries) == 4, entries
+    for target, ceiling in entries:
+        documented = rows[labels[target]] * 1024 * 1024
+        assert int(ceiling) == documented, (
+            "%s gates at %s bytes, ADR-0014 documents %d"
+            % (target, ceiling, documented)
+        )
+
+
+def test_the_build_runs_on_every_push_not_only_on_tags(workflow_source):
+    """A release path first exercised on tag day is a broken release path."""
+    matrix = job(workflow_source, "build")
+    assert "if:" not in matrix.split("steps:", 1)[0].replace(
+        "if: runner.os", ""
+    ), "the build job is conditional; it must run on every push"
+
+
+# ------------------------------------ packaged-binary acceptance (#4, ADR-0014)
+
+
+def test_the_frozen_cli_is_driven_end_to_end(workflow_source):
+    """#4: "launch -> add PDFs -> run -> report -> export from the binary"."""
+    matrix = job(workflow_source, "build")
+    smoke = matrix.split("Smoke-test the CLI binary", 1)
+    assert len(smoke) == 2, "no CLI smoke step"
+    smoke = smoke[1]
+    for command in ("version", "module\", \"list", "--help", "\"run\"",
+                    "\"list\"", "\"export\""):
+        assert command in smoke, "the CLI smoke never runs %s" % command
+    assert "metric_values" in smoke, (
+        "the smoke never inspects the export, so an empty file would pass"
+    )
+    assert "0 errors" in smoke, "the smoke tolerates module errors"
+
+
+def test_the_frozen_gui_is_actually_launched(workflow_source):
+    """The GUI stack is the one the CLI binary no longer carries at all."""
+    matrix = job(workflow_source, "build")
+    launch = matrix.split("Launch the GUI binary", 1)
+    assert len(launch) == 2, "the GUI binary is never launched"
+    launch = launch[1]
+    assert "xvfb-run" in launch
+    assert "124" in launch, "no timeout check, so a crash could read as a pass"
+    assert "tta.sqlite" in launch, "no proof the app got as far as its project"
+    assert "runner.os == 'Linux'" in launch
+
+
+def test_the_smoke_runs_before_the_artifact_upload(workflow_source):
+    """An unproven binary must never be published."""
+    matrix = job(workflow_source, "build")
+    assert matrix.index("Smoke-test the CLI binary") < matrix.index(
+        "upload-artifact"
+    )
+
+
+# ------------------------------------------------- the tagged release (#4)
+
+
+def test_the_release_job_only_runs_for_v_tags(workflow_source):
+    release = job(workflow_source, "release")
+    assert "startsWith(github.ref, 'refs/tags/v')" in release
+    assert "needs: build" in release
+
+
+def test_the_release_collects_every_target_and_stays_a_draft(workflow_source):
+    """Publishing needs the #8 licence sign-off and #6 GDPR statement."""
+    release = job(workflow_source, "release")
+    assert "download-artifact" in release
+    assert "--draft" in release
+    assert "contents: write" in release
+
+
+def test_the_release_ships_the_licence_manifest_alongside(workflow_source):
+    """A binary is not the only thing ADR-0014 says has to travel."""
+    assert "THIRD_PARTY_LICENSES" in job(workflow_source, "release")
+
+
+def test_only_the_release_job_can_write_to_the_repository(workflow_source):
+    """Least privilege: the token is read-only everywhere else."""
+    header = workflow_source.split("jobs:", 1)[0]
+    assert "contents: read" in header
+    for name, text in workflow_jobs(workflow_source).items():
+        if name != "release":
+            assert "contents: write" not in text, name
 
 
 # ---------------------------------------------------------- the test suite

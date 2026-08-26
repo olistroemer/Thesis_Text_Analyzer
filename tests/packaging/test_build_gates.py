@@ -201,6 +201,52 @@ def test_a_source_path_containing_pandas_is_not_enough(check_build, tmp_path):
     assert check_build.check(str(dist), str(build), CEILING) == []
 
 
+def test_the_user_site_gate_covers_all_three_matrix_platforms(check_build):
+    """A POSIX-only marker would make this gate green on 3 of 4 targets.
+
+    ADR-0014's build matrix freezes on Windows and macOS too, and each puts
+    the per-user site somewhere else. The gate exists to catch a build that
+    drew files from the builder's own home; if it only recognised
+    ~/.local/lib it would silently pass exactly there.
+    """
+    entries = [
+        ("numpy", "/home/u/.local/lib/python3.12/site-packages/numpy/a.py",
+         "PYMODULE"),
+        ("numba",
+         "C:\\Users\\u\\AppData\\Roaming\\Python\\Python312"
+         "\\site-packages\\numba\\a.py", "PYMODULE"),
+        ("llvmlite",
+         "/Users/u/Library/Python/3.12/lib/python/site-packages/llvmlite/a.py",
+         "PYMODULE"),
+        ("nltk", SITE + "/nltk/__init__.py", "PYMODULE"),
+    ]
+    leaked = check_build.user_site_sources(entries)
+    assert len(leaked) == 3, leaked
+    assert not any(SITE in source for source in leaked)
+
+
+def test_user_site_markers_include_the_running_interpreters_own(check_build):
+    import site as _site
+
+    markers = check_build.user_site_markers()
+    own = _site.getusersitepackages().replace("\\", "/").rstrip("/").lower()
+    assert own + "/" in markers
+
+
+def test_a_windows_user_site_leak_fails_the_gate(check_build, tmp_path):
+    """The same failure #52 hit, on the target that ADR-0014 added later."""
+    dist, build = make_tree(
+        tmp_path,
+        cli_extra=[
+            ("scipy",
+             "C:\\Users\\u\\AppData\\Roaming\\Python\\Python312"
+             "\\site-packages\\scipy\\__init__.py", "PYMODULE")
+        ],
+    )
+    failures = check_build.check(str(dist), str(build), CEILING)
+    assert any("PYTHONNOUSERSITE=1" in f for f in failures)
+
+
 def test_user_site_provenance_is_reported_on_its_own(check_build, tmp_path):
     """A file from ~/.local fails even if the package is otherwise allowed.
 
@@ -234,6 +280,37 @@ def test_gui_only_packages_in_the_cli_graph_fail(check_build, tmp_path):
 def test_gui_only_packages_in_the_gui_graph_are_fine(check_build, tmp_path):
     dist, build = make_tree(tmp_path)
     assert check_build.check(str(dist), str(build), CEILING) == []
+
+
+def test_a_gui_graph_stripped_of_its_own_stack_fails(check_build, tmp_path):
+    """The mirror image of the CLI gate, and a smaller binary either way.
+
+    Applying CLI_EXCLUDES to both Analysis objects would shrink the GUI
+    binary and pass every size gate, then die when the report view opens.
+    """
+    dist, build = make_tree(tmp_path, gui_extra=())
+    failures = check_build.check(str(dist), str(build), CEILING)
+    assert len(failures) == 1
+    assert "the GUI graph" in failures[0] and "MISSING" in failures[0]
+    for package in ("matplotlib", "tksheet", "tkinter"):
+        assert package in failures[0]
+
+
+def test_a_gui_graph_missing_only_one_package_still_fails(check_build, tmp_path):
+    dist, build = make_tree(
+        tmp_path,
+        gui_extra=[e for e in GUI_EXTRA if e[0] != "tksheet"],
+    )
+    failures = check_build.check(str(dist), str(build), CEILING)
+    assert len(failures) == 1
+    assert "tksheet" in failures[0]
+    assert "matplotlib" not in failures[0]
+
+
+def test_gui_required_and_gui_only_agree_about_the_gui_stack(check_build):
+    """A package cannot be required in the GUI and unnamed as GUI-only."""
+    assert set(check_build.GUI_REQUIRED) <= set(check_build.GUI_ONLY) | {"tkinter"}
+    assert not set(check_build.GUI_REQUIRED) & set(check_build.FORBIDDEN)
 
 
 def test_classification_does_not_depend_on_analysis_numbering(

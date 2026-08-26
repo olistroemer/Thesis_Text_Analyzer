@@ -2,7 +2,14 @@ name: CI
 
 on:
   push:
+    branches: ["**"]
+    # Release trigger (issue #4, ADR-0014). A v* tag runs the same build
+    # matrix as every other push and then opens a DRAFT release from it.
+    tags: ["v*"]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   lint-and-test:
@@ -114,29 +121,61 @@ jobs:
       - name: GUI tests under Xvfb
         run: xvfb-run -a python -m pytest tests/ui -q
 
-  # Frozen release binaries (issue #4, ADR-0014). Linux only - NO mac/win
-  # matrix. Builds the two --onefile executables from packaging/tta.spec and
-  # uploads them as a workflow artifact. PyMuPDF may ship (ADR-0017).
+  # Frozen release binaries (issue #4, ADR-0014): one job per target OS, on
+  # every push and pull request, so the release path is never first exercised
+  # on tag day. PyMuPDF may ship (ADR-0017).
   #
   # ADR-0014 clean-environment clause (#52): PYTHONNOUSERSITE=1 is set for
   # the WHOLE job, so the user site directory can never contribute to the
   # frozen binary. The first 212 MB release build picked up llvmlite (168 MB
   # uncompressed) and numba (10 MB) from the builder's ~/.local that way -
   # neither is a declared dependency. The spec refuses to build without it.
-  build-linux:
-    name: build-linux (onefile)
-    runs-on: ubuntu-latest
+  build:
+    name: build ${{ matrix.target }} (onefile)
     needs: lint-and-test
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # One platform's packaging failure must not hide the other three.
+      fail-fast: false
+      matrix:
+        include:
+          # ADR-0014 size gate, per target, in bytes. Linux is measured
+          # (94.4 MiB CLI / 105.1 MiB GUI); the other three are PROVISIONAL
+          # placeholders that the first green run must replace with a
+          # measurement - see the ADR's ceiling table.
+          - target: linux-x86_64
+            os: ubuntu-latest
+            exe_suffix: ""
+            max_exe_bytes: "157286400"    # 150 MB, measured
+          - target: windows-x86_64
+            os: windows-latest
+            exe_suffix: ".exe"
+            max_exe_bytes: "209715200"    # 200 MB, provisional
+          - target: macos-arm64
+            os: macos-14
+            exe_suffix: ""
+            max_exe_bytes: "209715200"    # 200 MB, provisional
+          - target: macos-x86_64
+            os: macos-13
+            exe_suffix: ""
+            max_exe_bytes: "209715200"    # 200 MB, provisional
+
     env:
       PYTHONNOUSERSITE: "1"
       # ...and pip must not install *into* the user site either, or the
       # freeze would not find the dependencies it just installed.
       PIP_USER: "0"
-      # ADR-0014 size gate: per-executable ceiling, in bytes (150 MB).
-      # A regression tripwire, not a target. Raising it requires an ADR
-      # revision with a measurement - the reflex on a failure is to look
-      # for undeclared packages in build/tta/Analysis-*.toc first.
-      TTA_MAX_EXE_BYTES: "157286400"
+      TTA_MAX_EXE_BYTES: ${{ matrix.max_exe_bytes }}
+      EXE_SUFFIX: ${{ matrix.exe_suffix }}
+      CLI_EXE: dist/tta${{ matrix.exe_suffix }}
+      GUI_EXE: dist/tta-gui${{ matrix.exe_suffix }}
+
+    defaults:
+      run:
+        # One shell for all four targets: every step below is the same script
+        # everywhere, and Windows gets it through Git bash.
+        shell: bash
 
     steps:
       - name: Checkout
@@ -147,15 +186,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      # tkinter is not bundled with the actions/setup-python interpreter; the
-      # GUI binary (tta.ui.tk) needs it present at freeze time.
-      - name: Install Tk (system)
+      # tkinter is not bundled with the actions/setup-python interpreter on
+      # Linux; the GUI binary (tta.ui.tk) needs it present at freeze time.
+      # Xvfb is for the GUI launch check further down. The Windows and macOS
+      # interpreters ship Tcl/Tk themselves.
+      - name: Install Tk and Xvfb (system)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk tk-dev
+          sudo apt-get install -y python3-tk tk-dev xvfb
 
-      # build extra = PyInstaller; pymupdf extra = the fitz extractor the
-      # default module registry uses (ADR-0017 permits shipping it).
+      # build extra = PyInstaller + pip-licenses; pymupdf extra = the fitz
+      # extractor the default module registry uses (ADR-0017 permits it).
       - name: Install build dependencies
         run: pip install -e '.[build,pymupdf]'
 
@@ -174,34 +216,102 @@ jobs:
       - name: Build onefile binaries
         run: pyinstaller packaging/tta.spec --noconfirm --distpath dist --workpath build
 
-      # ADR-0014 build gates (#52, #4): per-executable size ceiling, plus
-      # proof that neither dependency graph carries the undeclared numeric
-      # stack, that nothing was collected from a user site directory, that
-      # the CLI graph is free of the GUI-only stack, and that every bundled
-      # distribution has a licence notice in the manifest. The logic lives in
-      # a committed script so it is unit-tested by tests/packaging/.
+      # ADR-0014 build gates (#52, #4): per-target size ceiling, plus proof
+      # that neither dependency graph carries the undeclared numeric stack,
+      # that nothing was collected from a user site directory, that the CLI
+      # graph is free of the GUI-only stack while the GUI graph still HAS it,
+      # and that every bundled distribution has a licence notice in the
+      # manifest. The logic lives in a committed script so it is unit-tested
+      # by tests/packaging/.
       - name: Build gates (ADR-0014)
         run: |
           python packaging/check_build.py \
             --dist dist --build build/tta --max-bytes "$TTA_MAX_EXE_BYTES" \
+            --exe "tta$EXE_SUFFIX" --exe "tta-gui$EXE_SUFFIX" \
             --manifest build/licenses/THIRD_PARTY_LICENSES.txt
 
-      # Headless CLI smoke test: prove the frozen binary boots, the bundled
-      # SQL migrations run, and the NLTK-dependent modules succeed end to end
-      # (issue #4). No DISPLAY here, so the GUI binary is not launched.
-      - name: Smoke-test CLI binary
+      # ADR-0014 packaged-binary acceptance (#4): launch -> add PDFs -> run ->
+      # list -> export, driven against the frozen CLI on every target. This is
+      # what proves the BUNDLED payload works rather than merely being
+      # present: punkt_tab, the SQL migrations, the help markdown and PyMuPDF
+      # extraction are all on this path. Written in Python rather than shell
+      # because temp-directory paths handed to a native executable are the one
+      # thing that does not survive Git bash on Windows unchanged.
+      - name: Smoke-test the CLI binary (run -> list -> export)
         run: |
-          set -euo pipefail
-          ./dist/tta version
-          ./dist/tta module list
-          ./dist/tta --help
-          work="$(mktemp -d)"
-          # Tiny English-text PDF so tokenize + readability are applicable.
-          python tests/make_sample_pdf.py "$work/sample.pdf"
-          ./dist/tta -C "$work" run "$work/sample.pdf" | tee run.log
-          # The run must complete with no module errors (proves bundled
-          # punkt_tab + migrations + fitz all work in the frozen binary).
-          grep -Eq '0 errors' run.log
+          python - <<'PY'
+          import json, os, pathlib, sqlite3, subprocess, sys, tempfile
+
+          exe = pathlib.Path(os.environ["CLI_EXE"]).resolve()
+
+          def run(*args):
+              print("$ %s %s" % (exe.name, " ".join(args)), flush=True)
+              proc = subprocess.run([str(exe), *args], capture_output=True,
+                                    text=True)
+              sys.stdout.write(proc.stdout)
+              sys.stderr.write(proc.stderr)
+              if proc.returncode != 0:
+                  sys.exit("FAILED (rc=%d): %s"
+                           % (proc.returncode, " ".join(args)))
+              return proc.stdout
+
+          run("version")
+          run("module", "list")
+          run("--help")
+
+          work = pathlib.Path(tempfile.mkdtemp(prefix="tta-smoke-"))
+          sample = work / "sample.pdf"
+          subprocess.run([sys.executable, "tests/make_sample_pdf.py",
+                          str(sample)], check=True)
+
+          # A real run: bundled punkt_tab + migrations + fitz all have to work.
+          if "0 errors" not in run("-C", str(work), "run", str(sample)):
+              sys.exit("FAILED: the frozen binary reported module errors")
+
+          rows = json.loads(run("-C", str(work), "list", "--format", "json"))
+          if not rows or rows[0]["ok"] < 1:
+              sys.exit("FAILED: no successful module runs recorded")
+
+          export = work / "export.sqlite"
+          run("-C", str(work), "export", str(export))
+          if not export.is_file() or export.stat().st_size == 0:
+              sys.exit("FAILED: export produced no file")
+          with sqlite3.connect(export) as conn:
+              metrics = conn.execute(
+                  "SELECT count(*) FROM metric_values"
+              ).fetchone()[0]
+          if metrics < 1:
+              sys.exit("FAILED: the export carries no metric values")
+          print("CLI smoke OK: %d thesis/theses, %d metric values exported"
+                % (len(rows), metrics))
+          PY
+
+      # ADR-0014 packaged-binary acceptance (#4), GUI half. The CLI binary no
+      # longer carries Tk/tksheet/matplotlib at all, so nothing else in this
+      # pipeline would notice if the GUI's own stack failed to survive
+      # freezing. It must come up and STAY up (the timeout kills it -> rc 124)
+      # and it must have created its default project. HOME is redirected so
+      # the check cannot depend on, or pollute, the runner's home.
+      # Linux only: the Windows and macOS runners have no Xvfb equivalent.
+      - name: Launch the GUI binary under Xvfb
+        if: runner.os == 'Linux'
+        run: |
+          set -uo pipefail
+          export HOME="$RUNNER_TEMP/guihome"
+          mkdir -p "$HOME"
+          log="$RUNNER_TEMP/gui.log"
+          xvfb-run -a timeout -s TERM 30 "./$GUI_EXE" > "$log" 2>&1
+          rc=$?
+          cat "$log"
+          if [ "$rc" -ne 124 ]; then
+            echo "::error::$GUI_EXE exited with $rc instead of staying up - the frozen Tk/tksheet/matplotlib stack did not survive freezing"
+            exit 1
+          fi
+          if [ ! -f "$HOME/TTA-Theses/tta.sqlite" ]; then
+            echo "::error::$GUI_EXE never created its default project (ADR-0014 first-launch behaviour)"
+            exit 1
+          fi
+          echo "GUI binary launched, stayed up for 30 s, created its project"
 
       # The manifest must be INSIDE each executable, not merely next to it on
       # the build machine (ADR-0014, #4). pyi-archive_viewer reads the real
@@ -210,9 +320,13 @@ jobs:
       - name: Verify the licence manifest is inside both binaries
         run: |
           set -euo pipefail
-          for exe in dist/tta dist/tta-gui; do
-            if pyi-archive_viewer --list "$exe" \
-                 | grep -q "'THIRD_PARTY_LICENSES.txt'"; then
+          for exe in "$CLI_EXE" "$GUI_EXE"; do
+            # The listing is captured BEFORE it is searched, deliberately:
+            # `pyi-archive_viewer --list | grep -q` exits grep on the first
+            # match, the viewer dies of SIGPIPE, and `pipefail` then fails
+            # this step precisely when the manifest IS present. Verified.
+            listing="$(pyi-archive_viewer --list "$exe")"
+            if grep -q "'THIRD_PARTY_LICENSES.txt'" <<<"$listing"; then
               echo "$exe: licence manifest present"
             else
               echo "::error::$exe does not contain THIRD_PARTY_LICENSES.txt"
@@ -223,9 +337,64 @@ jobs:
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: tta-linux-x86_64
+          name: tta-${{ matrix.target }}
           path: |
-            dist/tta
-            dist/tta-gui
+            dist/tta${{ matrix.exe_suffix }}
+            dist/tta-gui${{ matrix.exe_suffix }}
             build/licenses/THIRD_PARTY_LICENSES.txt
           if-no-files-found: error
+
+  # Tagged release (issue #4, ADR-0014). Collects the four targets' artefacts
+  # and opens a DRAFT release: publishing needs the #8 licence sign-off and
+  # the #6 GDPR statement, which are human decisions, not CI's.
+  release:
+    name: draft release (v* tag)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download every target's artefact
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # The artefacts all carry the same file names, so flatten them into one
+      # directory with the target in the name - that is what somebody
+      # downloading a single binary from the release page needs to see.
+      - name: Collect the release assets
+        run: |
+          set -euo pipefail
+          mkdir -p upload
+          for dir in artifacts/*/; do
+            target="$(basename "$dir")"      # tta-linux-x86_64
+            target="${target#tta-}"          # linux-x86_64
+            for path in "$dir"*; do
+              name="$(basename "$path")"
+              case "$name" in
+                THIRD_PARTY_LICENSES.txt)
+                  out="THIRD_PARTY_LICENSES-$target.txt" ;;
+                *.exe)
+                  out="${name%.exe}-$target.exe" ;;
+                *)
+                  out="$name-$target" ;;
+              esac
+              cp "$path" "upload/$out"
+            done
+          done
+          ls -l upload
+
+      - name: Open the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" upload/* \
+            --draft \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Unsigned single-file binaries per ADR-0014 (SmartScreen: More info -> Run anyway; Gatekeeper: right-click -> Open). Each binary bundles its THIRD_PARTY_LICENSES.txt, also attached per target. Draft on purpose: publishing needs the LICENSE sign-off (#8) and the finalised GDPR statement (#6)."

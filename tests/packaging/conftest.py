@@ -8,6 +8,7 @@ packages) is caught by the fast suite, without freezing a binary.
 
 import importlib.util
 import pathlib
+import re
 
 import pytest
 
@@ -57,6 +58,36 @@ def spec_source():
 @pytest.fixture
 def workflow_source():
     return WORKFLOW_PATH.read_text(encoding="utf-8")
+
+
+# A job id at the workflow's job indent level. Slicing the file by these is
+# enough for the assertions here and keeps the tests free of a YAML
+# dependency; the one test that needs real parsing importorskips PyYAML.
+_JOB_ID = re.compile(r"^  ([A-Za-z][\w-]*):$", re.M)
+
+
+def workflow_jobs(source):
+    """{job_id: that job's text}, so a job rename cannot silently pass.
+
+    The old helpers split the file on the literal "build-linux:", which meant
+    a renamed or removed job handed the assertions the *whole* file and they
+    kept passing.
+    """
+    body = source.split("\njobs:\n", 1)[1]
+    marks = [(m.start(), m.group(1)) for m in _JOB_ID.finditer(body)]
+    jobs = {}
+    for index, (start, name) in enumerate(marks):
+        end = marks[index + 1][0] if index + 1 < len(marks) else len(body)
+        jobs[name] = body[start:end]
+    return jobs
+
+
+def job(source, name):
+    jobs = workflow_jobs(source)
+    assert name in jobs, "no %r job in the workflow (have: %s)" % (
+        name, ", ".join(sorted(jobs)),
+    )
+    return jobs[name]
 
 
 def write_toc(path, entries, scripts=()):

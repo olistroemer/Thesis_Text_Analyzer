@@ -10,7 +10,9 @@ of application code would ever notice:
      dependency, two of them resolved from the builder's ~/.local (#52).
   2. The CLI binary carries the GUI's dependency stack (matplotlib, tksheet,
      Tcl/Tk) because the spec shared one ``hiddenimports`` list, which made
-     the CLI *larger* than the GUI.
+     the CLI *larger* than the GUI. Or the mirror image: the excludes that
+     keep that stack out of the CLI get applied to the GUI too, and the
+     report view dies on first open in a binary that passed every size gate.
 
   3. A bundled library's licence notice is missing from
      THIRD_PARTY_LICENSES.txt (#4). The manifest is generated from the build
@@ -18,7 +20,7 @@ of application code would ever notice:
      through a runtime hook can end up frozen in with no notice attached -
      which is the direction that is an actual licence violation.
 
-This script checks all three against a finished build tree and exits
+This script checks all of them against a finished build tree and exits
 non-zero on any violation, so CI fails instead of publishing the artefact.
 Run it from the repo root after PyInstaller:
 
@@ -38,6 +40,7 @@ import ast
 import importlib.metadata
 import os
 import re
+import site
 import sys
 
 # Packages that must not appear in EITHER dependency graph. Not declared in
@@ -50,6 +53,14 @@ FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy")
 # carry. The hexagonal boundary (SDD 5.2, ADR-0002) is what makes this
 # checkable: nothing under tta/core or tta/cli may import tta.ui.
 GUI_ONLY = ("matplotlib", "mpl_toolkits", "tksheet", "kiwisolver", "contourpy")
+
+# ...and the other direction, which is the failure the size gate would
+# happily reward: the excludes that keep the plotting stack out of the CLI
+# are one edit away from being applied to the GUI too, and the result would
+# be a smaller binary that dies the moment the report view opens (ADR-0016).
+# Only the GUI *launch* check in CI would otherwise notice, and it runs on
+# one of the four targets.
+GUI_REQUIRED = ("matplotlib", "tksheet", "tkinter")
 
 # Third element of a PyInstaller TOC entry.
 TOC_KINDS = frozenset(
@@ -119,16 +130,48 @@ def offenders(entries, packages):
     return {pkg: sorted(dests) for pkg, dests in found.items()}
 
 
-def user_site_sources(entries):
-    """TOC entries collected from a per-user site-packages directory.
+def user_site_markers():
+    """Lower-cased path fragments that identify a per-user site directory.
+
+    The build matrix runs on three platforms and each puts the user site
+    somewhere different, so matching only POSIX ``~/.local/lib`` would have
+    made this gate a no-op on Windows and macOS - i.e. green for the exact
+    reason it exists. ``site.getusersitepackages()`` is the authoritative
+    answer for the interpreter running the check; the literals cover the
+    other platforms' conventions, so the gate still bites when the checker
+    runs somewhere other than the machine that froze the binary.
+    """
+    markers = ["/.local/lib/", "/library/python/", "/appdata/roaming/python/"]
+    try:
+        own = site.getusersitepackages()
+    except Exception:  # pragma: no cover - defensive; not raised in practice
+        own = None
+    if isinstance(own, str) and own:
+        markers.append(own.replace("\\", "/").rstrip("/").lower() + "/")
+    elif isinstance(own, (list, tuple)):  # pragma: no cover - old platforms
+        markers.extend(
+            p.replace("\\", "/").rstrip("/").lower() + "/" for p in own
+        )
+    return tuple(dict.fromkeys(markers))
+
+
+def user_site_sources(entries, markers=None):
+    """TOC entries collected from a per-user site directory.
 
     Direct evidence of the contamination in #52: a release build must draw
-    every file from the build environment, never from ``~/.local``.
+    every file from the build environment, never from the builder's own
+    ``~/.local`` (or ``~/Library/Python``, or ``%APPDATA%\\Python``).
     """
-    marker = os.path.join(".local", "lib")
-    return sorted(
-        {source for _dest, source, _kind in entries if marker in source}
-    )
+    if markers is None:
+        markers = user_site_markers()
+    hits = set()
+    for _dest, source, _kind in entries:
+        if not source:
+            continue
+        probe = source.replace("\\", "/").lower()
+        if any(marker in probe for marker in markers):
+            hits.add(source)
+    return sorted(hits)
 
 
 # Directory names under site-packages that are not importable packages and
@@ -284,6 +327,17 @@ def check(
                 "%s (the CLI graph) carries GUI-only packages %s - split the "
                 "spec's hiddenimports (ADR-0014)"
                 % (os.path.basename(path), ", ".join(sorted(found)))
+            )
+
+    for path, entries in gui_tocs:
+        present = set(offenders(entries, GUI_REQUIRED))
+        missing = [pkg for pkg in GUI_REQUIRED if pkg not in present]
+        if missing:
+            failures.append(
+                "%s (the GUI graph) is MISSING %s - the CLI excludes have "
+                "over-shot into the GUI, whose report view needs them "
+                "(ADR-0014, ADR-0016)"
+                % (os.path.basename(path), ", ".join(missing))
             )
 
     # ---- gate 4: every bundled distribution has a licence notice ----------
