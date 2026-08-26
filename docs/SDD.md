@@ -637,7 +637,7 @@ The toolbar's Report button sits to the right of "Update stale" so the two batch
 - Fuzzy search per column (extended mode).
 - Artefact-presence cells (extended mode) render as **read-only checkboxes** — a disabled tksheet checkbox, so a click cannot fabricate or clear presence. Double-click an artefact cell opens the underlying file with the system default application.
 - Cells are coloured by outlier highlighting (see [§9.5](#95-outlier-highlighting)).
-- "NA" cells are visually distinct from "error" and "missing"; tooltip explains the reason.
+- "NA" cells are visually distinct from "error" and "missing"; **double-clicking** the cell opens a read-only **details panel** that explains the reason ([§9.9](#99-grid-cell-render-states)). The grid carries **no hover tooltips** (#66) — every explanation is reachable by an explicit gesture instead.
 - "Garbled extraction" rows get a warning glyph `[!]` in the dedicated **State** lead column ([§9.9](#99-grid-cell-render-states)) — *not* prefixed onto the file name, so the marker is sortable and file names no longer shift horizontally from row to row.
 
 ## 9.3 Modes
@@ -761,11 +761,22 @@ Every grid cell renders in one of four visually distinct states:
 | State | Trigger | Render |
 |---|---|---|
 | **`ok`** | A successful module run produced this metric | The value, formatted per metric type. Outlier highlighting may overlay (§9.6). |
-| **`na`** | Module returned `Applicability(ok=False, reason=…)`, or upstream cascaded `na` | Greyed empty cell. Tooltip: the reason string (e.g., "no readability formula for language: it"). |
-| **`error`** | Module raised an exception or timed out | Warning glyph in a distinct colour. Tooltip: one-line reason. In Extended mode, click → details panel with traceback. |
-| **`not yet run`** | No `module_runs` row exists for this `(thesis, module)` pair | Blank cell, no glyph. Tooltip: "Not yet analysed — click Run to compute." |
+| **`na`** | Module returned `Applicability(ok=False, reason=…)`, or upstream cascaded `na` | Greyed empty cell. Double-click → details panel with the reason string (e.g., "no readability formula for language: it"). |
+| **`error`** | Module raised an exception or timed out | `err` in a distinct colour. Double-click → details panel with the one-line reason; in **Extended** mode the panel also carries the traceback. |
+| **`not yet run`** | No `module_runs` row exists for this `(thesis, module)` pair | Blank cell, no glyph. Double-click → details panel: "Not yet analysed - click Run to compute." |
 
-Whole-row indicator: theses with `extraction_quality = garbled` get a warning glyph `[!]` in the dedicated **State** lead column ([§9.3](#93-modes)) — not in the row-header cell and not prefixed onto the file name. A dedicated column makes the marker sortable and stops the file names from shifting horizontally row to row; the column's header help explains that every metric in a flagged row may be unreliable. This is per US-PROF-QUALITY.
+Whole-row indicator: theses with `extraction_quality = garbled` get a warning glyph `[!]` in the dedicated **State** lead column ([§9.3](#93-modes)) — not in the row-header cell and not prefixed onto the file name. A dedicated column makes the marker sortable and stops the file names from shifting horizontally row to row; double-clicking a flagged State cell opens the details panel explaining that every metric in that row may be unreliable. This is per US-PROF-QUALITY.
+
+### Details panel
+
+Anything a cell has to say beyond its value is said by a **read-only details panel** (`ui/tk/detail.py`), a `Toplevel` with a disabled `Text` + `Scrollbar` — the same shape as the privacy-statement window. It opens on **double-click** of a metric cell or a State cell that has something to explain; `ok` cells and blank State cells open nothing. The panel heads with the file name, the column name and that column's one-line help text (`columns.COLUMN_HELP`), then the state-specific body from the table above.
+
+Two deliberate departures from the earlier wording of this section:
+
+- **Double-click, not single click.** A single click is selection and keyboard navigation; double-click is already the grid's "open this thing" gesture (US-PROF-DOUBLECLICK — the file cell opens the PDF, an artefact cell opens the cached file), so the panel joins that gesture instead of hijacking selection.
+- **The panel itself is not gated on Extended mode; only the traceback inside it is.** A professor in basic mode needs "no readability formula for language: it" more than a researcher does. What stays power-user-only is the Python traceback.
+
+**The grid has no hover tooltips** (#66). Cell and header notes were removed: the only genuinely oversized payload — a full traceback folded into a hover popup — belongs in the panel, and the hover widget itself flickered under WSLg (#48, resolved by the removal rather than by debugging it). `columns.COLUMN_HELP` survives as the source of column explanations for the panel and for the friendly-label work in #16. Tooltips may return later for a different purpose; nothing in the code depends on their absence.
 
 The State column currently reports **garbled extraction only**. A "source PDF no longer on disk" state belongs in the same column but is deferred: `ThesisRow` has no such flag and `repository.list_theses` does not report file presence.
 
