@@ -836,3 +836,27 @@ def test_rerun_and_stale_only_together_are_rejected(project, tmp_path):
     runner, _ = make_runner(project, [FakeExtract()])
     with pytest.raises(ValueError):
         runner.plan(rerun=True, stale_only=True)
+
+
+def test_hashing_folds_into_a_sibling_hashed_by_an_earlier_run(project, tmp_path):
+    """The realistic dedup case: the same file re-added under a new name after
+    the first run already hashed the original. Nothing to UPDATE, one fold."""
+    payload = b"%PDF-fake stable bytes"
+    first = tmp_path / "original.pdf"
+    first.write_bytes(payload)
+    original = project.repo.add_thesis(first)
+    runner, _ = make_runner(project, [FakeExtract()])
+    runner.execute(runner.plan())
+    assert project.repo.get_thesis(original.id).pdf_sha256 is not None
+
+    copy = tmp_path / "renamed.pdf"
+    copy.write_bytes(payload)
+    duplicate = project.repo.add_thesis(copy)
+    runner2, _ = make_runner(project, [FakeExtract()])
+    summary = runner2.execute(runner2.plan())
+
+    assert summary.theses_total == 0  # the only planned thesis folded away
+    assert [t.id for t in project.repo.list_theses()] == [original.id]
+    assert project.repo.get_thesis(original.id).pdf_filename == "renamed.pdf"
+    with pytest.raises(KeyError):
+        project.repo.get_thesis(duplicate.id)
