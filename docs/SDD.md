@@ -169,8 +169,8 @@ Headline stories driving load-bearing decisions:
 | US-PROF-EXPLAIN | Read explanations of metrics | Help system ([ADR-012](adr/0012-help-content.md)) |
 | US-PROF-EXPORT | Export results into a single file | Export format ([ADR-007](adr/0007-export-format.md)) |
 | US-PROF-QUALITY | See garbled extractions flagged in the grid | `mod_check_extraction_quality` |
-| US-PROF-AUTO-OPEN | App remembers last project across runs | Distribution / project model ([ADR-014](adr/0014-distribution.md)) |
-| **US-PROF-NO-TRACES** | No writes outside the project folder by default | Distribution / project model ([ADR-014](adr/0014-distribution.md)) |
+| US-PROF-AUTO-OPEN | App remembers last project across runs | Startup resolution in `tta.core.project`, pointer in the default project's `tta.toml` (§5.6.1, [ADR-014](adr/0014-distribution.md)) |
+| **US-PROF-NO-TRACES** | No writes outside the project folder by default | No `~/.config` state at all; write-path audit and the matplotlib cache redirect (§5.6.2, [ADR-014](adr/0014-distribution.md)) |
 | US-PWR-EXTENDED | Extended mode with more settings | UI modes |
 | **US-RES-LOW-FRICTION** | Contribute-loop fits in five low-friction steps | Distribution, export, defaults throughout the UI |
 | US-RES-CLI | Run analyses from the CLI; use GUI only as viewer | CLI as first-class ([ADR-003](adr/0003-cli-first-class.md)) |
@@ -302,6 +302,30 @@ A `--dry-run` flag prints the plan without executing.
 Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update.
 
 On first launch the app creates `~/TTA-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). By default the app writes **nothing** outside the project folder (US-PROF-NO-TRACES, [ADR-014](adr/0014-distribution.md)); the last-project pointer lives inside the default project, so deleting the folder removes every trace and no `~/.config/tta` file is created. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `tta/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
+
+### 5.6.1 Startup project resolution
+
+`tta.core.project` owns the resolution; both adapters go through it, so neither reimplements it and nothing UI-specific is involved (ADR-0002).
+
+The **last-project pointer** is the key `last_opened` in the `[project]` table of the *default* project's `tta.toml`. It is the only pointer the app keeps, it is a project file like any other, and it is absent unless the user has actually opened a project elsewhere. Startup resolves in this order:
+
+1. Read `[project].last_opened` from `<default>/tta.toml` — a plain `load_config`, which creates nothing when the file or the folder is missing. A non-string value is ignored.
+2. If the pointer is set **and the directory it names still exists**, that is the target. The directory need not already contain a `tta.sqlite`: the user may point File → Open at an empty folder, and the app then creates the project there. If the directory is *gone* the pointer is stale — the user deleted the project, which the no-traces guarantee says must leave nothing behind — so it is ignored and the default project is the target.
+3. Otherwise the default project is the target.
+4. The target is opened with `create=True`. **If that open fails for any reason** — a corrupt or foreign `tta.sqlite`, a failed migration, a permission or path error — the app does **not** abort: it falls back to the default project and surfaces the reason in the startup banner. Without this the failure is unrecoverable, because the pointer keeps selecting the same broken target on every subsequent launch and the user has no visible way to reset it.
+
+`first_launch` means "the target had no `tta.sqlite` and we just created it", which is when the banner naming the project folder is worth showing — the true first launch, and equally the first launch into a newly chosen empty folder.
+
+Opening a project **is** the act of remembering it: the pointer is written when the user chooses a folder via File → Open, and cleared when the chosen folder is the default project (no self-pointer). Writing the pointer creates the default project folder if needed, since that folder is the anchor the pointer lives in.
+
+### 5.6.2 Write-path audit (US-PROF-NO-TRACES)
+
+Everything persistent lives under the project directory: `tta.toml`, `tta.sqlite`, the defensive `tta.sqlite.bak.<version>`, `artefacts/`, and `exports/`. Two further paths were found outside it and are handled here:
+
+- **Matplotlib's config/cache directory.** The Report view imports matplotlib lazily, and matplotlib unconditionally creates `~/.config/matplotlib` plus a font cache under `~/.cache/matplotlib` on first import. The GUI entry point therefore sets `MPLCONFIGDIR` to `<project>/.cache/matplotlib` before the window is built (both directories follow that one variable), keeping the cache inside the project.
+- **Transient scratch space.** The runner gives each module a `tempfile.mkdtemp` workdir and removes it in a `finally` after the module returns, and a frozen `--onefile` binary unpacks itself into a temporary directory that the bootloader cleans up on exit. Both are transient scratch, not persistent state, and both are accepted rather than relocated — noted in the release notes for honesty.
+
+OS-level caches that any GUI process touches (fontconfig, GPU shader caches) are outside the application's control and outside this guarantee.
 
 ---
 
@@ -679,7 +703,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 
 | Step | Screen / dialog | Defaults |
 |---|---|---|
-| 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened); nothing stored outside it (US-PROF-NO-TRACES). |
+| 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened, §5.6.1); nothing stored outside it (US-PROF-NO-TRACES). A project that cannot be opened never blocks startup: the default project opens instead and the banner says why. |
 | 2. Add | "Add files" toolbar button → multi-select file dialog → added immediately (no further dialog). | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
 | 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → switches to the Report tab → charts + summary cards + outlier list. | Re-renders on `RunCompleted` while the tab is active. |
@@ -690,7 +714,9 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 
 > *Your project lives at `~/TTA-Theses/`. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File → Open Project…*
 
-Dismisses on first interaction; never shown again for this project.
+Dismisses on first interaction; never shown again for this project. The same banner area carries the startup notice when a remembered project could not be opened and the default project was used instead.
+
+**File → Open Project…** writes the last-project pointer (§5.6.1) and tells the user the project opens on next start. The chosen folder does not have to be a project already — an empty folder is a valid choice and the project is created there on the next launch, which is what the banner's "to use a different location" sentence promises.
 
 **Basic-mode toolbar** contains exactly four icon+text buttons: **Add files | Run all | Export | Help**. Extended-mode reveals re-run-all, update-stale, fuzzy search, and (future, see ADR-005) producer-selection.
 

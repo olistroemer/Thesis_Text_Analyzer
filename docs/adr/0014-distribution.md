@@ -46,7 +46,7 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ✅ One file to distribute; no installation step.
 - ✅ Project folder is the entire state — easy to back up, copy, move.
 - ✅ Nothing is written outside the project folder by default (US-PROF-NO-TRACES): deleting the folder removes the app's data and every trace.
-- ⚠️ A custom project location is remembered only via a pointer *inside* the default project; if both are deleted, the next launch falls back to the default project — accepted, since the no-traces guarantee takes priority.
+- ⚠️ A custom project location is remembered only via a pointer *inside* the default project; if both are deleted, the next launch falls back to the default project — accepted, since the no-traces guarantee takes priority. The same fallback applies when the remembered project exists but **cannot be opened** (corrupt `tta.sqlite`, failed migration, permission error): startup reports the reason and opens the default project rather than aborting, because a pointer that selects a broken target would otherwise make every subsequent launch fail with no user-visible way to reset it (see SDD §5.6.1).
 - ✅ Step 1 of the professor's happy path stays "start the app".
 - ✅ Schema migrations gated behind a defensive backup.
 - ⚠️ Startup ~1–3 s due to PyInstaller unpacking.
