@@ -11,7 +11,7 @@ from dataclasses import dataclass
 #: The value set of the detected ``thesis_type`` metric (ADR-0019, #9). No
 #: longer a ``theses`` column; kept here as the shared vocabulary used by
 #: ``mod_classify_thesis_type`` and by the grid/report grouping.
-THESIS_TYPES = ("bachelor", "master", "unspecified")
+THESIS_TYPES = ("bachelor", "master", "diploma", "unspecified")
 
 
 @dataclass

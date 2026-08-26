@@ -2,8 +2,9 @@
 
 Detects the degree from the title page of `raw_text` with a lightweight,
 case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English) -
-NOT ML. Produces the single `thesis_type` metric in {bachelor, master,
+NOT ML. Produces the single `thesis_type` metric in {bachelor, master, diploma,
 unspecified}; matched markers go into `notes` (no separate confidence metric).
+`diploma` covers pre-Bologna German theses (#67, ADR-0019 rev. 2).
 
 Mirrors `mod_classify_language`. Unlike it, garbled/sparse or keyword-free text
 returns `unspecified` (a valid answer), never `NotApplicable` - the type metric
@@ -48,14 +49,37 @@ BACHELOR_KEYWORDS = (
     "b. sc",
     "b.eng",
 )
+# Pre-Bologna German theses (#67, ADR-0019 rev. 2). Bare "diplom" and "dipl."
+# are deliberately absent: supervisor and examiner titles ("Betreuer:
+# Dipl.-Inform. X", "Prof. Dr.-Ing. Dipl.-Ing. Y") sit inside the very same
+# leading window, so either short form would mis-classify a Bachelor- or
+# Masterarbeit. `normalise` does not strip hyphens, so hyphenated variants are
+# spelled out. "diplom-ingenieur" survives because the abbreviated supervisor
+# form that actually occurs is "Dipl.-Ing.", which does not contain it.
+DIPLOMA_KEYWORDS = (
+    "diplomarbeit",
+    "diplom-arbeit",
+    "diplomthesis",
+    "diploma thesis",
+    "diplom-ingenieur",
+)
 
-BACHELOR, MASTER, UNSPECIFIED = "bachelor", "master", "unspecified"
+BACHELOR, MASTER, DIPLOMA, UNSPECIFIED = "bachelor", "master", "diploma", "unspecified"
+
+#: Candidate classes in a fixed order. Ordering is only a tie-break for the
+#: (practically unreachable) case of two markers starting at the same index;
+#: the real decision is which marker appears earliest in the window.
+TYPE_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (BACHELOR, BACHELOR_KEYWORDS),
+    (DIPLOMA, DIPLOMA_KEYWORDS),
+    (MASTER, MASTER_KEYWORDS),
+)
 
 
 class ClassifyThesisType(Module):
     spec = ModuleSpec(
         name="mod_classify_thesis_type",
-        version="0.1.0",
+        version="0.2.0",
         consumes=(artefact_kinds.RAW_TEXT,),
         produces_metrics=("thesis_type",),
     )
@@ -64,24 +88,16 @@ class ClassifyThesisType(Module):
         text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
         window = _titlepage.normalise(_titlepage.leading_window(text))
 
-        master_at = _titlepage.first_index_of_any(window, MASTER_KEYWORDS)
-        bachelor_at = _titlepage.first_index_of_any(window, BACHELOR_KEYWORDS)
-        if master_at is None and bachelor_at is None:
-            decision = UNSPECIFIED
-        elif bachelor_at is None:
-            decision = MASTER
-        elif master_at is None:
-            decision = BACHELOR
-        else:
-            # both named on the title page: the marker that appears first wins
-            decision = MASTER if master_at < bachelor_at else BACHELOR
+        hits: list[tuple[int, str]] = []
+        notes: dict[str, object] = {"window_chars": len(window)}
+        for name, keywords in TYPE_KEYWORDS:
+            notes[f"{name}_markers"] = _titlepage.matched_keywords(window, keywords)
+            at = _titlepage.first_index_of_any(window, keywords)
+            if at is not None:
+                hits.append((at, name))
+        # several degrees named on the title page: the marker appearing first
+        # wins (ADR-0019 rev. 2 - generalises the old pairwise comparison)
+        decision = min(hits, key=lambda hit: hit[0])[1] if hits else UNSPECIFIED
+        notes["thesis_type"] = decision
 
-        return RunResult(
-            metrics={"thesis_type": decision},
-            notes={
-                "thesis_type": decision,
-                "master_markers": _titlepage.matched_keywords(window, MASTER_KEYWORDS),
-                "bachelor_markers": _titlepage.matched_keywords(window, BACHELOR_KEYWORDS),
-                "window_chars": len(window),
-            },
-        )
+        return RunResult(metrics={"thesis_type": decision}, notes=notes)
