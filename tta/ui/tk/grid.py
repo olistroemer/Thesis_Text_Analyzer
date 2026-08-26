@@ -10,8 +10,8 @@ from tksheet import Sheet, num2alpha
 
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
-from tta.ui.tk import grid_model
-from tta.ui.tk.columns import LEAD_COLUMNS, MetricColumn, column_help
+from tta.ui.tk import detail, grid_model
+from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
 
 # Sec. 9.9 render states / Sec. 9.5 outlier overlay
 COLOR_NA = "#e8e8e8"
@@ -21,9 +21,14 @@ COLOR_OUTLIER = "#ffe2b0"
 COLOR_EXCLUDED = "#c8c8c8"
 COLOR_EXCLUDED_FG = "#707070"
 
-# Lead-column positions (LEAD_COLUMNS = "excluded", "file", "type").
+# Lead-column positions (LEAD_COLUMNS = "excluded", "state", "file", "type").
 EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
+STATE_COL = LEAD_COLUMNS.index("state")
 FILE_COL = LEAD_COLUMNS.index("file")
+
+# Sec. 9.9 whole-row indicator, rendered in the State column (#65). ADR-0018:
+# ASCII marker, not a glyph.
+STATE_GARBLED = "[!]"
 
 
 def open_with_default_app(path) -> None:
@@ -45,13 +50,15 @@ class GridView(ttk.Frame):
         self.columns: list[MetricColumn] = []
         self.artefact_kinds: list[str] = []
         self.rows: list[grid_model.ThesisRow] = []
-        self._sort_metric: str | None = None
+        # raw name of the column sorted on - a lead column, an artefact kind or
+        # a metric (Sec. 9.2, #60). None = the default sort, by file name.
+        self._sort_key: str | None = None
         self._sort_reverse = False
         self._sorted = False
-        # note keys set on the last render, cleared before the next one so a
-        # shrunk/re-ordered row set never leaves a stale hover tooltip (Sec. 9.9)
-        self._note_cells: set[tuple[int, int]] = set()
-        self._note_headers: set[int] = set()
+        # Extended mode (Sec. 9.3). The caller passes it as ``show_artefacts``:
+        # the artefact-presence columns are exactly the extended-only columns.
+        # Only the traceback inside the details panel is gated on it (Sec. 9.9).
+        self.extended = False
         self.sheet = Sheet(self, headers=[], data=[])
         self.sheet.enable_bindings(
             "single_select",
@@ -61,10 +68,6 @@ class GridView(ttk.Frame):
             "copy",
             "arrowkeys",
         )
-        # Sec. 9.9: hover tooltips over cells and headers. tksheet surfaces a
-        # cell/header "note" as a hover popup when tooltips are enabled; the
-        # notes themselves are (re)set per render in ``_set_notes``.
-        self.sheet.set_options(tooltips=True, redraw=False)
         # Sort on a header click (#40). tksheet's "column_select" extra binding
         # fires only when the selected column *changes*, so a repeat click on
         # the already-sorted column emitted no event and DESC was unreachable.
@@ -85,16 +88,21 @@ class GridView(ttk.Frame):
 
     def reload(self, columns: list[MetricColumn], show_artefacts: bool) -> None:
         self.columns = columns
-        self.artefact_kinds = (
-            ["raw_text", "language", "tokens", "pdf_metadata"] if show_artefacts else []
-        )
+        self.extended = show_artefacts
+        self.artefact_kinds = list(ARTEFACT_COLUMNS) if show_artefacts else []
         self.rows = grid_model.sort_rows(
-            grid_model.load_rows(self.repo, columns), self._sort_metric, self._sort_reverse
+            grid_model.load_rows(self.repo, columns), self._sort_key, self._sort_reverse
         )
         self._render()
 
+    def _column_names(self) -> list[str]:
+        """Raw column names, left to right: lead columns, artefact-presence
+        columns (extended mode), then metric columns. This list *is* the
+        column-identity model: headers and sort keys both index into it (#60)."""
+        return list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+
     def _header(self) -> list[str]:
-        headers = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
+        headers = self._column_names()
         if self._sorted:
             index = self._sorted_header_index()
             if index is not None:
@@ -102,23 +110,28 @@ class GridView(ttk.Frame):
         return headers
 
     def _sorted_header_index(self) -> int | None:
-        """Header position of the current sort column (ASCII indicator, #40)."""
-        if self._sort_metric is None:
-            return FILE_COL  # default sort is by filename
-        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        for i, column in enumerate(self.columns):
-            if column.metric == self._sort_metric:
-                return offset + i
-        return None
+        """Header position of the current sort column (ASCII indicator, #40).
+        The indicator lands on the column actually sorted on, whichever kind of
+        column that is (#60)."""
+        key = "file" if self._sort_key is None else self._sort_key  # default sort
+        names = self._column_names()
+        return names.index(key) if key in names else None
 
     def _render(self) -> None:
         bounds = grid_model.outlier_bounds(self.rows, self.columns)
         data = []
         for row in self.rows:
-            file_label = ("[!] " if row.garbled else "") + row.thesis.pdf_filename
-            # LEAD_COLUMNS order: excluded (bool -> tksheet checkbox), file, type
-            line = [bool(row.thesis.excluded), file_label, row.thesis_type]
-            line += ["[x]" if kind in row.artefacts else "" for kind in self.artefact_kinds]
+            # LEAD_COLUMNS order: excluded (bool -> editable tksheet checkbox),
+            # state, file (bare name - the state marker has its own column since
+            # #65, so names no longer shift row to row), type.
+            line = [
+                bool(row.thesis.excluded),
+                STATE_GARBLED if row.garbled else "",
+                row.thesis.pdf_filename,
+                row.thesis_type,
+            ]
+            # bools, rendered as read-only checkboxes by _apply_artefact_columns
+            line += [kind in row.artefacts for kind in self.artefact_kinds]
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)
         self.sheet.set_sheet_data(data, reset_col_positions=True, redraw=False)
@@ -138,7 +151,7 @@ class GridView(ttk.Frame):
                 if color:
                     self.sheet.highlight_cells(row=r, column=offset + i, bg=color)
         self._apply_excluded_column()
-        self._set_notes()
+        self._apply_artefact_columns()
         self.sheet.redraw()
 
     def _apply_excluded_column(self) -> None:
@@ -158,36 +171,20 @@ class GridView(ttk.Frame):
                 rows=excluded_rows, bg=COLOR_EXCLUDED, fg=COLOR_EXCLUDED_FG, redraw=False
             )
 
-    def _set_notes(self) -> None:
-        """Attach the Sec. 9.9 hover tooltips: a per-metric explanation on each
-        column header, and per-cell text for na/error/not-yet-run cells plus the
-        garbled-row indicator. Notes set last render are cleared first."""
-        sheet = self.sheet
-        for r, c in self._note_cells:
-            sheet.note(sheet.span(r, c), note=None)
-        for c in self._note_headers:
-            sheet.note(sheet.span(num2alpha(c), header=True), note=None)
-        self._note_cells = set()
-        self._note_headers = set()
-
-        names = list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
-        for c, name in enumerate(names):
-            help_text = column_help(name)
-            if help_text:
-                sheet.note(sheet.span(num2alpha(c), header=True), note=help_text)
-                self._note_headers.add(c)
-
-        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        for r, row in enumerate(self.rows):
-            if row.garbled:
-                sheet.note(sheet.span(r, FILE_COL), note=grid_model.GARBLED_TOOLTIP)
-                self._note_cells.add((r, FILE_COL))
-            for i, column in enumerate(self.columns):
-                tip = grid_model.cell_tooltip(row.cells[column.metric])
-                if tip:
-                    col = offset + i
-                    sheet.note(sheet.span(r, col), note=tip)
-                    self._note_cells.add((r, col))
+    def _apply_artefact_columns(self) -> None:
+        """Render the artefact-presence columns as *read-only* tksheet checkboxes
+        (Sec. 9.2, #65): state="disabled" draws the box greyed and makes
+        ``click_checkbox`` a no-op, so a click cannot fabricate or clear
+        presence, while double-click-to-open still works. Re-applied each render
+        because ``set_sheet_data`` resets column options."""
+        for i in range(len(self.artefact_kinds)):
+            self.sheet.checkbox(
+                self.sheet.span(num2alpha(len(LEAD_COLUMNS) + i)),
+                edit_data=False,  # keep the per-row bool already in the cell data
+                state="disabled",
+                text="",
+                redraw=False,
+            )
 
     # -- interactions ---------------------------------------------------------
 
@@ -197,18 +194,16 @@ class GridView(ttk.Frame):
         column = self.sheet.identify_column(event, allow_end=False)
         if column is None:
             return
-        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
-        metric = (
-            self.columns[column - offset].metric
-            if offset <= column < offset + len(self.columns)
-            else None
-        )
-        if self._sorted and metric == self._sort_metric:
+        names = self._column_names()
+        if not 0 <= column < len(names):
+            return
+        key = names[column]
+        if self._sorted and key == self._sort_key:
             self._sort_reverse = not self._sort_reverse
         else:
-            self._sort_metric, self._sort_reverse = metric, False
+            self._sort_key, self._sort_reverse = key, False
         self._sorted = True
-        self.rows = grid_model.sort_rows(self.rows, self._sort_metric, self._sort_reverse)
+        self.rows = grid_model.sort_rows(self.rows, self._sort_key, self._sort_reverse)
         self._render()
 
     def _on_excluded_toggle(self, event) -> None:
@@ -267,8 +262,10 @@ class GridView(ttk.Frame):
         self.reload(self.columns, show_artefacts=bool(self.artefact_kinds))
 
     def _on_double_click(self, _event) -> None:
-        """Double-click: artefact cell opens the cached file, file cell the
-        PDF (US-PROF-DOUBLECLICK)."""
+        """Double-click, the grid's single "open this" gesture (Sec. 9.9,
+        US-PROF-DOUBLECLICK): the file cell opens the PDF, an artefact cell the
+        cached file, and a metric or State cell with something to explain opens
+        the details panel (there are no hover tooltips, #66)."""
         selected = self.sheet.get_currently_selected()
         if not selected:
             return
@@ -276,12 +273,31 @@ class GridView(ttk.Frame):
         if not (0 <= r < len(self.rows)):
             return
         row = self.rows[r]
+        offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
         if c == FILE_COL:
             open_with_default_app(row.thesis.pdf_path)
-        elif 0 < len(self.artefact_kinds) and len(LEAD_COLUMNS) <= c < len(LEAD_COLUMNS) + len(self.artefact_kinds):
+        elif len(LEAD_COLUMNS) <= c < offset:
             kind = self.artefact_kinds[c - len(LEAD_COLUMNS)]
             if kind in row.artefacts:
                 open_with_default_app(self.store.resolve(row.artefacts[kind]))
+        elif c == STATE_COL:
+            if row.garbled:
+                self._show_details(row, "state", grid_model.GARBLED_DETAIL)
+        elif offset <= c < offset + len(self.columns):
+            metric = self.columns[c - offset].metric
+            body = grid_model.cell_details(row.cells[metric], extended=self.extended)
+            if body:
+                self._show_details(row, metric, body)
+
+    def _show_details(self, row: grid_model.ThesisRow, column_name: str, body: str) -> None:
+        """Open the Sec. 9.9 details panel for one cell. The heading names the
+        row and column and carries that column's one-line help, which is why
+        COLUMN_HELP outlived the tooltips (#66, and #16 reuses it)."""
+        heading = f"{row.thesis.pdf_filename} - {column_name}"
+        help_text = column_help(column_name)
+        if help_text:
+            heading += "\n" + help_text
+        detail.show_details(self, heading=heading, body=body)
 
     def status_text(self) -> str:
         return f"{len(self.rows)} theses"

@@ -11,13 +11,14 @@ from dataclasses import dataclass, field
 
 from tta.core.db.repository import Repository
 from tta.core.types import Thesis
-from tta.ui.tk.columns import MetricColumn
+from tta.ui.tk.columns import ARTEFACT_COLUMNS, MetricColumn
 
 OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
-# Sec. 9.9 tooltip copy (ASCII only, ADR-0018).
-NOT_YET_RUN_HINT = "Not yet analysed - click Run to compute."
-GARBLED_TOOLTIP = (
+# Sec. 9.9 details-panel copy (ASCII only, ADR-0018). These used to be hover
+# tooltips; the grid has no tooltips any more (#66).
+NOT_YET_RUN_DETAIL = "Not yet analysed - click Run to compute."
+GARBLED_DETAIL = (
     "Text extraction was flagged as garbled for this thesis; every metric in "
     "this row may be unreliable (US-PROF-QUALITY)."
 )
@@ -140,36 +141,64 @@ def is_outlier(cell: Cell, bounds: tuple[float, float] | None) -> bool:
     return not bounds[0] <= cell.value <= bounds[1]
 
 
-def sort_rows(rows: list[ThesisRow], metric: str | None, reverse: bool) -> list[ThesisRow]:
-    """Sort by a metric column (None -> by filename). Missing values sort last."""
-    if metric is None:
+def _value_key(value: float | str | None, tie_break: str) -> tuple[int, float, str, str]:
+    """Rank/number/text/tie-break tuple: numbers first, then text, blanks last
+    (Sec. 9.2). ``tie_break`` keeps the order deterministic across equal values."""
+    if isinstance(value, bool):  # bool is an int - rank it as text, not as 0/1
+        return (1, 0.0, str(value).lower(), tie_break)
+    if isinstance(value, (int, float)):
+        return (0, float(value), "", tie_break)
+    if isinstance(value, str) and value:
+        return (1, 0.0, value.lower(), tie_break)
+    return (2, 0.0, "", tie_break)
+
+
+def sort_rows(rows: list[ThesisRow], key: str | None, reverse: bool) -> list[ThesisRow]:
+    """Sort by a *column identity* (Sec. 9.2), not by grid position.
+
+    ``key`` is the raw column name the grid header carries: a lead column
+    ("excluded", "state", "file", "type"), an artefact kind, or a metric name.
+    ``None``
+    means the default sort, by file name. Blank/missing values sort last in
+    ascending order and every column tie-breaks on the file name, so the row
+    order is deterministic (#60).
+    """
+    if key is None or key == "file":
         return sorted(rows, key=lambda r: r.thesis.pdf_filename.lower(), reverse=reverse)
 
-    def key(row: ThesisRow):
-        value = row.cells[metric].value
-        if isinstance(value, (int, float)):
-            return (0, value, "")
-        if isinstance(value, str):
-            return (1, 0.0, value.lower())
-        return (2, 0.0, "")
+    def key_func(row: ThesisRow):
+        tie_break = row.thesis.pdf_filename.lower()
+        if key == "type":
+            return _value_key(row.thesis_type, tie_break)
+        if key == "excluded":
+            return (0, float(bool(row.thesis.excluded)), "", tie_break)
+        if key == "state":  # garbled-extraction rows group together (#65)
+            return (0, float(row.garbled), "", tie_break)
+        if key in ARTEFACT_COLUMNS:
+            return (0, float(key in row.artefacts), "", tie_break)
+        cell = row.cells.get(key)
+        return _value_key(cell.value if cell is not None else None, tie_break)
 
-    return sorted(rows, key=key, reverse=reverse)
+    return sorted(rows, key=key_func, reverse=reverse)
 
 
-def cell_tooltip(cell: Cell) -> str | None:
-    """Hover text for a metric cell, per its render state (Sec. 9.9).
+def cell_details(cell: Cell, *, extended: bool) -> str | None:
+    """Body text for the Sec. 9.9 details panel, per the cell's render state.
 
-    ``ok`` cells have no tooltip. ``na`` surfaces the reason; ``error`` shows a
-    one-line reason and, folded below it, the exception text; ``missing`` shows
-    the not-yet-run hint. Returns None when there is nothing to show.
+    ``ok`` cells have nothing to explain (the value speaks for itself) and
+    return None, so double-clicking one opens no panel. ``na`` surfaces the
+    module's reason; ``missing`` the not-yet-run hint; ``error`` the one-line
+    reason plus, in **extended** mode only, the exception traceback - the
+    traceback is the one payload that is power-user material (Sec. 9.9). Pure,
+    so the panel copy is unit-testable without Tk (ADR-0002).
     """
     if cell.status == NA:
         return cell.reason or "Not applicable for this thesis."
     if cell.status == ERROR:
         text = "Error: " + (cell.reason or "module raised an exception")
-        if cell.detail:
+        if extended and cell.detail:
             text += "\n\n" + cell.detail
         return text
     if cell.status == MISSING:
-        return NOT_YET_RUN_HINT
+        return NOT_YET_RUN_DETAIL
     return None
