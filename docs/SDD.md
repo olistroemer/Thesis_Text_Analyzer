@@ -582,11 +582,13 @@ Default save location is `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`; 
 
 | Source table | What ships | What's stripped |
 |---|---|---|
-| `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `excluded`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
+| `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, `excluded` (the **column**, #64 — see below), rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
 | `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `notes` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `notes` |
 | `metric_values` | All | — |
 | `producer_chains` | n/a (no producer-chain table in MVP) | — |
 | `artefact_files` | — (entire table not exported) | — |
+
+The `excluded` **column** is stripped as well as the excluded **rows** (#64). The row filter runs first, so every surviving `theses` row would carry `excluded = 0`: the column can only ever be constant-zero in an export, carries no information, and its presence invites the reader to believe excluded theses might ship. The filter itself stays; only the now-meaningless column goes. Imported rows therefore take the local `excluded` default (they are read-only context anyway — the runner's `kind='local'` filter at [§5.3](#53-module-pipeline-dag) never touches them).
 
 ### 8.3.2 Import (researcher merge)
 

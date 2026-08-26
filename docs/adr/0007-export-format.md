@@ -1,7 +1,7 @@
 # ADR-0007: Export format — SQLite, PII-stripped, history always included
 
-**Status:** Accepted (revised — history always included; no UI checkbox)
-**Date:** 2026-06-03
+**Status:** Accepted (revised — history always included; no UI checkbox; rev. 3: the constant-zero `theses.excluded` column is stripped too, #64)
+**Date:** 2026-06-03 (rev. 3: 2026-08-26)
 **Drivers:** US-PROF-EXPORT, US-RES-IMPORT, US-RES-LOW-FRICTION (no extra choices in step 4 of the contribute loop), QA-PRIV, debugging value of run history for the research team.
 
 ## Decision
@@ -22,7 +22,7 @@ Power users can still use `tta export --current-only` from the CLI to produce a 
 ## What's stripped vs the local DB
 
 - PII columns on `theses`: `pdf_path`, `pdf_filename`, `notes`, `tags`.
-- Rows where `theses.excluded = 1`.
+- Rows where `theses.excluded = 1`, **and the `theses.excluded` column itself** (#64). With the rows filtered out, the column is constant-zero by construction: no information, and a misleading hint that excluded theses might ship. The filter stays; the column goes.
 - The entire `artefact_files` table (contents = raw text + tokens + full PDF metadata = full PII risk).
 - `module_runs.error_traceback` (may include filesystem paths).
 - `module_runs.notes` (free-form module diagnostics; may contain content-derived values).
