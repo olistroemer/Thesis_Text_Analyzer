@@ -4,6 +4,15 @@ NLTK punkt_tab sentence segmentation + word tokenisation. The punkt_tab
 model data is bundled into release builds via PyInstaller ``--add-data``
 (ADR-0014); at runtime there is never a download (QA-PRIV: fully offline).
 
+``nltk`` is imported **inside** the functions that use it, not at module
+scope (#74). Importing it costs ~0.93 s - 98% of the 0.95 s that the three
+analysis libraries cost between them - and building the module catalogue
+(`registry.default_registry`) instantiates every module, so that second was
+paid on every GUI launch (`MainWindow.__init__`), by five CLI commands, and
+in every spawned worker. Same pattern as `mod_extract_pymupdf`'s lazy
+`fitz`. The import sits after the applicability check, so a thesis in an
+unsupported language never pays it at all.
+
 Both failure modes are deliberately loud (#34, SDD Sec. 7.4): three
 modules and thirteen of the thirty-one metrics read `tokens`, so an
 empty-but-successful artefact would zero out nearly half the catalogue
@@ -13,8 +22,6 @@ with no visible cause.
 from __future__ import annotations
 
 import json
-
-import nltk
 
 from tta.core import artefact_kinds
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
@@ -39,6 +46,8 @@ class TokenizerDataMissing(RuntimeError):
 def _segment(text: str, nltk_language: str) -> list[str]:
     """Sentence-segment `text`, translating a missing model into an
     actionable message that survives the runner's one-line reason."""
+    import nltk  # lazy: see the module docstring (#74)
+
     try:
         return nltk.sent_tokenize(text, language=nltk_language)
     except LookupError as exc:
@@ -66,6 +75,8 @@ class Tokenize(Module):
         )["code"]
         if language not in NLTK_LANGUAGES:
             raise NotApplicable(f"unsupported language: {language}")
+        import nltk  # lazy: see the module docstring (#74)
+
         text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
         nltk_language = NLTK_LANGUAGES[language]
         sentences = [

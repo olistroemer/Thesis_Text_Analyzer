@@ -1,3 +1,20 @@
+"""Shared fixtures.
+
+The environment tweak below runs at import time on purpose. The CLI renders
+through `rich`, whose Console reads FORCE_COLOR/NO_COLOR when it is
+constructed - which happens while pytest is *collecting* `tta.cli.main`,
+before any fixture could run. The integration tests assert on plain text, so
+a developer whose terminal exports FORCE_COLOR (Claude Code's does,
+FORCE_COLOR=3) got seven false failures on embedded escape sequences. CI sets
+no FORCE_COLOR, so this never showed there.
+"""
+
+import os
+
+os.environ.pop("FORCE_COLOR", None)
+os.environ["NO_COLOR"] = "1"
+os.environ["TERM"] = "dumb"
+
 import hashlib
 import json
 from types import SimpleNamespace

@@ -616,7 +616,16 @@ def test_cancel_commits_what_the_abandoned_worker_already_reported(project, tmp_
     runner, seen = make_runner(
         project, [FakeExtract(), SleepyQuality()], workers=1, cancel_grace_s=0.5
     )
-    runner.bus.subscribe(events.ThesisStarted, lambda evt: runner.cancel())
+    # Cancel when the extractor REPORTS, not on ThesisStarted. Workers are
+    # spawned, so most of the grace window is interpreter startup plus
+    # unpickling: cancelling at ThesisStarted raced the extractor against the
+    # grace and lost about 70% of the time when this test ran alone, which is
+    # not what the test is about. This trigger makes "the extractor finished
+    # and is committed, the module still in flight leaves no row" exact.
+    runner.bus.subscribe(
+        events.ModuleCompleted,
+        lambda evt: runner.cancel() if evt.module_name == "mod_fake_extract" else None,
+    )
 
     summary = runner.execute(runner.plan())
 
