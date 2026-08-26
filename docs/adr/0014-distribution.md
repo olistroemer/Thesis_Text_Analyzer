@@ -1,6 +1,6 @@
 # ADR-0014: Distribution as single-file standalone binary
 
-**Status:** Accepted (revised — per **US-PROF-NO-TRACES**, no per-user state is written outside the project folder by default; the `~/.config` recent-projects file is removed; revised again 2026-08-26 to add the normative **clean-environment build** clause, the **size gate**, and the **third-party licence manifest**, after #52 found the first release binary contaminated by undeclared packages). The **AGPL release gate** in the build pipeline is **superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
+**Status:** Accepted (revised — per **US-PROF-NO-TRACES**, no per-user state is written outside the project folder by default; the `~/.config` recent-projects file is removed; revised again 2026-08-26 to add the normative **clean-environment build** clause, the **size gate**, and the **third-party licence manifest**, after #52 found the first release binary contaminated by undeclared packages; and to record the implemented **per-OS build matrix** with its **packaged-binary acceptance** gates, #4). The **AGPL release gate** in the build pipeline is **superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
 **Date:** 2026-06-03
 **Drivers:** US-ALL-OFFLINE, US-RES-LOW-FRICTION (step 1 = "start the app", not "start the app and then pick a folder"), US-PROF-AUTO-OPEN, US-PROF-NO-TRACES, QA-PORT.
 
@@ -25,6 +25,17 @@ This keeps the professor's happy-path step 1 as "start the app" — never "start
 
 CI matrix builds release binaries on Windows, macOS (arm64 + amd64), and Linux. Tag-triggered. ~~The AGPL release gate (CI grep for `import fitz`/`import pymupdf` under `tta/core/`) blocks the build if PyMuPDF leaks.~~ (Retired by [ADR-0017](0017-license.md) — PyMuPDF may ship under the project's copyleft licence.) NLTK data bundled via PyInstaller `--add-data`. UPX disabled (antivirus false positives).
 
+The matrix in `.github/workflows/ci.yml` (`build`) is one job per target, each running the same steps from `packaging/tta.spec`:
+
+| target | runner | executables |
+|---|---|---|
+| `linux-x86_64` | `ubuntu-latest` | `tta`, `tta-gui` |
+| `windows-x86_64` | `windows-latest` | `tta.exe`, `tta-gui.exe` |
+| `macos-arm64` | `macos-14` | `tta`, `tta-gui` |
+| `macos-x86_64` | `macos-13` | `tta`, `tta-gui` |
+
+Every push and pull request builds all four (a build that only runs on tags is a build that is broken on tag day). `fail-fast` is off, so one platform's failure still yields evidence about the other three. A push of a `v*` tag additionally runs a `release` job that collects the four artefacts and opens a **draft** GitHub release. The draft is deliberate: publishing is the step that needs the #8 licence sign-off and the #6 GDPR statement, and those are human decisions, not CI's.
+
 Approximate release-build size: ~100 MB per OS. The two gates that keep that number honest — a clean build environment and a hard size ceiling — are specified below; they are what makes the frozen binary a function of the declared dependency set rather than of the builder's machine (**QA-REPRO**, SDD §10).
 
 ### Clean-environment build (normative)
@@ -42,9 +53,14 @@ Two independent mechanisms let that happen, so the ADR mandates two independent 
 
 CI **fails the build** if either produced executable exceeds a per-OS ceiling. The ceiling is a regression tripwire, not a target: it sits above the measured clean-build size with enough headroom to absorb ordinary dependency drift, and low enough that a re-contaminated build cannot pass.
 
-| target | ceiling (per executable) |
-|---|---|
-| Linux x86_64 | **150 MB** |
+| target | ceiling (per executable) | basis |
+|---|---|---|
+| Linux x86_64 | **150 MB** | measured: 94.4 MiB CLI / 105.1 MiB GUI (below) |
+| Windows x86_64 | **200 MB** | **provisional** — no measurement yet |
+| macOS arm64 | **200 MB** | **provisional** — no measurement yet |
+| macOS x86_64 | **200 MB** | **provisional** — no measurement yet |
+
+The three provisional ceilings are placeholders with a job to do, not estimates: nobody has yet frozen this application on Windows or macOS, so the honest number is unknown, and a ceiling chosen by analogy would be a guess dressed as a measurement. 200 MB is loose enough that a legitimate first build (Tcl/Tk frameworks, larger platform wheels) will not fail on arrival, and still tight enough to catch the failure it exists for — the contaminated Linux build measured 202.9 MiB, so the numeric stack returning would trip it. **The first green matrix run replaces each provisional row with its measurement**, and the ceiling is then re-tightened to the same ~40 % headroom the Linux row has.
 
 Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0, `--onefile`, UPX off, CPython 3.12.13). Both rows are real freezes of the *same* tree on the same machine: "before" re-runs the pre-#52 spec with the user site live, "after" is `PYTHONNOUSERSITE=1` plus the excludes below.
 
@@ -69,7 +85,20 @@ No feature was removed and no dependency was dropped to get there. The Linux cei
 
 **The `hiddenimports` split is necessary but not sufficient.** `nltk` reaches for matplotlib from *inside method bodies* (`nltk.probability.FreqDist.plot`, `nltk.tokenize.texttiling.demo`, `nltk.parse.dependencygraph.demo`, `nltk.sentiment.util`, `nltk.draw.*`), so the CLI graph kept collecting the whole plotting stack -- matplotlib 18.4 MB plus its pillow / fontTools / kiwisolver / contourpy / freetype / harfbuzz tail -- even after the split. The spec therefore gives the CLI its own `CLI_EXCLUDES = EXCLUDES + [matplotlib, mpl_toolkits, tksheet, tkinter]`. This is safe for the same reason as the numeric stack: every one of those nltk import sites is inside a `try`/`except ImportError` that raises a "requires matplotlib" message, or inside a `demo()`/`__main__` block, and `tta` uses exactly `nltk.sent_tokenize` and `nltk.word_tokenize`. It stays safe because [ADR-0002](0002-ui-core-boundary.md)'s boundary invariant forbids `tta/core` and `tta/cli` from importing `tta.ui`, so the CLI cannot acquire a genuine need for a GUI dependency without a CI failure first.
 
-The gate is enforced in `.github/workflows/ci.yml` (`build-linux`) rather than in `pytest`, because it is a property of a produced artefact, not of the source tree. What `pytest` *does* assert is the build **contract** — that the spec still carries the excludes, still keeps the GUI-only imports out of the CLI graph, and that CI still sets `PYTHONNOUSERSITE` — so a regression is caught in the fast suite even when no binary is built (`tests/packaging/`).
+The gate is enforced in `.github/workflows/ci.yml` (the `build` matrix) rather than in `pytest`, because it is a property of a produced artefact, not of the source tree. What `pytest` *does* assert is the build **contract** — that the spec still carries the excludes, still keeps the GUI-only imports out of the CLI graph, and that CI still sets `PYTHONNOUSERSITE` — so a regression is caught in the fast suite even when no binary is built (`tests/packaging/`).
+
+### Packaged-binary acceptance (normative)
+
+A build that compiles is not a build that works: the failures freezing introduces — a missing data file, a hook that did not run, an import resolved at build time but absent at run time — appear only when the produced executable is executed. Every matrix job therefore runs the produced binaries before its artefact is uploaded, and a failure fails the build.
+
+**The CLI binary is driven end to end** on every target: `version`, `module list`, `--help`, then a real project — `run` over a generated sample PDF, `list --format json`, and `export` — asserting that the run reports zero module errors, that the thesis shows successful module runs, and that the export is a SQLite file containing metric rows. That covers the acceptance path of #4 for the CLI, and it is what proves the *bundled* payload works: the NLTK `punkt_tab` model, the SQL migrations, the help markdown, and PyMuPDF extraction are all exercised, not merely present. Measured on the Linux build that introduced this clause: 12 modules ok, 0 errors, 29 metric values exported.
+
+**The GUI binary is launched** under `xvfb-run` on the Linux job with `HOME` pointed at a scratch directory: it must still be running when a timeout kills it, and it must have created its default project database. That is the check that would have caught a GUI binary whose Tk, tksheet or matplotlib payload did not survive freezing — the stack the CLI deliberately no longer carries, and therefore the stack no other gate touches. Complementing it, `packaging/check_build.py` asserts that the GUI dependency graph *does* contain matplotlib, tksheet and tkinter, so the per-binary scoping cannot over-shoot and strip the GUI's own stack.
+
+Two limits are worth stating rather than implying:
+
+- The GUI launch runs on Linux only. Windows and macOS runners have no equivalent of `xvfb-run`, so on those targets the GUI binary is built, size-gated and graph-checked, but never executed. A packaging fault specific to a Windows or macOS Tk build would survive CI.
+- "Launch → add → run → **report** → export" is covered up to the report *view*: the report is a GUI surface (ADR-0016), and driving its widget tree inside a frozen windowed binary is beyond what a headless runner can assert. The view itself is covered by `tests/ui` under Xvfb (source, not frozen), and the data it renders is covered by the CLI export above.
 
 ### Third-party licence manifest (normative)
 
@@ -121,11 +150,13 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ⚠️ Binary size ~94 MB (CLI) / ~105 MB (GUI) on Linux x86_64; CI ceiling 150 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
-- ⚠️ Per-OS CI build matrix required.
+- ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published.
+- ⚠️ The Windows and macOS size ceilings are provisional until the first matrix run measures them.
+- ⚠️ The GUI binary is only *executed* by CI on Linux (Xvfb); on Windows and macOS it is built and checked but never launched.
 
 ## Revisit when
 
 - Code signing becomes affordable / institutionally required (see SDD §12).
 - Startup becomes a complaint (consider Nuitka).
 - A declared dependency legitimately pushes a binary past its ceiling — raise the ceiling here, with the measurement, rather than in CI.
-- The build matrix gains macOS/Windows — each needs its own measured ceiling row.
+- The first green Windows/macOS matrix run lands — replace the provisional ceiling rows with the measurements, and re-tighten them to the Linux row's headroom.
