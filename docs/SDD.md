@@ -461,7 +461,7 @@ Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue
 | `mod_extract_pymupdf` | file extension is `.pdf` | not a PDF |
 | `mod_check_extraction_quality` | `raw_text` exists | upstream extraction failed |
 | `mod_classify_language` | `raw_text` exists and has ≥ 200 chars | text too short for confident detection |
-| `mod_tokenize` | `language.code` ∈ {`en`, `de`} | unsupported language |
+| `mod_tokenize` | `language.code` ∈ {`en`, `de`} **and** `raw_text` yields at least one sentence | unsupported language / no sentences in text (an empty `tokens` artefact is never written) |
 | `mod_surface_counts` / `mod_vocabulary` / `mod_redundancy` | `tokens` exists | upstream NA cascade |
 | `mod_readability` | `language.code` ∈ {`en`, `de`} | no Flesch formula for language |
 | `mod_count_images` | file is a PDF | not a PDF |
@@ -476,6 +476,8 @@ Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf
 ## 7.4 Notes on specific modules
 
 **`mod_extract_pymupdf`** is the initial implementation. The AGPL release gate that previously required replacing it before the first distributed `.exe` is retired by [ADR-0017](adr/0017-license.md) (the project adopts a copyleft licence, so PyMuPDF may ship); alternative extractors are now compared on quality, not licence ([§2.1.1](#211-methodological-output-library-comparison-study)).
+
+**`mod_tokenize`** must never produce an **empty `tokens` artefact**: three of the twelve modules read `tokens` (`mod_surface_counts`, `mod_vocabulary`, `mod_redundancy`) and between them carry thirteen of the twenty-nine metrics, so an empty-but-`ok` artefact would silently zero out nearly half the catalogue (#34). Two failure modes are therefore made loud rather than silent. (1) If segmentation yields no sentences at all (empty, whitespace-only or word-less `raw_text`), the module raises `NotApplicable` and the run is recorded `na` with a reason — dependents cascade to `na` honestly instead of measuring nothing. (2) If the bundled NLTK **punkt_tab** model cannot be resolved, the module raises a `RuntimeError` naming the missing model, the language and the searched data paths. This is an environment defect, not a property of the thesis, so it is an `error` outcome, never `na`. The message is re-worded deliberately: NLTK's own `LookupError` advises `nltk.download()`, which is wrong here — the model is bundled at build time ([ADR-0014](adr/0014-distribution.md)) and the app never downloads anything (QA-PRIV). Its text also opens with blank lines, so the runner's one-line `reason` ([§6.3](#63-run-lifecycle)) degraded to a bare `LookupError:` with no diagnostic content — the actual defect behind #34.
 
 **`mod_check_extraction_quality`** flags but does NOT block downstream modules. A thesis flagged `garbled` still has all subsequent metrics computed; the grid renders the row with a warning glyph and a tooltip.
 
