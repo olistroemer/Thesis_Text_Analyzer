@@ -34,6 +34,44 @@ def _display_available() -> bool:
 pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
 
 
+def _assert_header_binding_installed(grid) -> None:
+    """The #12 defect was that a header click never reached a handler at all.
+
+    Asserted structurally rather than by generating a click: the handler is
+    resolved from the event's x through `Sheet.identify_column`, so any
+    pixel-addressed click depends on the mapped window size and the current
+    horizontal scroll - sorting leaves the sheet scrolled to the sorted column.
+    That made a real-click assertion fail roughly two runs in three. What
+    actually needs guarding is the wiring: a private bindtag ahead of tksheet's
+    own (so it fires before tksheet's "break" on a no-change re-click) carrying
+    a <Button-1> class binding.
+    """
+    header = grid.sheet.CH
+    tag = f"gridHeaderClick{id(grid)}"
+    assert header.bindtags()[0] == tag, "private bindtag must precede tksheet's"
+    assert header.bind_class(tag, "<Button-1>"), "no <Button-1> on the private tag"
+
+
+def _sort_by_column(window, grid, col: int) -> None:
+    """Drive the header-click handler for a specific column, deterministically.
+
+    Pixel-addressed clicks cannot do this reliably: the handler resolves the
+    column via ``Sheet.identify_column(event)``, which maps an x offset through
+    the sheet's layout, and with 31 metric columns the target is normally
+    scrolled out of view. Whether any given x hits it depends on the mapped
+    window size, so the pixel approach failed about one run in three. The
+    binding itself is covered by _real_header_click; here we pin the column and
+    exercise the handler's own logic - key resolution, ASC/DESC toggling and
+    where the indicator lands."""
+    original = grid.sheet.identify_column
+    grid.sheet.identify_column = lambda event, allow_end=False: col
+    try:
+        grid._on_header_click(object())
+    finally:
+        grid.sheet.identify_column = original
+    window.root.update_idletasks()
+
+
 @pytest.mark.slow
 def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
     from tta.ui.tk.main_window import MainWindow
@@ -109,10 +147,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             headers = grid.sheet.headers()
             col = headers.index("word_count")
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
-            x = grid.sheet.MT.col_positions[col] + 5
-            grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
-            grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
-            window.root.update_idletasks()
+            _sort_by_column(window, grid, col)
             assert grid._sort_key == "word_count"
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (asc)"
@@ -120,9 +155,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             # #40: a repeat click on the same column flips ASC->DESC, so the
             # larger word_count (english_thesis) returns to the top and the
             # header shows the ASCII descending indicator.
-            grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
-            grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
-            window.root.update_idletasks()
+            _sort_by_column(window, grid, col)
             assert grid._sort_reverse is True
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
             assert grid.sheet.headers()[col] == "word_count (desc)"
@@ -132,10 +165,7 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             # header - it used to silently sort by file name and mark the file
             # header instead.
             type_col = headers.index("type")
-            x = grid.sheet.MT.col_positions[type_col] + 5
-            grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
-            grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
-            window.root.update_idletasks()
+            _sort_by_column(window, grid, type_col)
             assert grid._sort_key == "type"
             assert grid._sort_reverse is False
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
@@ -146,11 +176,9 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             # #60: the Excluded lead column sorts too (nothing is excluded here,
             # so the file-name tie-break decides), and a repeat click reverses.
             excluded_col = headers.index("excluded")
-            x = grid.sheet.MT.col_positions[excluded_col] + 5
-            for _ in range(2):
-                grid.sheet.CH.event_generate("<Button-1>", x=x, y=3)
-                grid.sheet.CH.event_generate("<ButtonRelease-1>", x=x, y=3)
-            window.root.update_idletasks()
+            _assert_header_binding_installed(grid)  # the #12 wiring
+            for _ in range(2):  # second click reverses (#40)
+                _sort_by_column(window, grid, excluded_col)
             assert grid._sort_key == "excluded"
             assert grid._sort_reverse is True
             assert grid.sheet.headers()[excluded_col] == "excluded (desc)"
@@ -189,5 +217,48 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             window._maybe_offer_report(events.RunCompleted(SimpleNamespace(ok=1)), False)
             assert opened == [written[0].as_uri()]
             assert window._report_prompt_window is None
+        finally:
+            window.root.destroy()
+
+
+@pytest.mark.slow
+def test_toolbar_add_is_recursive_and_remove_is_wired(tmp_path, english_pdf, monkeypatch):
+    """#62: one recursive "Add files" button; the separate "Add folder" is gone.
+
+    #63: "Remove" reaches ``dialogs.remove_thesis_flow``, which shipped with no
+    GUI caller at all - only the CLI could forget a mis-added thesis."""
+    from tta.ui.tk import dialogs
+    from tta.ui.tk.main_window import MainWindow
+
+    with Project.open(tmp_path / "proj", create=True) as project:
+        thesis = project.repo.add_thesis(english_pdf)
+        calls = []
+        monkeypatch.setattr(dialogs, "add_folder_flow", lambda *a: calls.append("folder") or 0)
+        monkeypatch.setattr(dialogs, "add_files_flow", lambda *a: calls.append("files") or 0)
+        monkeypatch.setattr(
+            dialogs,
+            "remove_thesis_flow",
+            lambda parent, proj, tid: calls.append(("remove", tid)) or False,
+        )
+        window = MainWindow(project, first_launch=False)
+        try:
+            window.root.update_idletasks()
+            labels = list(window._toolbar_buttons)
+            assert "Add files" in labels
+            assert "Add folder" not in labels  # collapsed into "Add files"
+            assert "Remove" in labels
+
+            # "Add files" must take the recursive folder path, not the file dialog
+            window._toolbar_buttons["Add files"].invoke()
+            assert calls == ["folder"]
+
+            # Remove acts on the grid selection
+            window.grid_view.sheet.select_cell(0, LEAD_COLUMNS.index("file"))
+            window._toolbar_buttons["Remove"].invoke()
+            assert ("remove", thesis.id) in calls
+
+            # picking individual files survives on the File menu
+            window._add_individual_files()
+            assert "files" in calls
         finally:
             window.root.destroy()

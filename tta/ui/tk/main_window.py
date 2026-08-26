@@ -71,6 +71,9 @@ class MainWindow:
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=False)
         file_menu.add_command(label="Open Project...", command=self._open_project)
+        file_menu.add_command(
+            label="Add Individual Files...", command=self._add_individual_files
+        )
         file_menu.add_command(label="Export...", command=self._export)
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.root.destroy)
@@ -112,10 +115,10 @@ class MainWindow:
         for child in self.toolbar.winfo_children():
             child.destroy()
         extended = self._extended.get()
-        # Sec. 9.7: basic = Add files | Add folder | Run all | Report | Export | Help
+        # Sec. 9.7: basic = Add files | Remove | Run all | Report | Export | Help
         buttons = [
-            ("Add files", self._add_files),
-            ("Add folder", self._add_folder),  # recursive folder add (#62)
+            ("Add files", self._add_files),  # recursive folder add (#62)
+            ("Remove", self._remove_selected),  # #63
             ("Run all", lambda: self._run(rerun=False)),
         ]
         if extended:
@@ -176,12 +179,28 @@ class MainWindow:
     # -- actions -----------------------------------------------------------------
 
     def _add_files(self) -> None:
+        """Recursive folder add is the default and only toolbar add path (#62).
+
+        A professor's theses arrive as a directory tree, not as a hand-picked
+        list, so the folder dialog is what the common case wants; picking
+        individual files stays reachable from the File menu."""
+        self._after_add(dialogs.add_folder_flow(self.root, self.project))
+
+    def _add_individual_files(self) -> None:
         self._after_add(dialogs.add_files_flow(self.root, self.project))
 
-    def _add_folder(self) -> None:
-        """Add every PDF beneath a chosen folder, recursively (#62, Sec. 9.7).
-        The dialog confirms the count before anything is written."""
-        self._after_add(dialogs.add_folder_flow(self.root, self.project))
+    def _remove_selected(self) -> None:
+        """Remove the selected thesis from the project (#63).
+
+        The core delete path and `tta remove` shipped without a GUI caller, so
+        only the CLI could forget a mis-added thesis. Always confirms: unlike
+        exclude, nothing restores it."""
+        thesis_id = self.grid_view.selected_thesis_id()
+        if thesis_id is None:
+            self._set_status("Select a thesis to remove.")
+            return
+        if dialogs.remove_thesis_flow(self.root, self.project, thesis_id):
+            self.refresh()
 
     def _after_add(self, added: int) -> None:
         if added:

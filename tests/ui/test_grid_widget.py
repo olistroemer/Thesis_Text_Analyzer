@@ -276,3 +276,39 @@ def test_artefact_columns_are_read_only_checkboxes(project, tmp_path, monkeypatc
         assert [str(path) for path in opened] == [str(artefact)]
     finally:
         root.destroy()
+
+
+@pytest.mark.slow
+def test_double_click_on_a_header_opens_nothing(project, tmp_path):
+    """A double-click on a column header must not open the details panel.
+
+    ``Sheet.bind("<Double-Button-1>", ...)`` installs the handler on the header,
+    row-index and corner canvases as well as the table, so a header
+    double-click used to open the panel for whichever cell was selected - on top
+    of re-sorting the grid, since two header clicks are two sort toggles."""
+    from types import SimpleNamespace
+
+    _seed_four_states(project, tmp_path)
+
+    from tta.ui.tk.grid import GridView
+
+    root = tkinter.Tk()
+    try:
+        grid = GridView(root, project.repo, project.store)
+        grid.reload(COLUMNS, show_artefacts=True)
+        root.update_idletasks()
+        err_col = grid._column_names().index("yules_k")
+        grid.sheet.select_cell(0, err_col)  # a cell that WOULD open a panel
+        before = set(_toplevels(grid))
+
+        for canvas in (grid.sheet.CH, grid.sheet.RI, grid.sheet.TL):
+            grid._on_double_click(SimpleNamespace(widget=canvas))
+        assert set(_toplevels(grid)) == before, "header/index/corner opened a panel"
+
+        # the table itself still does open it
+        grid._on_double_click(SimpleNamespace(widget=grid.sheet.MT))
+        opened = set(_toplevels(grid)) - before
+        assert len(opened) == 1
+        opened.pop().destroy()
+    finally:
+        root.destroy()

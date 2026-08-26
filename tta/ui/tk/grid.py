@@ -261,11 +261,29 @@ class GridView(ttk.Frame):
         revert an Excluded toggle without the parent window's help)."""
         self.reload(self.columns, show_artefacts=bool(self.artefact_kinds))
 
-    def _on_double_click(self, _event) -> None:
+    def selected_thesis_id(self) -> int | None:
+        """The thesis id of the currently selected row, or None (#63)."""
+        selected = self.sheet.get_currently_selected()
+        if not selected:
+            return None
+        r = selected.row
+        if not (0 <= r < len(self.rows)):
+            return None
+        return self.rows[r].thesis.id
+
+    def _on_double_click(self, event) -> None:
         """Double-click, the grid's single "open this" gesture (Sec. 9.9,
         US-PROF-DOUBLECLICK): the file cell opens the PDF, an artefact cell the
         cached file, and a metric or State cell with something to explain opens
-        the details panel (there are no hover tooltips, #66)."""
+        the details panel (there are no hover tooltips, #66).
+
+        Data cells only. ``Sheet.bind("<Double-Button-1>", ...)`` installs the
+        handler on the header, row-index and corner canvases as well as the
+        table, so without this guard double-clicking a column header both
+        re-sorted the grid (two header clicks = two sort toggles) and opened
+        the details panel for whatever cell happened to be selected."""
+        if event is not None and getattr(event, "widget", None) is not self.sheet.MT:
+            return
         selected = self.sheet.get_currently_selected()
         if not selected:
             return
