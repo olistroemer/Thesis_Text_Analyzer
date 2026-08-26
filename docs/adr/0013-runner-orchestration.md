@@ -10,9 +10,33 @@ The runner separates **planning** (deterministic, side-effect-free) from **execu
 
 Execution uses a `ProcessPoolExecutor` with one worker per concurrent thesis. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
 
-Cancellation is **skip-pending**: in-flight theses complete; no new ones are submitted. Module timeouts kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
+Cancellation is **skip-pending**: in-flight theses complete; no new ones are submitted. Runaway work is bounded by **two** timeouts - per module and per thesis (see [Timeouts](#timeouts)) - both of which kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
 
 Workers are spawned with the **`spawn`** start method (`multiprocessing.get_context("spawn")`), not the Linux `fork` default: `execute()` runs on a background thread in the GUI, and forking a multi-threaded process risks deadlocks (and warns since Python 3.12). Spawn is thread-safe and matches the macOS/Windows default; per-worker re-import cost (nltk/textstat/langdetect) stays well within the ADR-0015 per-thesis budget (#32).
+
+## Timeouts
+
+Two nested guards, both enforced by the main process from its poll loop, both killing the worker and running the [failure policy](#failure-policy) cascade:
+
+| Guard | Default | Measured from |
+|---|---|---|
+| **Per module** | 300 s | the `module_started` message for the module in flight |
+| **Per thesis** | 600 s | the worker's spawn |
+
+The per-module guard alone left the ceiling for one document at `module_timeout x modules attempted` — up to ~60 min with the 12-module catalogue, 240× [ADR-0015](0015-performance-budget.md)'s 15 s per-thesis budget (#56). Worse, it is blind to a worker that keeps *finishing* modules while making no progress overall, and to time spent between modules.
+
+The per-thesis default derives from that budget: ADR-0015 budgets ≤ 15 s per thesis on the supported tier and the low-end 2016 dual-core tier runs ≈ 4× slower (≈ 60 s), so **600 s is ~10× the slowest legitimate figure** — generous enough never to fire on honest work on a slow machine, and it sits *above* the per-module timeout deliberately, so for a single stuck module the finer-grained guard reports first and names the culprit. The per-thesis deadline is the belt-and-braces guard for what the module guard cannot see; neither substitutes for [worker-death detection](#failure-policy), which handles the case where nothing is running at all.
+
+Both are settable in `tta.toml`, so a user with 500-page scans need not patch the source to raise them:
+
+```toml
+[runner]
+workers = 4
+module_timeout_s = 300.0
+thesis_timeout_s = 600.0
+```
+
+Omitted keys take the defaults above. `Runner.__init__` keeps them as constructor arguments and `Project.make_runner` passes the configured values through — previously only tests could change them.
 
 ## Failure policy
 
@@ -57,7 +81,7 @@ class Runner:
 
 ## Worker count
 
-Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `tta.toml [runner] workers = N`.
+Defaults to `max(1, os.cpu_count() - 1)`. Configurable in `tta.toml [runner] workers = N`, alongside the [timeouts](#timeouts).
 
 ## Event surface
 
