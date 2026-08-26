@@ -156,7 +156,8 @@ def sort_rows(rows: list[ThesisRow], key: str | None, reverse: bool) -> list[The
     """Sort by a *column identity* (Sec. 9.2), not by grid position.
 
     ``key`` is the raw column name the grid header carries: a lead column
-    ("file", "type", "excluded"), an artefact kind, or a metric name. ``None``
+    ("excluded", "state", "file", "type"), an artefact kind, or a metric name.
+    ``None``
     means the default sort, by file name. Blank/missing values sort last in
     ascending order and every column tie-breaks on the file name, so the row
     order is deterministic (#60).
@@ -170,6 +171,8 @@ def sort_rows(rows: list[ThesisRow], key: str | None, reverse: bool) -> list[The
             return _value_key(row.thesis_type, tie_break)
         if key == "excluded":
             return (0, float(bool(row.thesis.excluded)), "", tie_break)
+        if key == "state":  # garbled-extraction rows group together (#65)
+            return (0, float(row.garbled), "", tie_break)
         if key in ARTEFACT_COLUMNS:
             return (0, float(key in row.artefacts), "", tie_break)
         cell = row.cells.get(key)

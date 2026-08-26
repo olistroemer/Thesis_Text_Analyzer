@@ -21,9 +21,14 @@ COLOR_OUTLIER = "#ffe2b0"
 COLOR_EXCLUDED = "#c8c8c8"
 COLOR_EXCLUDED_FG = "#707070"
 
-# Lead-column positions (LEAD_COLUMNS = "excluded", "file", "type").
+# Lead-column positions (LEAD_COLUMNS = "excluded", "state", "file", "type").
 EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
+STATE_COL = LEAD_COLUMNS.index("state")
 FILE_COL = LEAD_COLUMNS.index("file")
+
+# Sec. 9.9 whole-row indicator, rendered in the State column (#65). ADR-0018:
+# ASCII marker, not a glyph.
+STATE_GARBLED = "[!]"
 
 
 def open_with_default_app(path) -> None:
@@ -120,10 +125,17 @@ class GridView(ttk.Frame):
         bounds = grid_model.outlier_bounds(self.rows, self.columns)
         data = []
         for row in self.rows:
-            file_label = ("[!] " if row.garbled else "") + row.thesis.pdf_filename
-            # LEAD_COLUMNS order: excluded (bool -> tksheet checkbox), file, type
-            line = [bool(row.thesis.excluded), file_label, row.thesis_type]
-            line += ["[x]" if kind in row.artefacts else "" for kind in self.artefact_kinds]
+            # LEAD_COLUMNS order: excluded (bool -> editable tksheet checkbox),
+            # state, file (bare name - the state marker has its own column since
+            # #65, so names no longer shift row to row), type.
+            line = [
+                bool(row.thesis.excluded),
+                STATE_GARBLED if row.garbled else "",
+                row.thesis.pdf_filename,
+                row.thesis_type,
+            ]
+            # bools, rendered as read-only checkboxes by _apply_artefact_columns
+            line += [kind in row.artefacts for kind in self.artefact_kinds]
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)
         self.sheet.set_sheet_data(data, reset_col_positions=True, redraw=False)
@@ -143,6 +155,7 @@ class GridView(ttk.Frame):
                 if color:
                     self.sheet.highlight_cells(row=r, column=offset + i, bg=color)
         self._apply_excluded_column()
+        self._apply_artefact_columns()
         self._set_notes()
         self.sheet.redraw()
 
@@ -161,6 +174,21 @@ class GridView(ttk.Frame):
         if excluded_rows:
             self.sheet.highlight_rows(
                 rows=excluded_rows, bg=COLOR_EXCLUDED, fg=COLOR_EXCLUDED_FG, redraw=False
+            )
+
+    def _apply_artefact_columns(self) -> None:
+        """Render the artefact-presence columns as *read-only* tksheet checkboxes
+        (Sec. 9.2, #65): state="disabled" draws the box greyed and makes
+        ``click_checkbox`` a no-op, so a click cannot fabricate or clear
+        presence, while double-click-to-open still works. Re-applied each render
+        because ``set_sheet_data`` resets column options."""
+        for i, _kind in enumerate(self.artefact_kinds):
+            self.sheet.checkbox(
+                self.sheet.span(num2alpha(len(LEAD_COLUMNS) + i)),
+                edit_data=False,  # keep the per-row bool already in the cell data
+                state="disabled",
+                text="",
+                redraw=False,
             )
 
     def _set_notes(self) -> None:
@@ -184,8 +212,8 @@ class GridView(ttk.Frame):
         offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
         for r, row in enumerate(self.rows):
             if row.garbled:
-                sheet.note(sheet.span(r, FILE_COL), note=grid_model.GARBLED_TOOLTIP)
-                self._note_cells.add((r, FILE_COL))
+                sheet.note(sheet.span(r, STATE_COL), note=grid_model.GARBLED_TOOLTIP)
+                self._note_cells.add((r, STATE_COL))
             for i, column in enumerate(self.columns):
                 tip = grid_model.cell_tooltip(row.cells[column.metric])
                 if tip:

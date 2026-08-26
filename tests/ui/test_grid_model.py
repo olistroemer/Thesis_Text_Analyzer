@@ -1,7 +1,14 @@
 """Grid model tests - UI data layer without any Tk (ADR-0002 invariant 6)."""
 
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import BASIC_METRICS, MetricColumn, metric_columns
+from tta.ui.tk.columns import (
+    ARTEFACT_COLUMNS,
+    BASIC_METRICS,
+    LEAD_COLUMNS,
+    MetricColumn,
+    column_help,
+    metric_columns,
+)
 from tta.core.modules.registry import default_registry
 from tta.core.types import Thesis
 
@@ -209,6 +216,24 @@ def test_sort_by_unknown_key_falls_back_to_the_tie_break(project, tmp_path):
     ]
 
 
+def test_sort_by_state_lead_column_groups_garbled_rows(project, tmp_path):
+    """#65: the State column sorts on the garbled flag (blank rows first
+    ascending), file name as tie-break."""
+    for name in ("a.pdf", "b.pdf"):
+        pdf = tmp_path / name
+        pdf.write_bytes(b"%PDF-" + name.encode())
+        thesis = project.repo.add_thesis(pdf)
+        if name == "a.pdf":
+            with project.repo.transaction():
+                project.repo.record_run(
+                    thesis.id, "mod_check_extraction_quality", "0.1.0", "ok",
+                    metrics={"extraction_quality": "garbled"},
+                )
+    rows = grid_model.load_rows(project.repo, [])
+    assert [r.garbled for r in grid_model.sort_rows(rows, "state", False)] == [False, True]
+    assert [r.garbled for r in grid_model.sort_rows(rows, "state", True)] == [True, False]
+
+
 def test_has_analysis_reflects_presence_of_runs(project, tmp_path):
     """A row carries has_analysis=True when the thesis has any cached run (so
     excluding it must scrub), and False for a never-analysed thesis (#11)."""
@@ -240,3 +265,19 @@ def test_basic_mode_columns_are_a_curated_subset():
     assert [c.metric for c in basic] == list(BASIC_METRICS)
     assert len(extended) == 29  # all catalogue metrics (ADR-0011: +thesis_type, +publication_year, +publication_year_source)
     assert {c.metric for c in basic} < {c.metric for c in extended}
+
+
+def test_lead_columns_match_the_sdd_column_set():
+    """Sec. 9.3 "Column sets": the four lead columns, in order, both modes, each
+    with header help (#65)."""
+    assert LEAD_COLUMNS == ("excluded", "state", "file", "type")
+    assert all(column_help(name) for name in LEAD_COLUMNS)
+    assert all(column_help(kind) for kind in ARTEFACT_COLUMNS)
+
+
+def test_basic_mode_shows_the_publication_year():
+    """#65: the professor persona defaults to basic mode, so the project's
+    primary research axis (Sec. 2.1) must be a basic-mode column."""
+    basic = [c.metric for c in metric_columns(default_registry(), extended=False)]
+    assert "publication_year" in basic
+    assert basic.index("publication_year") == basic.index("n_pages") + 1

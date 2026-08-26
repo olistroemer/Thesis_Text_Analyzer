@@ -7,10 +7,12 @@ from dataclasses import dataclass
 
 from tta.core.modules.registry import ModuleRegistry
 
-# The Excluded checkbox is the first lead column in BOTH modes - it is a
-# professor-facing privacy control, not a power-user feature (US-PROF-EXCLUDE,
-# SDD Sec. 9.2, #11).
-LEAD_COLUMNS = ("excluded", "file", "type")
+# The four lead columns shown in BOTH modes (SDD Sec. 9.3 "Column sets").
+# "excluded" leads: it is a professor-facing privacy control, not a power-user
+# feature (US-PROF-EXCLUDE, SDD Sec. 9.2, #11). "state" is the per-row file /
+# extraction state, in its own column so the marker is sortable and does not
+# shift the file names horizontally row to row (Sec. 9.9, #65).
+LEAD_COLUMNS = ("excluded", "state", "file", "type")
 
 #: Artefact-presence columns, extended mode only (Sec. 9.2). Named here so
 #: the grid, the sort keys and COLUMN_HELP all agree on the set and order.
@@ -19,6 +21,10 @@ ARTEFACT_COLUMNS = ("raw_text", "language", "tokens", "pdf_metadata")
 #: Curated basic-mode metric subset (Sec. 9.3 "limited columns visible by default").
 BASIC_METRICS = (
     "n_pages",
+    # The publication year is the project's primary research axis (Sec. 2.1) and
+    # the professor persona defaults to basic mode, so it must be visible without
+    # switching modes (Sec. 9.3, #65).
+    "publication_year",
     "language_code",
     "word_count",
     "flesch_reading_ease",
@@ -35,6 +41,11 @@ COLUMN_HELP: dict[str, str] = {
         "Exclude this thesis from analysis and exports. Excluding an already-"
         "analysed thesis deletes its cached analysis (artefacts + metrics) from "
         "this machine after a confirmation; the source PDF is not touched."
+    ),
+    "state": (
+        "Per-row state. '[!]' means text extraction was flagged as garbled for "
+        "this thesis, so every metric in this row may be unreliable "
+        "(US-PROF-QUALITY); blank means no problem was detected."
     ),
     "file": "File name of the thesis PDF. Double-click to open the PDF.",
     "type": "Detected thesis type (bachelor / master / unspecified); blank until analysed.",
