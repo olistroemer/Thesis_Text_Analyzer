@@ -454,6 +454,14 @@ Twelve modules, twenty-nine metrics. See [ADR-011](adr/0011-mvp-module-catalogue
 | 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`unspecified`) | title-page keyword heuristic (#9, ADR-0019); evidence in `notes` |
 | 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `notes` |
 
+The third-party libraries named in the *Notes* column are inventoried — name, purpose, version,
+licence — in [`dependencies.md`](dependencies.md), which doubles as the one-time
+GPL-3.0-or-later compatibility audit [ADR-0017](adr/0017-license.md) calls for (#37). What those
+libraries and formulas get *wrong*, and which metrics must therefore be read with caution, is
+documented in [`model-limitations.md`](model-limitations.md) (#43). The MVP uses **no LLM**; the
+only trained/statistical components are NLTK punkt, langdetect, and the Flesch/Amstad syllable
+heuristics.
+
 ## 7.2 Applicability matrix
 
 | Module | Applicable when | N/A reason if not |

@@ -41,5 +41,143 @@
     year      = {1954}
 }
 
-% TODO: add references for langdetect, NLTK, pdfminer.six, PyMuPDF, pypdf, textstat,
-% the GDPR Article 13, and any specific papers cited by future modules.
+% ---------------------------------------------------------------------------
+% Bundled NLP components: the algorithms behind them, and the software itself.
+% Cited by docs/model-limitations.md (#43) and docs/dependencies.md (#37).
+% ---------------------------------------------------------------------------
+
+@article{kiss2006,
+    author    = {Kiss, Tibor and Strunk, Jan},
+    title     = {Unsupervised Multilingual Sentence Boundary Detection},
+    journal   = {Computational Linguistics},
+    volume    = {32},
+    number    = {4},
+    pages     = {485--525},
+    year      = {2006},
+    doi       = {10.1162/coli.2006.32.4.485},
+    note      = {The Punkt algorithm; the pretrained models NLTK ships as
+                 \texttt{punkt\_tab} come from this work's test corpora.}
+}
+
+@inproceedings{cavnar1994,
+    author    = {Cavnar, William B. and Trenkle, John M.},
+    title     = {N-Gram-Based Text Categorization},
+    booktitle = {Proceedings of SDAIR-94, 3rd Annual Symposium on Document
+                 Analysis and Information Retrieval},
+    pages     = {161--175},
+    year      = {1994},
+    note      = {The character n-gram profile method that language-detection
+                 libraries such as langdetect implement.}
+}
+
+@article{bailin2001,
+    author    = {Bailin, Alan and Grafstein, Ann},
+    title     = {The linguistic assumptions underlying readability formulae:
+                 a critique},
+    journal   = {Language \& Communication},
+    volume    = {21},
+    number    = {3},
+    pages     = {285--301},
+    year      = {2001},
+    doi       = {10.1016/S0271-5309(01)00005-2},
+    note      = {Why word-length/sentence-length proxies do not measure
+                 comprehensibility; the basis for the readability caveats in
+                 docs/model-limitations.md.}
+}
+
+@misc{nltk,
+    author       = {Bird, Steven and Klein, Ewan and Loper, Edward},
+    title        = {{NLTK}: The Natural Language Toolkit},
+    year         = {2009},
+    howpublished = {\url{https://www.nltk.org/}},
+    note         = {Apache-2.0. Used for punkt sentence segmentation and
+                    Treebank word tokenisation (\texttt{mod\_tokenize}).}
+}
+
+@misc{nakatani2010,
+    author       = {Nakatani, Shuyo},
+    title        = {Language Detection Library for Java},
+    year         = {2010},
+    howpublished = {\url{https://github.com/shuyo/language-detection}},
+    note         = {Apache-2.0, Cybozu Labs. The upstream of the Python
+                    \texttt{langdetect} port; 55 Wikipedia-trained n-gram
+                    profiles.}
+}
+
+@misc{langdetect,
+    author       = {Danilak, Michal},
+    title        = {\texttt{langdetect}: Python port of Nakatani Shuyo's
+                    language-detection library},
+    year         = {2021},
+    howpublished = {\url{https://pypi.org/project/langdetect/}},
+    note         = {Apache-2.0 (the PyPI \texttt{License} field says MIT --
+                    see docs/dependencies.md). Version 1.0.9 used by
+                    \texttt{mod\_classify\_language}.}
+}
+
+@misc{textstat,
+    title        = {\texttt{textstat}: readability statistics for text},
+    year         = {2025},
+    howpublished = {\url{https://pypi.org/project/textstat/}},
+    note         = {MIT. Supplies \texttt{flesch\_reading\_ease}; English
+                    syllables from CMUdict, all other languages from Pyphen
+                    hyphenation patterns.}
+}
+
+@misc{pyphen,
+    title        = {\texttt{Pyphen}: hyphenation using LibreOffice dictionaries},
+    year         = {2025},
+    howpublished = {\url{https://pyphen.org/}},
+    note         = {GPL-2.0+/LGPL-2.1+/MPL-1.1 tri-licence; bundled Hunspell
+                    hyphenation dictionaries from LibreOffice. Used by
+                    textstat as the syllable-count heuristic.}
+}
+
+@misc{cmudict,
+    author       = {{Carnegie Mellon University}},
+    title        = {The {CMU} Pronouncing Dictionary, version 0.7a},
+    year         = {2008},
+    howpublished = {\url{http://www.speech.cs.cmu.edu/cgi-bin/cmudict}},
+    note         = {BSD-2-Clause-style. 127,069 entries; textstat's primary
+                    English syllable source, reached through the NLTK
+                    \texttt{cmudict} corpus.}
+}
+
+@misc{pypdf,
+    title        = {\texttt{pypdf}: a pure-Python {PDF} library},
+    year         = {2025},
+    howpublished = {\url{https://pypdf.readthedocs.io/}},
+    note         = {BSD-3-Clause. Used by \texttt{mod\_count\_images} and
+                    \texttt{mod\_extract\_pdf\_metadata}.}
+}
+
+@misc{pymupdf,
+    title        = {\texttt{PyMuPDF}: Python bindings for {MuPDF}},
+    year         = {2025},
+    howpublished = {\url{https://pymupdf.readthedocs.io/}},
+    note         = {AGPL-3.0-or-later or Artifex commercial. Ships under the
+                    project copyleft licence per ADR-0017; the \texttt{raw\_text}
+                    producer in \texttt{mod\_extract\_pymupdf}.}
+}
+
+@misc{pdfminer_six,
+    title        = {\texttt{pdfminer.six}: {PDF} parser and analyser},
+    year         = {2025},
+    howpublished = {\url{https://pdfminersix.readthedocs.io/}},
+    note         = {MIT. Candidate alternative \texttt{raw\_text} producer for
+                    the library-comparison study (SDD Sec. 2.1.1); not an MVP
+                    dependency.}
+}
+
+@misc{gdpr2016,
+    author       = {{European Parliament and Council of the European Union}},
+    title        = {Regulation ({EU}) 2016/679 (General Data Protection
+                    Regulation), Articles 13--15},
+    year         = {2016},
+    howpublished = {\url{https://eur-lex.europa.eu/eli/reg/2016/679/oj}},
+    note         = {The information and access duties QA-GDPR renders from the
+                    privacy registry.}
+}
+
+% TODO: add references for any specific papers cited by future modules
+% (out-of-MVP citation and LM-based modules, SDD Sec. 12).
