@@ -1,7 +1,7 @@
 # ADR-0006: Database schema — unified, source-aware, append-only history
 
-**Status:** Accepted (revision 5 — SHA-256 hashing deferred from add time to first-run time (rev. 4, #38); excluding an already-analysed thesis **scrubs** its cached analysis via `purge_analysis`, an intentional, documented exception to append-only history (#11). See below.)
-**Date:** 2026-06-03 (rev. 4: 2026-07-22; rev. 5: 2026-07-23)
+**Status:** Accepted (revision 6 — SHA-256 hashing deferred from add time to first-run time (rev. 4, #38); excluding an already-analysed thesis **scrubs** its cached analysis via `purge_analysis` (rev. 5, #11); adding a batch of theses is **one transaction** rather than one commit per file (rev. 6, #61). See below.)
+**Date:** 2026-06-03 (rev. 4: 2026-07-22; rev. 5: 2026-07-23; rev. 6: 2026-08-26)
 **Drivers:** ADR-0004 (modules + versions), ADR-0005 (producer swap deferred), US-PROF-EXCLUDE, US-PROF-ATTRS, US-RES-IMPORT, US-RES-LOCAL-RERUN, US-RES-LOW-FRICTION (rev. 4: instant add), QA-TEST, QA-PRIV.
 
 ## Decision
@@ -46,7 +46,8 @@ The scrub is destructive and irreversible (locally), but the **source PDF is unt
 
 Content-addressing means a thesis keeps its history across renames/moves and gives a portable cross-export identifier. **The hash is not computed on add** (rev. 4, #38): reading every file to hash it made adding a folder of PDFs feel like the app had hung, which the low-friction contribute loop (US-RES-LOW-FRICTION) cannot afford. Instead:
 
-- **Add time** — `add_thesis` is instant: it stores `pdf_sha256 = NULL` and `pdf_size_bytes` (a cheap `stat`, no read), and dedups on `(source_id, pdf_path)`. Re-adding the same path updates the filename/size and keeps the row's identity and run history.
+- **Add time** — `add_thesis` reads no bytes: it stores `pdf_sha256 = NULL` and `pdf_size_bytes` (a cheap `stat`), and dedups on `(source_id, pdf_path)`. Re-adding the same path updates the filename/size and keeps the row's identity and run history.
+- **Adding a batch is one transaction, not one per file (rev. 6, #61).** "Instant" was true of the *file* work and false of the *transaction* work: `add_thesis` committed per row, so N PDFs cost N durable commits — N fsyncs — which is what actually made adding a folder feel slow. `Repository.add_theses(paths)` is therefore the primitive: it resolves the local `source_id` **once**, `stat`s every path **before** opening the transaction, does one batched dedup `SELECT ... WHERE source_id = ? AND pdf_path IN (...)` for the whole batch instead of one per file, and commits **once**. `add_thesis` is a one-element delegate. Both adapters (GUI file/folder dialogs, `tta run`'s INPUTS) call `add_theses`. Very large batches are **chunked** (a few hundred paths per transaction) so a failure part-way through — an unreadable path, a vanished file — does not discard the chunks that already committed, and so the `IN (...)` list stays well inside SQLite's host-parameter limit. A path that appears twice in one batch resolves to one row, as re-adding it would. No `(source_id, pdf_path)` index is added: batching the dedup `SELECT` already reduces it to **one** scan per chunk rather than one per file, so the per-file cost is gone without a schema change. Add the index if profiling ever shows that single scan dominating.
 - **First-run time** — before a thesis's modules execute, the main process (the sole DB writer, [ADR-0013](0013-runner-orchestration.md)) computes the SHA-256 once and persists it. If the freshly-computed hash matches an already-hashed sibling in the same source (two different paths, byte-identical content), the newer row is **folded** into the canonical one: its runs/artefacts are discarded, the canonical adopts the most-recently-seen path, and the duplicate row is removed. The `UNIQUE (source_id, pdf_sha256)` constraint therefore holds over all non-NULL hashes.
 
 The tradeoff: between add and first run, a moved/renamed file added under a new path is a distinct row (its content identity is not yet known); the fold at run time reunites them. This is accepted — analysis is where content identity first matters.
@@ -61,7 +62,7 @@ The tradeoff: between add and first run, a moved/renamed file added under a new 
 ## Consequences
 
 - ✅ Content-addressed identity makes renaming/moving PDFs safe (reunited at first run, rev. 4).
-- ✅ Adding theses is instant regardless of file size or count (rev. 4, #38): no file is read until analysis.
+- ✅ Adding theses is instant regardless of file **size** (rev. 4, #38: no file is read until analysis) and scales in **count** (rev. 6, #61: the batch is one transaction, so N PDFs cost O(1) commits rather than N fsyncs).
 - ⚠️ `pdf_sha256` is NULL for a thesis added but never analysed; any code relying on it (export identity, content-dedup) must tolerate NULL until the first run. Export keeps the column nullable and never fabricates a hash.
 - ✅ Append-only history surfaces stale-row detection (`module_runs.module_version` vs live module version) and supports module-version diagnosis.
 - ⚠️ Append-only history has exactly one sanctioned exception: `purge_analysis` deletes an excluded thesis's cached analysis (rev. 5, #11). Scoped, confirmed, and privacy-motivated; documented above.
