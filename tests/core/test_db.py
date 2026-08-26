@@ -1,13 +1,15 @@
 """Migrator + repository tests (SDD Sec. 8.1, ADR-0006)."""
 
+import ast
 import json
+import pathlib
 import shutil
 import sqlite3
 
 import pytest
 
 from tta.core import db
-from tta.core.db import migrator
+from tta.core.db import migrator, repository
 from tta.core.db.repository import Repository
 
 
@@ -123,7 +125,7 @@ class CountingConnection:
 
 
 def test_add_theses_commits_once_per_batch(project, tmp_path):
-    """O(1) commits, not O(N) (#61, ADR-0006 rev. 6). One fsync per PDF was
+    """O(1) commits, not O(N) (#61, SDD Sec. 8.1). One fsync per PDF was
     the real cost of adding a folder; count the commits to pin it down."""
     paths = _make_pdfs(tmp_path, 25)
     counting = CountingConnection(project.conn)
@@ -316,7 +318,7 @@ def _analyse(project, thesis, tmp_path, text=b"secret extracted text"):
 
 
 def test_delete_thesis_forgets_the_row_and_the_analysis(project, tmp_path):
-    """Remove is the harder version of exclude (#63, ADR-0006 rev. 7): unlike
+    """Remove is the harder version of exclude (#63, ADR-0006 rev. 6): unlike
     purge_analysis it takes the theses row too, so the same PDF can be added
     again as a fresh thesis with no history."""
     pdf = tmp_path / "mistake.pdf"
@@ -439,6 +441,33 @@ def test_dedup_fold_uses_the_shared_delete_implementation(project, tmp_path, mon
     assert project.repo.assign_content_hash(second) == first.id
     assert deleted == [second.id]
     assert len(project.repo.list_theses()) == 1
+
+
+def test_theses_row_delete_exists_in_exactly_one_place():
+    """Structural guard for #63's "one delete implementation" criterion.
+
+    The behavioural test above only covers the fold that exists today. This one
+    reads the module and fails if *any* method grows its own inline copy of the
+    `theses`-row delete, which is how the duplication would come back: a new
+    batched or bulk variant of an existing method is a separate function, so a
+    spy on the shared helper would still pass while two implementations ship.
+    Keep the deletes in `_delete_thesis_rows` and call it."""
+    source = pathlib.Path(repository.__file__).read_text(encoding="utf-8")
+    owners = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for sub in ast.walk(node):
+            if (
+                isinstance(sub, ast.Constant)
+                and isinstance(sub.value, str)
+                and "DELETE FROM theses" in sub.value
+            ):
+                owners.append(node.name)
+    assert owners == ["_delete_thesis_rows"], (
+        "DELETE FROM theses must live in _delete_thesis_rows alone (#63); "
+        f"found it in: {owners or ['nowhere']}"
+    )
 
 
 def test_module_duration_stats_mean_rate_per_module(project, tmp_path):

@@ -23,12 +23,6 @@ if TYPE_CHECKING:
     from tta.core.artefacts import ArtefactStore
 
 
-# Paths per add transaction (#61): large enough that a folder add is a
-# handful of commits, small enough that a failure part-way keeps the
-# chunks already committed and the dedup IN (...) list stays modest.
-_ADD_CHUNK = 500
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -49,6 +43,12 @@ def _row_to_thesis(row: sqlite3.Row) -> Thesis:
         pdf_filename=row["pdf_filename"],
         excluded=bool(row["excluded"]),
     )
+
+
+# Paths per add transaction (#61): large enough that a folder add is a
+# handful of commits, small enough that a failure part-way keeps the
+# chunks already committed and the dedup IN (...) list stays modest.
+_ADD_CHUNK = 500
 
 
 class Repository:
@@ -96,7 +96,7 @@ class Repository:
 
     def add_theses(self, pdf_paths: "Sequence[Path | str]") -> list[Thesis]:
         """Add many theses in **one transaction per chunk**, not one commit per
-        file (ADR-0006 rev. 6, #61).
+        file (SDD Sec. 8.1, #61).
 
         The rev. 4 "instant add" claim held for the *file* work (nothing is
         read) but not for the *transaction* work: committing per row cost one
@@ -279,7 +279,7 @@ class Repository:
     def _delete_thesis_rows(self, thesis_id: int) -> None:
         """Every row belonging to one thesis, the `theses` row included.
 
-        The single delete implementation (ADR-0006 rev. 7, #63): shared by
+        The single delete implementation (ADR-0006 rev. 6, #63): shared by
         :meth:`delete_thesis` and by the content-dedup fold in
         :meth:`assign_content_hash`, which needs the deletes inside its own
         transaction. Caller owns the transaction and the filesystem step.
@@ -299,7 +299,7 @@ class Repository:
     def delete_thesis(self, thesis_id: int, store: "ArtefactStore | None" = None) -> None:
         """Forget a thesis entirely - the harder version of exclude (#63).
 
-        The second sanctioned break in append-only history (ADR-0006 rev. 7).
+        The second sanctioned break in append-only history (ADR-0006 rev. 6).
         Where :meth:`purge_analysis` deliberately **keeps** the ``theses`` row
         so an excluded thesis's content-addressed identity is remembered, this
         deletes the row too: a PDF added by mistake has no identity worth

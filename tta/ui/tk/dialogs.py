@@ -23,7 +23,7 @@ def add_files_flow(parent, project: Project) -> int:
     )
     if not filenames:
         return 0
-    # one batched transaction, not one commit per file (#61, ADR-0006 rev. 6)
+    # one batched transaction, not one commit per file (#61, SDD Sec. 8.1)
     return len(project.repo.add_theses([Path(name) for name in filenames]))
 
 
@@ -62,10 +62,11 @@ def add_folder_flow(parent, project: Project) -> int:
         return 0
     return len(project.repo.add_theses(pdfs))
 
+
 def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
     """Confirm, then remove one thesis from the project. Returns True if it was.
 
-    The harder version of the Excluded checkbox (#63, ADR-0006 rev. 7). The
+    The harder version of the Excluded checkbox (#63, ADR-0006 rev. 6). The
     wording has to carry the two things that distinguish it from excluding:
     the cached analysis is destroyed, and the thesis row itself is forgotten -
     so nothing can re-include it, and the same PDF adds again as a fresh
@@ -74,7 +75,14 @@ def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
     An incomplete artefact removal is surfaced rather than swallowed (as in
     ``export_flow``'s sibling path for exclude, #11): the rows are already
     gone, the residual files never leave the machine (ADR-0007), and the user
-    is told where they are."""
+    is told where they are.
+
+    NOT YET WIRED (#63): the gesture that reaches this - a context-menu entry
+    or a Delete-key binding on the selected row - belongs in
+    ``tta/ui/tk/grid.py``, which another change owns concurrently. The call it
+    needs is ``dialogs.remove_thesis_flow(parent, project, thesis_id)``, and
+    the caller should ``refresh()`` on a True return. Until that lands,
+    ``tta remove`` is the only user-reachable removal path."""
     try:
         thesis = project.repo.get_thesis(thesis_id)
     except KeyError:
@@ -108,6 +116,7 @@ def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
             parent=parent,
         )
     return True
+
 
 def export_flow(parent, project: Project) -> None:
     """Pre-export confirmation (Sec. 8.3, QA-PRIV): row count + path, one

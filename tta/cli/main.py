@@ -398,7 +398,7 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
         pdfs = _collect_pdfs(inputs)
         if pdfs:
             # one batched transaction for the whole INPUTS set, and one summary
-            # line instead of one per file (#61, ADR-0006 rev. 6)
+            # line instead of one per file (#61, SDD Sec. 8.1)
             added = project.repo.add_theses(pdfs)
             stderr.print(f"added {len(added)} theses from {len(inputs)} input path(s)")
 
