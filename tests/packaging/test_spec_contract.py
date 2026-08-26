@@ -136,32 +136,39 @@ def test_spec_is_ascii_like_the_rest_of_the_source(spec_source):
 # ------------------------------------------- the clean-environment gate itself
 
 
-def _run_spec(env_extra):
-    """Execute the spec's prologue and return (returncode, stderr+stdout).
+def _run_spec(user_site):
+    """Execute the spec's prologue with ``site.ENABLE_USER_SITE`` forced.
 
     The spec raises SystemExit from its clean-environment guard before it
     touches SPECPATH or nltk, so executing it standalone is enough to
     observe the guard - and to observe that it does NOT fire when the user
     site is off (it then fails later, on the undefined SPECPATH).
+
+    The flag is set in-process rather than through the environment on
+    purpose. There is no way to switch the user site back ON from outside
+    the interpreter (PYTHONNOUSERSITE only turns it off), and the host
+    interpreter's own value varies: a conda env and a bare system Python
+    report True, while a plain ``python -m venv`` reports False. Driving the
+    flag directly makes both directions testable from any environment - the
+    negative case is what the *build* environment ADR-0014 recommends
+    actually looks like.
     """
-    env = dict(os.environ)
-    env.pop("PYTHONNOUSERSITE", None)
-    env.update(env_extra)
+    preamble = "import site; site.ENABLE_USER_SITE = %r; " % bool(user_site)
     proc = subprocess.run(
         [sys.executable, "-c",
-         "exec(compile(open(%r).read(), %r, 'exec'))" % (str(SPEC_PATH),
-                                                         str(SPEC_PATH))],
+         preamble + "exec(compile(open(%r).read(), %r, 'exec'))"
+         % (str(SPEC_PATH), str(SPEC_PATH))],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT),
-        env=env,
+        env={k: v for k, v in os.environ.items() if k != "PYTHONNOUSERSITE"},
     )
     return proc.returncode, proc.stdout + proc.stderr
 
 
 def test_spec_refuses_to_build_when_the_user_site_is_live():
     """The #52 root cause: llvmlite and numba came from ~/.local."""
-    rc, output = _run_spec({})
+    rc, output = _run_spec(user_site=True)
     assert rc != 0
     assert "refusing to build" in output
     assert "PYTHONNOUSERSITE=1" in output
@@ -169,10 +176,26 @@ def test_spec_refuses_to_build_when_the_user_site_is_live():
 
 def test_spec_gets_past_the_guard_with_the_user_site_disabled():
     """Proof the guard is not simply always-on."""
-    rc, output = _run_spec({"PYTHONNOUSERSITE": "1"})
+    rc, output = _run_spec(user_site=False)
     assert "refusing to build" not in output
     # It still fails: SPECPATH is only defined when PyInstaller execs the spec.
     assert "SPECPATH" in output
+
+
+def test_pythonnousersite_is_what_the_fix_message_says_it_is():
+    """The guard's advice must actually satisfy the guard.
+
+    Separated from the two tests above because this one asserts a property of
+    CPython, not of the spec: PYTHONNOUSERSITE=1 disables the user site in
+    any interpreter, which is why ADR-0014 mandates it for release builds
+    (and why the workflow sets it for the whole build job).
+    """
+    env = dict(os.environ, PYTHONNOUSERSITE="1")
+    proc = subprocess.run(
+        [sys.executable, "-c", "import site; print(site.ENABLE_USER_SITE)"],
+        capture_output=True, text=True, env=env,
+    )
+    assert proc.stdout.strip() == "False", proc.stdout + proc.stderr
 
 
 # ----------------------------------------------------------- the CI workflow
