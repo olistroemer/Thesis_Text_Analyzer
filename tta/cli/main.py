@@ -28,7 +28,7 @@ from tta.core import events
 from tta.core import privacy_metadata
 from tta.core.db import migrator
 from tta.core.discovery import collect_pdfs
-from tta.core.export import ExportPolicy, export_database
+from tta.core.export import ExportPolicy, export_database, export_profiling
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
@@ -470,22 +470,47 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt) -> None:
 @click.argument("out", required=False, type=click.Path(path_type=Path))
 @click.option("--current-only", is_flag=True,
               help="Trim history to the latest run per (thesis, module).")
+@click.option("--profiling", is_flag=True,
+              help="Dump per-run durations as CSV instead of the cohort export (QA-RES).")
 @click.pass_context
-def export(ctx: click.Context, out: Path | None, current_only: bool) -> None:
-    """Produce the researcher export (PII-stripped SQLite, ADR-0007)."""
+def export(
+    ctx: click.Context, out: Path | None, current_only: bool, profiling: bool
+) -> None:
+    """Produce the researcher export (PII-stripped SQLite, ADR-0007).
+
+    With --profiling, writes the flat per-run profiling dataset instead: one
+    CSV row per module run with its duration and the PDF size it was measured
+    on, for checking real timings against the per-module budgets in ADR-0015
+    (#47). Same rules as the cohort export - local source only, no PII column.
+    """
     with open_project(ctx) as project:
-        if out is None:
-            label = project.config.institution or "export"
-            out = project.dir / "exports" / f"{label}-{date.today():%Y-%m-%d}.sqlite"
         policy = ExportPolicy.CURRENT_ONLY if current_only else ExportPolicy.FULL
+        label = project.config.institution or "export"
         try:
-            stats = export_database(project.repo.conn, out, policy)
+            if profiling:
+                if out is None:
+                    out = (
+                        project.dir / "exports"
+                        / f"{label}-profiling-{date.today():%Y-%m-%d}.csv"
+                    )
+                profile_stats = export_profiling(project.repo.conn, out, policy)
+            else:
+                if out is None:
+                    out = project.dir / "exports" / f"{label}-{date.today():%Y-%m-%d}.sqlite"
+                stats = export_database(project.repo.conn, out, policy)
         except FileExistsError as exc:
             raise DataError(str(exc)) from exc
-    stdout.print(
-        f"exported {stats.theses} theses, {stats.runs} runs, "
-        f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
-    )
+    if profiling:
+        stdout.print(
+            f"exported {profile_stats.rows} module runs across "
+            f"{profile_stats.modules} modules ({profile_stats.policy.value}) "
+            f"-> {profile_stats.path}"
+        )
+    else:
+        stdout.print(
+            f"exported {stats.theses} theses, {stats.runs} runs, "
+            f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
+        )
 
 
 @cli.command("import")

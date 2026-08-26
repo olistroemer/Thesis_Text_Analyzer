@@ -184,3 +184,69 @@ def test_remove_then_re_add_is_a_fresh_thesis(project_dir):
     rows = _rows(project_dir)
     assert len(rows) == 1
     assert rows[0]["ok"] == 0 and rows[0]["excluded"] is False  # no inherited history
+
+
+# -- tta export --profiling (#47) --------------------------------------------
+
+
+def _seed_with_durations(project_dir):
+    from tta.core import db
+    from tta.core.db.repository import Repository
+
+    pdf = project_dir / "timed.pdf"
+    pdf.write_bytes(b"%PDF-" + bytes(200))
+    conn = db.connect(project_dir / "tta.sqlite")
+    repo = Repository(conn)
+    thesis = repo.add_thesis(pdf)
+    with repo.transaction():
+        repo.record_run(thesis.id, "mod_tokenize", "1.0.0", "ok", duration_ms=4000)
+        repo.record_run(thesis.id, "mod_tokenize", "1.1.0", "ok", duration_ms=3000)
+        repo.record_run(thesis.id, "mod_readability", "1.0.0", "error", duration_ms=12)
+    conn.close()
+    return thesis.id
+
+
+def test_export_profiling_writes_a_csv_to_the_default_path(project_dir):
+    _seed_with_durations(project_dir)
+    result = invoke("-C", project_dir, "export", "--profiling")
+    assert "3 module runs across 2 modules" in result.stdout
+
+    csvs = list((project_dir / "exports").glob("*profiling*.csv"))
+    assert len(csvs) == 1
+    lines = csvs[0].read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("thesis_id,pdf_sha256,pdf_size_bytes,module_name")
+    assert len(lines) == 4  # header + 3 runs
+    assert "mod_readability" in csvs[0].read_text(encoding="utf-8")
+
+
+def test_export_profiling_current_only_trims(project_dir):
+    import csv
+
+    _seed_with_durations(project_dir)
+    out = project_dir / "prof.csv"
+    result = invoke("-C", project_dir, "export", out, "--profiling", "--current-only")
+    assert "2 module runs" in result.stdout  # latest mod_tokenize + the mod_readability run
+    with open(out, encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    versions = {r["module_name"]: r["module_version"] for r in rows}
+    assert versions == {"mod_tokenize": "1.1.0", "mod_readability": "1.0.0"}
+    assert rows[0]["ms_per_byte"]  # the derived rate is populated
+
+
+def test_export_profiling_leaves_the_cohort_export_alone(project_dir):
+    """The flag chooses which output is produced; the default is unchanged."""
+    _seed_with_durations(project_dir)
+    result = invoke("-C", project_dir, "export", project_dir / "cohort.sqlite")
+    assert "exported 1 theses" in result.stdout
+    assert (project_dir / "cohort.sqlite").exists()
+
+
+def test_export_profiling_refuses_to_overwrite_exits_65(project_dir):
+    _seed_with_durations(project_dir)
+    out = project_dir / "prof.csv"
+    out.write_bytes(b"do not clobber")
+    result = runner.invoke(
+        cli, ["-C", str(project_dir), "export", str(out), "--profiling"]
+    )
+    assert result.exit_code == 65
+    assert out.read_bytes() == b"do not clobber"
