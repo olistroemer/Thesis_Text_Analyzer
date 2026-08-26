@@ -25,7 +25,6 @@ from rich.table import Table
 
 import tta
 from tta.core import events
-from tta.core import doctor as doctor_core
 from tta.core import privacy_metadata
 from tta.core.db import migrator
 from tta.core.export import ExportPolicy, export_database
@@ -99,6 +98,12 @@ def doctor(ctx: click.Context, fmt: str) -> None:
     Read-only: never migrates, creates or repairs anything. Exits 1 if any
     check fails, so `tta doctor >/dev/null || ...` works in a script.
     """
+    # Imported here, not at module scope: `doctor` pulls in nltk/textstat/
+    # langdetect for its offline self-check, ~0.6 s that every other command
+    # (`version`, `list`, `--help`) would otherwise pay. Same reason
+    # extract_pymupdf.py defers `fitz`.
+    from tta.core import doctor as doctor_core
+
     diag = doctor_core.collect(ctx.obj)
     if fmt == "json":
         click.echo(json.dumps(diag.to_dict(), indent=2))

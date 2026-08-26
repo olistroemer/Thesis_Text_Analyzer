@@ -12,6 +12,10 @@ without a CLI runner (ADR-0002). Two rules define this module:
   could - NLTK ``punkt_tab``, ``langdetect``, ``textstat`` - are probed
   with outbound sockets disabled. Asserting offline-ness proves nothing;
   doing the work with the network unplugged does.
+
+Those three libraries cost ~0.6 s to import, so every one of them is
+imported inside the probe that needs it, never at module scope: `doctor`
+is one command among many and no other command may pay for it.
 """
 
 from __future__ import annotations
@@ -30,7 +34,6 @@ from typing import Any
 import tta
 from tta.core.config import CONFIG_FILENAME, load_config
 from tta.core.modules.registry import default_registry
-from tta.core.modules.tokenize import NLTK_LANGUAGES
 
 DB_FILENAME = "tta.sqlite"  # duplicated from core.project to keep this import-light
 
@@ -107,7 +110,11 @@ def no_network() -> Iterator[None]:
 
 def _probe_nltk() -> list[Check]:
     """punkt_tab must resolve for every supported language, from local data."""
+    # Deferred with nltk itself: importing `mod_tokenize` for one dict would
+    # drag nltk into every importer of this module (see the note below).
     import nltk
+
+    from tta.core.modules.tokenize import NLTK_LANGUAGES
 
     checks = [
         Check(

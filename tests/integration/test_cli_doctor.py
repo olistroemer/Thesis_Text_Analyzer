@@ -5,6 +5,9 @@ file with the rest of the CLI suite.
 """
 
 import json
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -75,3 +78,26 @@ def test_doctor_reports_config_from_the_project_file(project_dir):
     assert payload["config"]["exists"] is True
     assert payload["config"]["workers"] == 3
     assert payload["config"]["ui_mode"] == "extended"
+
+
+def test_importing_the_cli_does_not_pay_for_doctors_libraries():
+    """`doctor` needs nltk/textstat/langdetect; no other command may pay.
+
+    They cost ~0.6 s to import, which is ~8x the whole rest of CLI startup,
+    so `tta version`, `tta list` and even `tta --help` would visibly stall if
+    `doctor` (or its NLTK_LANGUAGES import) were pulled in at module scope.
+    A subprocess, because this process has already imported everything.
+    """
+    probe = (
+        "import sys; import tta.cli.main; "
+        "print(sorted(m for m in ('nltk', 'textstat', 'langdetect', 'tta.core.doctor') "
+        "if m in sys.modules))"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=Path(__file__).resolve().parents[2],
+    ).stdout.strip()
+    assert out == "[]", f"eagerly imported by tta.cli.main: {out}"
