@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
+from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +22,14 @@ from tta.core.types import Thesis
 
 if TYPE_CHECKING:
     from tta.core.artefacts import ArtefactStore
+
+
+logger = logging.getLogger(__name__)
+
+#: Threads used for the batched hashing pass. ``hashlib`` releases the GIL, so
+#: a handful of threads overlap I/O wait and digest work; more than this only
+#: thrashes a spinning disk (ADR-0006 rev. 6, #59).
+HASH_THREADS = 4
 
 
 def _now() -> str:
@@ -153,6 +164,130 @@ class Repository:
             self.conn.execute("DELETE FROM artefact_files WHERE thesis_id = ?", (row["id"],))
             self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (row["id"],))
             self.conn.execute("DELETE FROM theses WHERE id = ?", (row["id"],))
+        return canonical
+
+    def assign_content_hashes(
+        self,
+        theses: Sequence[Thesis],
+        *,
+        on_hashed: Callable[[int], None] | None = None,
+    ) -> dict[int, int]:
+        """Batched :meth:`assign_content_hash` for a whole run (ADR-0006 rev. 6,
+        #59). Returns ``{thesis_id: canonical_id}`` and writes each freshly
+        computed hash back onto the passed :class:`Thesis` (a mutable
+        dataclass), so the caller needs no follow-up :meth:`get_thesis`.
+
+        One query for the rows, one for the already-hashed siblings, every
+        missing digest computed in a small thread pool, and **one commit** for
+        the whole batch - in place of ~7 statements and an fsync-ing commit per
+        thesis, which measured 55 % of a 7.1 s hashing phase over 200 theses.
+        ADR-0013's sole-writer rule is untouched: only the digests run on
+        threads, every statement executes on this connection.
+
+        Dedup matches the single-thesis method: a hash equal to an
+        already-hashed sibling in the same source folds this row into that
+        sibling (canonical adopts the most-recently-seen path, the duplicate's
+        runs/metrics/artefact references and row are removed). Siblings hashed
+        earlier *in this same batch* count too, resolved in ascending id order
+        so the outcome is deterministic and the last-added path wins. A file
+        that cannot be read is logged and left un-hashed - it is its own
+        canonical and still runs, exactly as before.
+
+        ``on_hashed`` is called on **this** thread once per digest computed,
+        for progress reporting.
+        """
+        by_id = {t.id: t for t in theses}
+        if not by_id:
+            return {}
+        placeholders = ",".join("?" * len(by_id))
+        rows = self.conn.execute(
+            "SELECT id, source_id, pdf_sha256, pdf_path, pdf_filename, pdf_size_bytes"
+            f" FROM theses WHERE id IN ({placeholders}) ORDER BY id",
+            tuple(by_id),
+        ).fetchall()
+        missing_ids = set(by_id) - {r["id"] for r in rows}
+        if missing_ids:
+            raise KeyError(f"no thesis with id {sorted(missing_ids)[0]}")
+
+        canonical: dict[int, int] = {}
+        todo: list[sqlite3.Row] = []
+        for row in rows:
+            if row["pdf_sha256"] is None:
+                todo.append(row)
+            else:
+                canonical[row["id"]] = row["id"]
+                by_id[row["id"]].pdf_sha256 = row["pdf_sha256"]
+        if not todo:
+            return canonical
+
+        digests: dict[int, str] = {}
+        with ThreadPoolExecutor(max_workers=min(HASH_THREADS, len(todo))) as pool:
+            futures = {
+                pool.submit(sha256_of, Path(row["pdf_path"])): row for row in todo
+            }
+            for future in as_completed(futures):
+                row = futures[future]
+                try:
+                    digests[row["id"]] = future.result()
+                except OSError as exc:
+                    logger.warning(
+                        "could not hash thesis %s (%s): %s - leaving un-hashed",
+                        row["id"],
+                        row["pdf_path"],
+                        exc,
+                    )
+                if on_hashed is not None:
+                    on_hashed(row["id"])
+
+        # (source_id, sha) -> canonical id, over every hash already persisted
+        owners: dict[tuple[int, str], int] = {
+            (r["source_id"], r["pdf_sha256"]): r["id"]
+            for r in self.conn.execute(
+                "SELECT id, source_id, pdf_sha256 FROM theses WHERE pdf_sha256 IS NOT NULL"
+            )
+        }
+        updates: list[tuple[str, int]] = []
+        folds: list[tuple[int, sqlite3.Row]] = []
+        for row in todo:  # ascending id: deterministic, last-added path wins
+            sha = digests.get(row["id"])
+            if sha is None:  # unreadable file: its own canonical, still un-hashed
+                canonical[row["id"]] = row["id"]
+                continue
+            sibling = owners.get((row["source_id"], sha))
+            if sibling is None or sibling == row["id"]:
+                owners[(row["source_id"], sha)] = row["id"]
+                updates.append((sha, row["id"]))
+                canonical[row["id"]] = row["id"]
+                by_id[row["id"]].pdf_sha256 = sha
+            else:
+                # never UPDATE a duplicate's hash: UNIQUE (source_id,
+                # pdf_sha256) would fire before the row is deleted
+                folds.append((sibling, row))
+                canonical[row["id"]] = sibling
+
+        with self.transaction():
+            self.conn.executemany("UPDATE theses SET pdf_sha256 = ? WHERE id = ?", updates)
+            for canonical_id, row in folds:
+                self.conn.execute(
+                    "UPDATE theses SET pdf_path = ?, pdf_filename = ?, pdf_size_bytes = ?"
+                    " WHERE id = ?",
+                    (
+                        row["pdf_path"],
+                        row["pdf_filename"],
+                        row["pdf_size_bytes"],
+                        canonical_id,
+                    ),
+                )
+                self.conn.execute(
+                    "DELETE FROM metric_values WHERE run_id IN"
+                    " (SELECT id FROM module_runs WHERE thesis_id = ?)",
+                    (row["id"],),
+                )
+                self.conn.execute(
+                    "DELETE FROM artefact_files WHERE thesis_id = ?", (row["id"],)
+                )
+                self.conn.execute("DELETE FROM module_runs WHERE thesis_id = ?", (row["id"],))
+                self.conn.execute("DELETE FROM theses WHERE id = ?", (row["id"],))
         return canonical
 
     def get_thesis(self, thesis_id: int) -> Thesis:
@@ -324,6 +459,20 @@ class Repository:
             "SELECT kind, relative_path FROM artefact_files WHERE thesis_id = ?", (thesis_id,)
         ).fetchall()
         return {r["kind"]: r["relative_path"] for r in rows}
+
+    def artefacts_by_thesis(self) -> dict[int, dict[str, str]]:
+        """Every thesis's artefact references in **one** query, for planning.
+
+        ``plan()`` used to run two identical ``current_artefacts`` queries per
+        thesis (once inside the artefact closure, once for the available set),
+        so an up-to-date corpus paid 2n round-trips to plan nothing (#59).
+        """
+        out: dict[int, dict[str, str]] = {}
+        for row in self.conn.execute(
+            "SELECT thesis_id, kind, relative_path FROM artefact_files"
+        ):
+            out.setdefault(row["thesis_id"], {})[row["kind"]] = row["relative_path"]
+        return out
 
     # -- current metrics (grid / report binding) ----------------------------
 

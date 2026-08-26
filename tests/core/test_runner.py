@@ -201,9 +201,13 @@ def test_execute_happy_path_persists_everything(project, tmp_path):
     assert set(artefacts) == {artefact_kinds.RAW_TEXT}
     assert project.store.resolve(artefacts[artefact_kinds.RAW_TEXT]).exists()
 
-    # event sequence
+    # event sequence: the deferred-hash pass reports first, before the plan
+    # is final (a folded duplicate would change its pair count), #59
     kinds = [type(e).__name__ for e in seen]
-    assert kinds[0] == "RunStarted" and kinds[-1] == "RunCompleted"
+    assert kinds[0] == "HashingProgress"
+    assert kinds[kinds.index("RunStarted") - 1] == "HashingProgress"
+    assert "HashingProgress" not in kinds[kinds.index("RunStarted"):]
+    assert kinds[-1] == "RunCompleted"
     assert kinds.count("ModuleStarted") == 2 and kinds.count("ModuleCompleted") == 2
     assert "ThesisStarted" in kinds and "ThesisCompleted" in kinds
 
@@ -590,3 +594,89 @@ def test_cancel_commits_what_the_abandoned_worker_already_reported(project, tmp_
         e.module_name: e.status for e in seen if isinstance(e, events.ModuleCompleted)
     }
     assert by_name == {"mod_fake_extract": "ok", "mod_fake_quality": events.MODULE_SKIPPED}
+
+
+def test_batched_hashing_folds_duplicates_and_reports_progress(project, tmp_path):
+    """The batched hashing pass (#59) must keep ADR-0006's semantics: two paths
+    with byte-identical content fold to one canonical thesis, the surviving
+    Thesis carries the freshly computed hash without a get_thesis re-read, and
+    the phase reports itself instead of hiding inside "Planning..."."""
+    payload = b"%PDF-fake identical bytes"
+    for name in ("a.pdf", "b.pdf"):
+        path = tmp_path / name
+        path.write_bytes(payload)
+        project.repo.add_thesis(path)
+    runner, seen = make_runner(project, [FakeExtract()])
+    plan = runner.plan()
+    assert plan.pair_count == 2  # both planned; the fold happens in execute()
+    summary = runner.execute(plan)
+
+    assert summary.theses_total == 1  # one folded away
+    assert summary.ok == 1
+    survivors = project.repo.list_theses()
+    assert len(survivors) == 1
+    assert survivors[0].pdf_sha256 is not None
+    assert survivors[0].pdf_filename == "b.pdf"  # canonical adopts the last path
+
+    # the plan's own Thesis object was updated in place - no get_thesis round-trip
+    assert plan.theses[0].thesis.pdf_sha256 == survivors[0].pdf_sha256
+
+    hashing = [e for e in seen if isinstance(e, events.HashingProgress)]
+    assert [(e.done, e.total) for e in hashing] == [(0, 2), (1, 2), (2, 2), (2, 2)]
+
+
+def test_second_run_hashes_nothing(project, tmp_path):
+    """Already-hashed theses cost no digest and no event (#59)."""
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [FakeExtract()])
+    runner.execute(runner.plan())
+
+    runner2, seen = make_runner(project, [FakeExtract()])
+    runner2.execute(runner2.plan(rerun=True))
+    assert [e for e in seen if isinstance(e, events.HashingProgress)] == []
+
+
+def test_plan_queries_artefacts_once_for_the_whole_corpus(project, tmp_path):
+    """plan() used to run 1-2 identical per-thesis artefact queries, each
+    followed by a resolve()+exists() per row - O(n) round-trips to plan (#59)."""
+    for i in range(5):
+        add_fake_pdf(project, tmp_path, name=f"t{i}.pdf")
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()])
+
+    statements: list[str] = []
+    project.conn.set_trace_callback(statements.append)
+    try:
+        plan = runner.plan()
+    finally:
+        project.conn.set_trace_callback(None)
+
+    assert plan.pair_count == 10
+    artefact_queries = [q for q in statements if "artefact_files" in q]
+    assert len(artefact_queries) == 1, artefact_queries
+    assert "thesis_id = ?" not in artefact_queries[0]
+
+
+def test_up_to_date_plan_stats_no_artefacts(project, tmp_path):
+    """The `if not planned: continue` guard now sits above the artefact work,
+    so a fully up-to-date project pays no query and no stat per thesis (#59)."""
+    for i in range(3):
+        add_fake_pdf(project, tmp_path, name=f"t{i}.pdf")
+    runner, _ = make_runner(project, [FakeExtract(), FakeQuality()])
+    runner.execute(runner.plan())
+
+    stat_calls: list[dict] = []
+    original = runner._existing_artefacts
+
+    def _spy(rows):
+        stat_calls.append(rows)
+        return original(rows)
+
+    runner._existing_artefacts = _spy
+    assert runner.plan().pair_count == 0
+    assert stat_calls == []
+
+    # ...but a thesis that does have work still gets its artefact set
+    bumped = FakeQuality()
+    bumped.spec = dataclasses.replace(FakeQuality.spec, version="1.1.0")
+    runner2, _ = make_runner(project, [FakeExtract(), bumped])
+    assert runner2.plan().pair_count == 3  # stale quality on 3 theses

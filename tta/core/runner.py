@@ -260,6 +260,8 @@ class Runner:
             theses = [t for t in theses if not t.excluded]
         selected = self.registry.in_topological_order(modules)
         latest = self.repo.latest_runs()
+        # one corpus-wide query instead of 1-2 per thesis (#59)
+        artefact_rows = self.repo.artefacts_by_thesis()
 
         thesis_plans = []
         for thesis in theses:
@@ -279,10 +281,17 @@ class Runner:
                 if any(kind in refreshed_kinds for kind in module.spec.consumes):
                     planned[module.spec.name] = PlannedModule(module, REASON_UPSTREAM)
                     refreshed_kinds.update(module.spec.produces_artefacts)
-            self._close_over_artefacts(thesis, planned)
+            # Guard before the artefact work, not after (#59): the closure
+            # cannot add to an empty plan, so a fully up-to-date thesis used to
+            # pay a query and a stat per artefact to plan nothing.
             if not planned:
                 continue
-            available = self._preexisting_artefacts(thesis, planned)
+            on_disk = self._existing_artefacts(artefact_rows.get(thesis.id, {}))
+            self._close_over_artefacts(planned, on_disk)
+            produced_here = {
+                kind for pm in planned.values() for kind in pm.module.spec.produces_artefacts
+            }
+            available = {k: v for k, v in on_disk.items() if k not in produced_here}
             ordered = [
                 PlannedModule(m, planned[m.spec.name].plan_reason)
                 for m in self.registry.in_topological_order(planned.keys())
@@ -301,10 +310,11 @@ class Runner:
             return REASON_ERRORED
         return None
 
-    def _close_over_artefacts(self, thesis: Thesis, planned: dict[str, PlannedModule]) -> None:
+    def _close_over_artefacts(
+        self, planned: dict[str, PlannedModule], on_disk: dict[str, str]
+    ) -> None:
         """Pull in producers of consumed kinds whose artefact is not on
         disk (e.g. deleted artefacts/ directory) - they count as missing."""
-        on_disk = self._preexisting_artefacts(thesis, planned={})
         changed = True
         while changed:
             changed = False
@@ -320,14 +330,12 @@ class Runner:
                         planned[producer.spec.name] = PlannedModule(producer, REASON_MISSING)
                         changed = True
 
-    def _preexisting_artefacts(self, thesis: Thesis, planned: dict) -> dict[str, str]:
-        produced_here = {
-            kind for pm in planned.values() for kind in pm.module.spec.produces_artefacts
-        }
+    def _existing_artefacts(self, rows: dict[str, str]) -> dict[str, str]:
+        """Resolve one thesis's artefact references to the ones actually on
+        disk. Stats each file once per plan (#59); the caller subtracts the
+        kinds this run will re-produce."""
         available = {}
-        for kind, relative in self.repo.current_artefacts(thesis.id).items():
-            if kind in produced_here:
-                continue  # will be (re)produced fresh in this run
+        for kind, relative in rows.items():
             path = self.store.resolve(relative)
             if path.exists():
                 available[kind] = str(path)
@@ -349,33 +357,57 @@ class Runner:
             self._cancel_requested_monotonic = time.monotonic()
 
     def _apply_lazy_hashing(self, plan: RunPlan) -> None:
-        """Compute + persist ``pdf_sha256`` for each planned thesis whose hash
-        is still NULL (deferred from add time, ADR-0006 rev. 4, #38), applying
-        content-dedup. Runs in the main process - the sole DB writer (ADR-0013);
-        the hash is not needed by workers (modules read ``pdf_path``). A thesis
-        folded into a byte-identical sibling is dropped from the plan; a file
-        that cannot be read is left un-hashed and still runs (its extractor
-        records the per-thesis error)."""
+        """Compute + persist ``pdf_sha256`` for the planned theses whose hash is
+        still NULL (deferred from add time, ADR-0006 rev. 4/6, #38/#59).
+
+        One batched call: one query for the rows, the digests in a small thread
+        pool, the content-dedup fold, one commit, and the hashes written back
+        onto the plan's ``Thesis`` objects - no per-thesis commit and no
+        ``get_thesis`` re-read. Runs in the main process, the sole DB writer
+        (ADR-0013); the hash is not needed by workers (modules read
+        ``pdf_path``). A thesis folded into a byte-identical sibling is dropped
+        from the plan; a file that cannot be read is left un-hashed and still
+        runs (its extractor records the per-thesis error).
+
+        ``HashingProgress`` is published throughout, because on a large corpus
+        this phase is slow enough that an adapter showing nothing looks hung
+        (#59) - and it happens before ``RunStarted``, so the run's own progress
+        bar cannot cover it.
+        """
+        pending = [tp for tp in plan.theses if tp.thesis.pdf_sha256 is None]
+        if not pending:
+            return
+        total = len(pending)
+        done = 0
+        self.bus.publish(events.HashingProgress(done, total))
+
+        def _tick(_thesis_id: int) -> None:
+            nonlocal done
+            done += 1
+            self.bus.publish(events.HashingProgress(done, total))
+
+        canonical = self.repo.assign_content_hashes(
+            [tp.thesis for tp in pending], on_hashed=_tick
+        )
         kept: list[ThesisPlan] = []
         for tp in plan.theses:
-            try:
-                canonical_id = self.repo.assign_content_hash(tp.thesis)
-            except OSError:
-                logger.warning(
-                    "could not hash thesis %s (%s) - deferring", tp.thesis.id, tp.thesis.pdf_path
-                )
-                kept.append(tp)
-                continue
-            if canonical_id == tp.thesis.id:
-                tp.thesis = self.repo.get_thesis(canonical_id)  # carry the new hash/path
-                kept.append(tp)
-            else:
+            target = canonical.get(tp.thesis.id, tp.thesis.id)
+            if target != tp.thesis.id:
                 logger.info(
                     "thesis %s has content identical to %s - folded (ADR-0006 rev. 4)",
                     tp.thesis.id,
-                    canonical_id,
+                    target,
                 )
+                continue
+            if tp.thesis.pdf_sha256 is None:
+                logger.warning(
+                    "thesis %s (%s) could not be hashed - deferring",
+                    tp.thesis.id,
+                    tp.thesis.pdf_path,
+                )
+            kept.append(tp)
         plan.theses = kept
+        self.bus.publish(events.HashingProgress(total, total))
 
     def execute(self, plan: RunPlan) -> RunSummary:
         t0 = time.monotonic()
