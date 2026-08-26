@@ -762,7 +762,7 @@ Whole-row indicator: theses with `extraction_quality = garbled` get a warning gl
 
 ### QA-PORT — Cross-platform
 
-The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required.
+The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required. Each target carries a per-OS binary size ceiling enforced in CI ([ADR-014](adr/0014-distribution.md)); the download size is a portability concern, since the professor's happy path begins with fetching one file.
 
 ### QA-RES — Resource-light
 
@@ -793,6 +793,8 @@ Decision: [ADR-009](adr/0009-privacy-as-code.md). The privacy statement is rende
 ### QA-REPRO — Reproducibility
 
 Every run records the module name, module version, started_at, and (transitively) the producer chain that fed it. Identical inputs + identical module versions produce identical outputs.
+
+**Reproducibility of the distributed binary** is part of this attribute, not a packaging detail. A frozen binary whose contents depend on which stray packages happen to sit on the build machine's `sys.path` is not reproducible, and the metrics it produces are not attributable to a known dependency set. [ADR-014](adr/0014-distribution.md) therefore makes two build gates normative: release builds run with the **user site directory disabled** (`PYTHONNOUSERSITE=1`) in an environment built from `pyproject.toml` alone, and the numeric stack that dependencies reach for through function-level optional imports (`pandas`, `scipy`, `numba`, `llvmlite`) is **excluded explicitly** in `packaging/tta.spec`. A **size gate** in CI turns a re-contaminated build into a failed build; `tests/packaging/` asserts the spec and workflow still carry both gates, so the fast suite catches a regression without freezing a binary.
 
 ### QA-AUDIT — Audit trail
 
