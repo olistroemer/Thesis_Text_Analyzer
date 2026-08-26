@@ -110,7 +110,25 @@ It is a filter, not a new planning path: `plan(stale_only=True)` drops `plan_rea
 
 `rerun=True` with `stale_only=True` is a contradiction (everything vs. not-everything) and raises `ValueError` rather than picking a winner silently.
 
-**Adapter wiring is pending.** The mode exists and is tested on `Runner.plan`; the CLI's `--stale-only` option and the extended toolbar's "Update stale" button (which still calls the default mode) are one-line changes in `tta/cli/main.py` and `tta/ui/tk/main_window.py`, deliberately left to the lane that owns those files so the third button becomes genuinely distinct. Until then #7's second acceptance criterion is unmet in the adapters even though the decision and the core support are in.
+The mode exists and is tested on `Runner.plan`; wiring it to a CLI option and to the toolbar button is listed under [Pending in the adapters](#pending-in-the-adapters).
+
+## Pending in the adapters
+
+The core half of this revision is implemented and tested. Everything below is a
+consequence of it that lives in `tta/cli/main.py`, `tta/ui/tk/main_window.py` or
+`tta/core/progress.py`, and is deliberately left to the lanes that own those
+files rather than being reached across a module boundary. Until each lands, the
+adapters are behind this ADR — that is a known state, not a discrepancy to
+rediscover.
+
+| What | Where | Why it is owed |
+|---|---|---|
+| Render `HashingProgress` instead of the flat `"Planning..."` status | `ui/tk/main_window.py` (`_run`, `_drain_events`), the CLI's progress render | The event is published but has **no consumer**, so the slow phase is still a silent, mislabelled window for the user — the visible half of #59 |
+| Cap each remaining pair's ETA contribution at `module_timeout_s`, and treat a timeout as a *minimum* duration for a failed document | `core/progress.py` (`estimate`), `Repository.module_duration_stats` | #56 scope item 3: with a per-thesis deadline in place the estimate should be bounded by construction; a killed module records `status="error"`, which the `ok`-only rate query filters out, so a timed-out document teaches the estimator nothing |
+| Surface `notes["_stdout"]` in the per-thesis detail dialog / error panel | `ui/tk` detail dialog (#46) | #68's "visible in the detail view": capture, truncation and storage are done, the *view* is not |
+| Correct three cancel strings that now overstate the wait | `ui/tk/main_window.py` ("Cancelling - finishing in-flight theses..."), `cli/main.py` ("cancelling - finishing in-flight theses..."), [ADR-0003](0003-cli-first-class.md) ("in-flight ones finish") | [Cancellation](#cancellation) no longer waits for in-flight theses; it grants them `cancel_grace_s` and then terminates them |
+| Add the `--stale-only` option and point "Update stale" at it | `cli/main.py` `run`, `ui/tk/main_window.py` toolbar | [Three run modes](#three-run-modes): without it two of the three extended-toolbar run buttons remain identical, which is #7's second acceptance criterion |
+| Bump ADR-0006's Status/Date to a revision 6 | [ADR-0006](0006-schema.md) header | Its First-run-time bullet is rewritten here (#59) but the header lines are shared with the instant-add work; whoever lands last owns the bump |
 
 ## Public API
 

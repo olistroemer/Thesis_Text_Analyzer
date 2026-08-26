@@ -6,6 +6,7 @@ import logging
 import os
 import queue
 import shutil
+import sqlite3
 import sys
 import time
 
@@ -860,3 +861,33 @@ def test_hashing_folds_into_a_sibling_hashed_by_an_earlier_run(project, tmp_path
     assert project.repo.get_thesis(original.id).pdf_filename == "renamed.pdf"
     with pytest.raises(KeyError):
         project.repo.get_thesis(duplicate.id)
+
+
+def test_captured_output_never_reaches_an_export(project, tmp_path):
+    """#68's third acceptance criterion, asserted end to end rather than by
+    inspection: captured output is content-derived free text that can quote a
+    thesis, and it rides home on ``module_runs.notes`` - a column ADR-0007 /
+    SDD Sec. 8.3.1 drop from every export. The bytes must not be in the file.
+
+    Doubles as a regression guard on the WAL switch (#59): ``export_database``
+    ATTACHes a fresh (rollback-journal) database to the now-WAL main
+    connection, and the two journal modes have to coexist.
+    """
+    from tta.core.export import export_database
+
+    add_fake_pdf(project, tmp_path)
+    runner, _ = make_runner(project, [ChattyExtract()])
+    assert runner.execute(runner.plan()).ok == 1
+    assert "hello from stdout" in _notes_of(project, "mod_fake_extract")["_stdout"]
+
+    out = tmp_path / "out" / "export.sqlite"
+    export_database(project.conn, out)
+
+    blob = out.read_bytes()
+    for secret in (b"hello from stdout", b"hello from stderr", b"hello from the log"):
+        assert secret not in blob
+    assert b"_stdout" not in blob
+    exported = sqlite3.connect(out)
+    run_cols = {r[1] for r in exported.execute("PRAGMA table_info(module_runs)")}
+    assert "notes" not in run_cols
+    exported.close()
