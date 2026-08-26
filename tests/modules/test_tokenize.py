@@ -43,7 +43,7 @@ def test_unsupported_language_is_not_applicable(build_ctx):
 def test_no_sentences_is_not_applicable_not_an_empty_artefact(build_ctx):
     """#34: an empty/word-less raw_text used to be written out as a
     perfectly successful but EMPTY tokens artefact, silently zeroing the
-    three tokens-consuming modules (13 of the 29 metrics)."""
+    three tokens-consuming modules (13 of the 31 metrics)."""
     ctx = build_ctx(raw_text="   \n\f  \n ", language={"code": "de", "confidence": 0.99})
     with pytest.raises(NotApplicable, match="no sentences in text"):
         Tokenize().run(ctx)

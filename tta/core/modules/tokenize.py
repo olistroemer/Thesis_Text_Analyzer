@@ -5,7 +5,7 @@ model data is bundled into release builds via PyInstaller ``--add-data``
 (ADR-0014); at runtime there is never a download (QA-PRIV: fully offline).
 
 Both failure modes are deliberately loud (#34, SDD Sec. 7.4): three
-modules and thirteen of the twenty-nine metrics read `tokens`, so an
+modules and thirteen of the thirty-one metrics read `tokens`, so an
 empty-but-successful artefact would zero out nearly half the catalogue
 with no visible cause.
 """
