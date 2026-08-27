@@ -93,7 +93,7 @@ COLUMN_LABELS: dict[str, str] = {
     "yules_k": N_("Vocabulary richness (Yule's K)"),
     "bigram_repetition_rate": N_("Repeated word pairs"),
     "trigram_repetition_rate": N_("Repeated word triples"),
-    "file_size_bytes": N_("File size (bytes)"),
+    "file_size_bytes": N_("File size"),
     "fs_modified_year": N_("File modified (year)"),
 }
 

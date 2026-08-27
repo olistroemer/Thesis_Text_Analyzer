@@ -391,3 +391,50 @@ def test_the_corpus_is_the_size_the_sdd_claims(pages):
     for page in pages:
         counts[page.section] += 1
     assert counts == {"modules": 13, "metrics": 31, "concepts": 4}
+
+
+# --- the label/title gate (#79) ---------------------------------------------
+#
+# A column's friendly label lives in the gettext catalogue (COLUMN_LABELS plus
+# its translation); its German form is repeated as the help page's front-matter
+# `title:`. ADR-0012 wanted the page to be the single source. It cannot be: the
+# corpus is German-only, so a page carries one title, while the catalogue holds
+# a string per locale (ADR-0020 Sec. 8). The catalogue is therefore canonical
+# and this gate keeps the second copy honest - "worded to match" had already
+# failed once, file_size_bytes diverging the day both copies first existed.
+
+
+@pytest.fixture(scope="module")
+def german_labels():
+    """`{column: German label}` straight out of the catalogue."""
+    from tta.core.i18n import _ as translate
+    from tta.core.i18n import install
+    from tta.ui.tk.columns import COLUMN_LABELS
+
+    install("de")
+    return {key: translate(msgid) for key, msgid in COLUMN_LABELS.items()}
+
+
+def test_every_page_title_matches_the_german_label(pages, german_labels):
+    """The page `title:` must equal the catalogue's German label."""
+    titles = {page.slug: page.fields["title"] for page in pages}
+    shared = sorted(set(german_labels) & set(titles))
+    assert shared, "no column has both a label and a page - the gate is vacuous"
+    mismatched = {
+        slug: {"catalogue": german_labels[slug], "page": titles[slug]}
+        for slug in shared
+        if german_labels[slug] != titles[slug]
+    }
+    assert not mismatched, (
+        "page title and German label disagree; the catalogue is canonical "
+        f"(ADR-0020 Sec. 8): {mismatched}"
+    )
+
+
+def test_the_label_gate_covers_every_metric_page(pages, german_labels):
+    """A metric page with no label would be silently skipped by the gate."""
+    metric_slugs = {page.slug for page in pages if page.section == "metrics"}
+    uncovered = sorted(metric_slugs - set(german_labels))
+    assert not uncovered, (
+        f"metric pages with no COLUMN_LABELS entry, so nothing checks their title: {uncovered}"
+    )

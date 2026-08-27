@@ -434,7 +434,7 @@ msgid "File name of the thesis PDF. Double-click to open the PDF."
 msgstr ""
 
 #: tta/ui/tk/columns.py:96
-msgid "File size (bytes)"
+msgid "File size"
 msgstr ""
 
 #: tta/core/report.py:835

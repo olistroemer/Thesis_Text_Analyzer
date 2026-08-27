@@ -475,8 +475,8 @@ msgid "File name of the thesis PDF. Double-click to open the PDF."
 msgstr "Dateiname der PDF-Datei der Arbeit. Doppelklick öffnet die PDF-Datei."
 
 #: tta/ui/tk/columns.py:96
-msgid "File size (bytes)"
-msgstr "Dateigröße (Bytes)"
+msgid "File size"
+msgstr "Dateigröße"
 
 #: tta/core/report.py:835
 msgid "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses are named by id - no file name leaves the database (Sec. 9.8.3); <code>tta list</code> resolves an id."
