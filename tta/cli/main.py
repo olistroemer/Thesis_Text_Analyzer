@@ -51,7 +51,21 @@ class DataError(click.ClickException):
     exit_code = 65  # sysexits EX_DATAERR
 
 
-@click.group(name="tta")
+# ---- user-facing command help (ADR-0020) ---------------------------------
+# Every command carries an explicit `help=_(...)` (and `short_help=_(...)`
+# where the one-line form in the command list should differ). Click prefers
+# it over the function docstring, which is what makes this translatable at
+# all: a docstring is a bare literal, cannot be wrapped in `_()`, and ADR-0018
+# forbids the German from living in a *.py file anyway. It also separates the
+# two audiences - the docstrings below keep the issue and ADR cross-references
+# for developers, and the strings here are what a professor reads, with no
+# "#42" or "ADR-0007" in them.
+
+
+@click.group(name="tta", help=_(
+    "Thesis Text Analyzer: measure the text metrics of student theses and "
+    "compare them across a whole cohort."
+))
 @click.option(
     "--project",
     "-C",
@@ -81,7 +95,9 @@ def open_project(ctx: click.Context, create: bool = False) -> Project:
 # -- version -------------------------------------------------------------
 
 
-@cli.command()
+@cli.command(help=_(
+    "Show the application version and the version of every analysis module."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 def version(fmt: str) -> None:
     """App version + module versions (QA-REPRO)."""
@@ -100,7 +116,17 @@ def version(fmt: str) -> None:
 _STATUS_GLYPH = {"ok": "[ok]", "warn": "[!]", "fail": "[x]"}
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Collect diagnostics for a support request."),
+    help=_(
+        "Collect diagnostics for a support request: versions, the state of the "
+        "project, and an offline self-check of the analysis libraries.\n"
+        "\n"
+        "Nothing is changed - the database is opened read-only and no migration "
+        "is applied. The command exits with a non-zero status if any check "
+        "fails, so it can be used in a script."
+    ),
+)
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
 def doctor(ctx: click.Context, fmt: str) -> None:
@@ -158,12 +184,14 @@ def doctor(ctx: click.Context, fmt: str) -> None:
 # -- db ------------------------------------------------------------------
 
 
-@cli.group()
+@cli.group(help=_("Create, migrate or compact the project database."))
 def db() -> None:
     """Initialise / migrate / vacuum the project database."""
 
 
-@db.command("init")
+@db.command("init", help=_(
+    "Create the project in the --project directory, or migrate an existing one."
+))
 @click.pass_context
 def db_init(ctx: click.Context) -> None:
     """Create (or migrate) the project in --project."""
@@ -173,7 +201,9 @@ def db_init(ctx: click.Context) -> None:
         )
 
 
-@db.command("migrate")
+@db.command("migrate", help=_(
+    "Apply any pending schema migrations, after taking a safety backup."
+))
 @click.pass_context
 def db_migrate(ctx: click.Context) -> None:
     """Apply pending schema migrations (with defensive backup)."""
@@ -191,7 +221,7 @@ def db_migrate(ctx: click.Context) -> None:
     )
 
 
-@db.command("vacuum")
+@db.command("vacuum", help=_("Compact the project database file."))
 @click.pass_context
 def db_vacuum(ctx: click.Context) -> None:
     """Compact the database file."""
@@ -203,7 +233,9 @@ def db_vacuum(ctx: click.Context) -> None:
 # -- list ------------------------------------------------------------------
 
 
-@cli.command("list")
+@cli.command("list", help=_(
+    "List the known theses with the status of their analysis."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json", "csv"]), default="human")
 @click.pass_context
 def list_theses(ctx: click.Context, fmt: str) -> None:
@@ -265,7 +297,19 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
 # -- exclude / include -------------------------------------------------------
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Exclude a thesis from analysis and exports."),
+    help=_(
+        "Exclude the thesis THESIS_ID from analysis and from exports.\n"
+        "\n"
+        "This is the command-line form of the Excluded checkbox in the window. "
+        "If the thesis has already been analysed, its cached analysis is "
+        "deleted from this machine: the extracted text, the tokens and the PDF "
+        "metadata, together with its metric values and its run history. That "
+        "cannot be undone. The source PDF is never touched. Excluding a thesis "
+        "before it is analysed simply prevents any analysis from being cached."
+    ),
+)
 @click.argument("thesis_id", type=int)
 @click.option(
     "--yes", "-y", is_flag=True,
@@ -335,7 +379,16 @@ def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
         ctx.exit(EX_PARTIAL)
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Re-include a previously excluded thesis."),
+    help=_(
+        "Re-include a previously excluded thesis, clearing its excluded flag."
+        "\n\n"
+        "The thesis becomes eligible again and is analysed on the next run. "
+        "Analysis that was deleted when it was excluded is not restored; run "
+        "the analysis again to recompute it."
+    ),
+)
 @click.argument("thesis_id", type=int)
 @click.pass_context
 def include(ctx: click.Context, thesis_id: int) -> None:
@@ -354,7 +407,20 @@ def include(ctx: click.Context, thesis_id: int) -> None:
     stdout.print(_("included thesis {thesis_id}").format(thesis_id=thesis_id))
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Remove a thesis from the project entirely."),
+    help=_(
+        "Remove the thesis THESIS_ID from the project entirely.\n"
+        "\n"
+        "The stronger form of `exclude`, for a PDF that was added by mistake. "
+        "Excluding keeps the thesis on record, so its identity is remembered "
+        "and it is never silently analysed again; removing deletes the record "
+        "as well, so the same PDF can afterwards be added again as a new "
+        "thesis. Its cached analysis goes with it. This cannot be undone: "
+        "nothing restores it, and there is no record left to re-include. The "
+        "source PDF is never touched."
+    ),
+)
 @click.argument("thesis_id", type=int)
 @click.option(
     "--yes", "-y", is_flag=True,
@@ -416,12 +482,14 @@ def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
 # -- module ----------------------------------------------------------------
 
 
-@cli.group()
+@cli.group(help=_("Inspect the catalogue of analysis modules."))
 def module() -> None:
     """List module details (the analysis catalogue)."""
 
 
-@module.command("list")
+@module.command("list", help=_(
+    "List every registered module, in the order in which it runs."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 def module_list(fmt: str) -> None:
     """All registered modules in execution order."""
@@ -452,7 +520,9 @@ def module_list(fmt: str) -> None:
     stdout.print(table)
 
 
-@module.command("show")
+@module.command("show", help=_(
+    "Show what one module reads and what it produces."
+))
 @click.argument("name")
 def module_show(name: str) -> None:
     """Spec details for one module."""
@@ -491,7 +561,17 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
     return collect_pdfs(inputs)
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Add PDF files or folders and analyse them."),
+    help=_(
+        "Add INPUTS (PDF files or folders) and analyse them.\n"
+        "\n"
+        "Without INPUTS, every thesis already in the project is analysed. By "
+        "default only what is missing, out of date or previously failed is "
+        "computed; --rerun computes everything again. The type of a thesis is "
+        "detected during the analysis, not entered when the file is added."
+    ),
+)
 @click.argument("inputs", nargs=-1, type=click.Path(exists=True, path_type=Path))
 @click.option("--module", "-m", "modules", multiple=True,
               help=_("Restrict to specific modules (repeatable; US-PROF-SELECT)."))
@@ -616,7 +696,18 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
 # -- export / import -----------------------------------------------------------
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Write the researcher export, free of personal data."),
+    help=_(
+        "Write the researcher export: an SQLite file holding the metric values "
+        "and no personal data.\n"
+        "\n"
+        "With --profiling, the flat per-run timing dataset is written instead: "
+        "one CSV row per module run, with its duration and the size of the PDF "
+        "it was measured on. Both obey the same rules - only data produced on "
+        "this machine, and no identifying column."
+    ),
+)
 @click.argument("out", required=False, type=click.Path(path_type=Path))
 @click.option("--current-only", is_flag=True,
               help=_("Trim history to the latest run per (thesis, module)."))
@@ -678,7 +769,9 @@ def export(
         )
 
 
-@cli.command("import")
+@cli.command("import", help=_(
+    "Import another installation's export as a new, read-only source."
+))
 @click.argument("export_file", type=click.Path(exists=True, path_type=Path))
 @click.option("--name", required=True,
               help=_('Source label, e.g. "FH Wedel CS 2026".'))
@@ -715,12 +808,16 @@ def _load_stub(filename: str) -> str:
     return _HTML_COMMENT.sub("", text).strip()
 
 
-@cli.group()
+@cli.group(help=_("Render the data-protection statement."))
 def privacy() -> None:
     """Render the GDPR privacy statement (ADR-0009)."""
 
 
-@privacy.command("report")
+@privacy.command("report", help=_(
+    "Render the data-protection statement. It is generated from the privacy "
+    "registry in the code and is never hand-written, so it cannot fall behind "
+    "what the application actually stores."
+))
 @click.option("--format", "fmt", type=click.Choice(["md", "json"]), default="md")
 def privacy_report(fmt: str) -> None:
     """Generated from core/privacy_metadata.py - never hand-edited."""
@@ -746,7 +843,19 @@ def _write_report(out: Path, project: Project) -> Path:
     return out
 
 
-@cli.command("report")
+@cli.command(
+    "report",
+    short_help=_("Write the stand-alone HTML report for the cohort."),
+    help=_(
+        "Write the stand-alone HTML report over the whole cohort.\n"
+        "\n"
+        "One self-contained file: every style rule and every chart is inline, "
+        "it makes no request to the network, and it contains no file names, "
+        "paths, notes or document text. The file is written, not opened - a "
+        "command-line tool must not start a browser unasked. Use "
+        "`tta run --open-report` to have it opened."
+    ),
+)
 @click.option("--out", type=click.Path(path_type=Path), default=None,
               help=_("Where to write it (default: "
                      "<project>/reports/report-<date>.html)."))
@@ -770,7 +879,9 @@ def write_report(ctx: click.Context, out: Path | None) -> None:
 # -- help -------------------------------------------------------------------------
 
 
-@cli.command("help")
+@cli.command("help", help=_(
+    "Show a help topic - a module, a metric or a concept - in the terminal."
+))
 @click.argument("topic", required=False)
 def help_(topic: str | None) -> None:
     """Render a help topic (module, metric, or concept) in the terminal."""

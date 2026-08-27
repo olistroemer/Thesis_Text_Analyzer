@@ -77,7 +77,15 @@ This does not violate [ADR-0002](0002-ui-core-boundary.md). `gettext` is stdlib 
 
 Explicitly **not** marked: log messages, docstrings, exception text aimed at developers, metric names, module names, artefact kinds, DB values, status tokens (`ok`/`na`/`error`), SQL, and anything else persisted or exported. A msgid that reaches the database or an export corrupts the data model.
 
-### 7. Metric labels (#16)
+### 7. Click command help lives in `help=`, not in the docstring
+
+Every command carries an explicit `help=_("...")` on its decorator, plus `short_help=_("...")` where the one-line form in the parent's command listing should differ from the first sentence of the long form.
+
+This is forced, not stylistic. Click takes a command's help from the function `__doc__` when no `help=` is given, and a docstring is a bare literal: it cannot be wrapped in `_()`, and ADR-0018 forbids the German from living in the `.py` file anyway. The first cut of this lane wrapped the option help and left the commands on their docstrings, and the result was a `tta --help` whose option block was German and whose entire `Commands:` listing was English — the most visible text the CLI has.
+
+It also fixes a second defect for free, by separating two audiences that had been sharing one string. The docstrings were written for maintainers and carry issue and ADR cross-references; as help text they showed a professor lines like *"Dump diagnostics for a support / bug report (#42, ADR-0003)"* and *"Produce the researcher export (PII-stripped SQLite, ADR-0007)"*. The docstrings **stay exactly as they are** — that is the right home for `#42, ADR-0003` — and the `help=` strings are clean user-facing prose. A test enumerates the command tree and fails on `#<digits>`, `ADR-`, `Sec. <n>`, `US-*` or `QA-*` in either locale.
+
+### 8. Metric labels (#16)
 
 Grid headers, the details panel and the help-viewer tree show a friendly label — "Readability (Flesch)", not `flesch_reading_ease` — resolved through `_()` so the German label is a catalog entry like any other string.
 
@@ -102,6 +110,8 @@ PYTHONPATH=$PWD python -m pytest tests/core/test_i18n_catalogs.py -q
 ```
 
 Steps 2, 3 and 5 are idempotent and their output is byte-stable, so re-running them on an unchanged tree leaves the working tree clean — which is what lets CI run them and diff.
+
+Adding a **command** is step 0: give it `help=_("...")` on the decorator (and `short_help=_("...")` if the listing needs a shorter line). A command left on its docstring is a command that cannot be translated at all, and `tests/integration/test_cli_i18n.py` fails on it.
 
 Rules for translators, both enforced by tests:
 
@@ -128,7 +138,8 @@ Non-ASCII belongs **only** in `.po`/`.mo`. Those are data files, explicitly out 
 - ✅ ADR-0018 is untouched — every translated character lives in a data file.
 - ✅ English stays available for free, and is what the test suite runs under (`TTA_LOCALE=en` is set in `tests/conftest.py`), so assertions keep quoting the msgid.
 - ⚠️ **No plural forms.** `ngettext` is not wired up, so there is no `1 Arbeit` / `3 Arbeiten` distinction; German strings are worded to read correctly for any count. German and English share the same plural rule (`n != 1`), so this buys little, and supporting it would mean plural parsing in the `.po` reader, `\0`-joined msgstrs in the MO writer, and `Plural-Forms` handling — for eight call sites. Revisit with the first locale whose plural rule differs (Polish, Russian, Arabic).
-- ⚠️ **Click's `--help` text resolves at import time.** `@click.option(help=_("..."))` runs when `tta.cli.main` is imported, before `-C/--project` has been parsed and the project's `tta.toml` read. So option help honours `TTA_LOCALE` and the `de` default, but **not** a per-project `[ui] locale`. Command *descriptions* are docstrings and are not translated at all — translating them would mean duplicating every docstring into a `help=` argument. `tta --help` before a project exists has no config to read anyway.
+- ⚠️ **Click's help text resolves at import time.** `@click.option(help=_("..."))` and `@cli.command(help=_("..."))` run when `tta.cli.main` is imported, before `-C/--project` has been parsed and the project's `tta.toml` read. So help text honours `TTA_LOCALE` and the `de` default, but **not** a per-project `[ui] locale`. `tta --help` before a project exists has no config to read anyway, and a project that wants an English CLI can export `TTA_LOCALE=en`.
+- ⚠️ **Click's own chrome stays English, and is accepted as such for the MVP.** `Usage:`, `Options:`, `Commands:`, the `--help` option's own "Show this message and exit", and click's error prose (`Error: No such command`, `Missing argument`) come from click's `HelpFormatter` and its exception classes, not from anything this project passes in. Translating them means subclassing `HelpFormatter` *and* `Context` to inject a formatter, re-implementing click's section layout, and wrapping every `UsageError` subclass — a lot of surface, coupled to click's internals, for four words of frame around fully-German content. Not attempted. `tests/integration/test_cli_i18n.py::test_clicks_own_chrome_is_still_english` asserts the current state so it stays a recorded decision rather than looking like an oversight; if click ever gains real i18n support, that test and this note come out together.
 - ⚠️ Two module `NotApplicable` reasons interpolate a value (`unsupported language: {lang}`, `no readability formula for language: {lang}`). What is persisted is the formatted English string, so the display-time `_()` lookup misses and they render in English inside an otherwise German details panel. Fixing it means either persisting a structured reason (a schema change) or a template registry keyed on prefix (fragile). Left as a known gap; see the report on the #29/#28 lane.
 - ⚠️ `core/doctor.py` translates only the **actionable** check details ("run `tta db init` first"). Version strings, paths, and `repr`-ed exceptions stay English: they are bug-report material, they are read by whoever receives the report, and `tta doctor --format json` is a scripting contract.
 - ⚠️ German runs ~30 % longer than English. Layouts are `pack()`/`grid()`-based (§9.6) and the GUI tests exercise the real window under `de`, but a fixed `width=` or `wraplength=` added later can still clip a German string; that is a review item, not something a test can assert in general.

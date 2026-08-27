@@ -1,4 +1,10 @@
-"""The GUI under the German catalog (#28, SDD Sec. 9.6).
+r"""The GUI under the German catalog (#28, SDD Sec. 9.6).
+
+ADR-0018 case 2: this file asserts on German *string content*, so the handful
+of umlauts it needs are written as ``\uXXXX`` escapes. The file bytes stay
+pure ASCII; the runtime values are byte-for-byte the German the catalog
+holds, and the assertions passing is the proof the escapes are right. Where an
+assertion can key on an ASCII-only slice of the German instead, it does.
 
 Needs a display; skipped headless, and run for real under Xvfb in CI (the same
 display-gated pattern as tests/ui/test_smoke.py).
@@ -77,7 +83,10 @@ def test_the_main_window_builds_and_renders_in_german(german, seeded_project):
         # toolbar: keyed by English identity, labelled in German
         assert set(window._toolbar_buttons) >= {"Add files", "Run all", "Report"}
         assert str(window._toolbar_buttons["Run all"]["text"]) == "Alle analysieren"
-        assert str(window._toolbar_buttons["Add files"]["text"]) == "Dateien hinzufügen"
+        assert (
+            str(window._toolbar_buttons["Add files"]["text"])
+            == "Dateien hinzuf\u00fcgen"
+        )
 
         # window title and status line
         assert window.root.title().startswith("Thesis Text Analyzer - ")
@@ -86,7 +95,7 @@ def test_the_main_window_builds_and_renders_in_german(german, seeded_project):
 
         # grid headers are the German labels, not raw metric names (#16 + #28)
         headers = [str(h) for h in window.grid_view.sheet.headers()]
-        assert "Wörter" in headers
+        assert "W\u00f6rter" in headers
         assert "Lesbarkeit (Flesch)" in headers
         assert "word_count" not in headers
         assert "flesch_reading_ease" not in headers
