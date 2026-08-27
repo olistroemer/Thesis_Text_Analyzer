@@ -8,7 +8,7 @@
 
 The runner separates **planning** (deterministic, side-effect-free) from **execution** (stateful, event-emitting). Plans are returned to the caller before execution begins; both CLI and GUI invoke the same API.
 
-Execution uses a `ProcessPoolExecutor` with one worker per concurrent thesis. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
+Execution spawns one worker **process per thesis** directly - `multiprocessing.get_context("spawn")` plus `ctx.Process` and `ctx.Queue`, with a hand-rolled scheduling loop in `Runner.execute` - not a `ProcessPoolExecutor` (this ADR said otherwise until #73; the pool was the original design and never the implementation). The loop is what makes the per-module timeout, the per-thesis deadline, the bounded-grace cancel (#57) and the dead-worker detection (#55) possible at all: each needs to terminate one identified process and account for the pairs it never reported, which a pool's opaque worker reuse does not expose. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
 
 Cancellation is **skip-pending with a bounded grace**: no new theses are submitted, and an in-flight thesis is given a short grace to finish before its worker is terminated (see [Cancellation](#cancellation)). Runaway work is bounded by **two** timeouts - per module and per thesis (see [Timeouts](#timeouts)) - both of which kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
 
