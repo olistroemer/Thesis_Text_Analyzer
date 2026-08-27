@@ -39,7 +39,7 @@ FIRST_LAUNCH_BANNER = N_(
 #: them - so they stay untranslated English and the label is resolved beside
 #: them in `_render_toolbar`.
 BTN_ADD = "Add files"
-BTN_REMOVE = "Remove"
+BTN_ADD_FOLDER = "Add folder"
 BTN_RUN = "Run all"
 BTN_RERUN = "Re-run all"
 BTN_UPDATE = "Update stale"
@@ -50,7 +50,7 @@ BTN_CANCEL = "Cancel run"
 
 TOOLBAR_LABELS = {
     BTN_ADD: N_("Add files"),
-    BTN_REMOVE: N_("Remove"),
+    BTN_ADD_FOLDER: N_("Add folder"),
     BTN_RUN: N_("Run all"),
     BTN_RERUN: N_("Re-run all"),
     BTN_UPDATE: N_("Update stale"),
@@ -102,9 +102,6 @@ class MainWindow:
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=False)
         file_menu.add_command(label=_("Open Project..."), command=self._open_project)
-        file_menu.add_command(
-            label=_("Add Individual Files..."), command=self._add_individual_files
-        )
         file_menu.add_command(label=_("Export..."), command=self._export)
         file_menu.add_separator()
         file_menu.add_command(label=_("Quit"), command=self.root.destroy)
@@ -146,10 +143,13 @@ class MainWindow:
         for child in self.toolbar.winfo_children():
             child.destroy()
         extended = self._extended.get()
-        # Sec. 9.7: basic = Add files | Remove | Run all | Report | Export | Help
+        # Sec. 9.7: basic = Add files | Add folder | Run all | Report | Export
+        #           | Help. Two add buttons, not one, because Tk has no dialog
+        #           that selects files AND directories (#62, #76). Removing a
+        #           thesis is a ROW action, on the grid context menu (#76).
         buttons = [
-            (BTN_ADD, self._add_files),  # recursive folder add (#62)
-            (BTN_REMOVE, self._remove_selected),  # #63
+            (BTN_ADD, self._add_files),
+            (BTN_ADD_FOLDER, self._add_folder),
             (BTN_RUN, lambda: self._run(rerun=False)),
         ]
         if extended:
@@ -172,7 +172,7 @@ class MainWindow:
     def _build_grid(self) -> None:
         # No notebook: the report is a generated HTML file opened in the
         # browser, so the grid owns the whole window (Sec. 9.8, ADR-0016 rev. 2).
-        self.grid_view = GridView(self.root, self.project.repo, self.project.store)
+        self.grid_view = GridView(self.root, self.project.repo, self.project.store, on_remove=self._remove_thesis)
         self.grid_view.pack(fill="both", expand=True)
 
     # -- state ------------------------------------------------------------------
@@ -210,26 +210,25 @@ class MainWindow:
     # -- actions -----------------------------------------------------------------
 
     def _add_files(self) -> None:
-        """Recursive folder add is the default and only toolbar add path (#62).
+        """Multi-select file dialog (#62, #76).
 
-        A professor's theses arrive as a directory tree, not as a hand-picked
-        list, so the folder dialog is what the common case wants; picking
-        individual files stays reachable from the File menu."""
-        self._after_add(dialogs.add_folder_flow(self.root, self.project))
-
-    def _add_individual_files(self) -> None:
+        Kept beside "Add folder" rather than merged into it: Tk has no dialog
+        that selects files *and* directories, so one button cannot cover both
+        cases. Collapsing them removed a capability, not a choice.
+        """
         self._after_add(dialogs.add_files_flow(self.root, self.project))
 
-    def _remove_selected(self) -> None:
-        """Remove the selected thesis from the project (#63).
+    def _add_folder(self) -> None:
+        """Every PDF beneath a chosen folder, recursively (#62, Sec. 9.7).
+        The dialog confirms the count before anything is written."""
+        self._after_add(dialogs.add_folder_flow(self.root, self.project))
 
-        The core delete path and `tta remove` shipped without a GUI caller, so
-        only the CLI could forget a mis-added thesis. Always confirms: unlike
-        exclude, nothing restores it."""
-        thesis_id = self.grid_view.selected_thesis_id()
-        if thesis_id is None:
-            self._set_status(_("Select a thesis to remove."))
-            return
+    def _remove_thesis(self, thesis_id: int) -> None:
+        """Confirm and remove one thesis, then reload (#63, #76).
+
+        Invoked from the grid's row context menu. The confirmation is
+        unconditional: unlike excluding, nothing restores a removed thesis.
+        """
         if dialogs.remove_thesis_flow(self.root, self.project, thesis_id):
             self.refresh()
 

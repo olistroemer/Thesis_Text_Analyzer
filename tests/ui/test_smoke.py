@@ -230,46 +230,72 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
 
 
 @pytest.mark.slow
-def test_toolbar_add_is_recursive_and_remove_is_wired(tmp_path, english_pdf, monkeypatch):
-    """#62: one recursive "Add files" button; the separate "Add folder" is gone.
-
-    #63: "Remove" reaches ``dialogs.remove_thesis_flow``, which shipped with no
-    GUI caller at all - only the CLI could forget a mis-added thesis."""
+def test_toolbar_has_both_add_buttons_and_no_remove(tmp_path, english_pdf, monkeypatch):
+    """#76: two add buttons, because Tk has no dialog that selects files AND
+    directories - `askopenfilenames` returns files only, `askdirectory` one
+    directory. Collapsing them into one recursive button removed a capability,
+    not a choice. Remove is a row action now, so it must not be on the toolbar."""
     from tta.ui.tk import dialogs
     from tta.ui.tk.main_window import MainWindow
 
     with Project.open(tmp_path / "proj", create=True) as project:
-        thesis = project.repo.add_thesis(english_pdf)
+        project.repo.add_thesis(english_pdf)
         calls = []
-        monkeypatch.setattr(dialogs, "add_folder_flow", lambda *a: calls.append("folder") or 0)
         monkeypatch.setattr(dialogs, "add_files_flow", lambda *a: calls.append("files") or 0)
-        monkeypatch.setattr(
-            dialogs,
-            "remove_thesis_flow",
-            lambda parent, proj, tid: calls.append(("remove", tid)) or False,
-        )
+        monkeypatch.setattr(dialogs, "add_folder_flow", lambda *a: calls.append("folder") or 0)
         window = MainWindow(project, first_launch=False)
         try:
             window.root.update_idletasks()
             labels = list(window._toolbar_buttons)
             assert "Add files" in labels
-            assert "Add folder" not in labels  # collapsed into "Add files"
-            assert "Remove" in labels
-            # #16/#29: the toolbar dict is keyed by button IDENTITY, and the
-            # widget carries the translated label
-            assert str(window._toolbar_buttons["Add files"]["text"]) == "Add files"
+            assert "Add folder" in labels
+            assert "Remove" not in labels  # moved to the row context menu
 
-            # "Add files" must take the recursive folder path, not the file dialog
             window._toolbar_buttons["Add files"].invoke()
-            assert calls == ["folder"]
+            assert calls == ["files"]  # the FILE dialog, not the folder one
+            window._toolbar_buttons["Add folder"].invoke()
+            assert calls == ["files", "folder"]
+        finally:
+            window.root.destroy()
 
-            # Remove acts on the grid selection
-            window.grid_view.sheet.select_cell(0, LEAD_COLUMNS.index("file"))
-            window._toolbar_buttons["Remove"].invoke()
-            assert ("remove", thesis.id) in calls
 
-            # picking individual files survives on the File menu
-            window._add_individual_files()
-            assert "files" in calls
+@pytest.mark.slow
+def test_right_clicking_a_row_reaches_the_remove_flow(tmp_path, english_pdf, monkeypatch):
+    """#76: removing a thesis is a row action. The grid holds a Repository and
+    an ArtefactStore, never a Project (ADR-0002), so it hands the thesis id to
+    the window, which owns the dialog and the reload."""
+    from tta.ui.tk import dialogs
+    from tta.ui.tk.main_window import MainWindow
+
+    with Project.open(tmp_path / "proj", create=True) as project:
+        thesis = project.repo.add_thesis(english_pdf)
+        removed = []
+        monkeypatch.setattr(
+            dialogs,
+            "remove_thesis_flow",
+            lambda parent, proj, tid: removed.append(tid) or False,
+        )
+        window = MainWindow(project, first_launch=False)
+        try:
+            window.root.update_idletasks()
+            grid = window.grid_view
+
+            assert grid._on_remove is not None
+            labels = [
+                grid._row_menu.entrycget(i, "label")
+                for i in range(grid._row_menu.index("end") + 1)
+            ]
+            assert any("Remove" in lab or "entfernen" in lab for lab in labels), labels
+
+            # right-click resolves the row under the cursor, then the menu acts
+            grid._on_row_right_click(
+                SimpleNamespace(widget=grid.sheet.MT, x=5, y=5, x_root=0, y_root=0)
+            )
+            grid._remove_menu_row()
+            assert removed == [thesis.id]
+
+            # a second invocation with nothing pending must not re-remove
+            grid._remove_menu_row()
+            assert removed == [thesis.id]
         finally:
             window.root.destroy()

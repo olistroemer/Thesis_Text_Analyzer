@@ -15,7 +15,7 @@ msgstr ""
 msgid " | cancelled"
 msgstr ""
 
-#: tta/ui/tk/grid.py:273
+#: tta/ui/tk/grid.py:295
 msgid ""
 "\"{filename}\" was excluded and its analysis records were removed, but some cached files could not be deleted:\n"
 "\n"
@@ -60,12 +60,12 @@ msgstr ""
 msgid "? Help"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:248
+#: tta/ui/tk/main_window.py:247
 msgid "A run is already in progress."
 msgstr ""
 
 #: tta/ui/tk/about_view.py:31
-#: tta/ui/tk/main_window.py:123
+#: tta/ui/tk/main_window.py:120
 msgid "About"
 msgstr ""
 
@@ -74,10 +74,6 @@ msgid ""
 "Add INPUTS (PDF files or folders) and analyse them.\n"
 "\n"
 "Without INPUTS, every thesis already in the project is analysed. By default only what is missing, out of date or previously failed is computed; --rerun computes everything again. The type of a thesis is detected during the analysis, not entered when the file is added."
-msgstr ""
-
-#: tta/ui/tk/main_window.py:106
-msgid "Add Individual Files..."
 msgstr ""
 
 #: tta/cli/main.py:565
@@ -94,6 +90,7 @@ msgstr ""
 
 #: tta/ui/tk/dialogs.py:56
 #: tta/ui/tk/dialogs.py:62
+#: tta/ui/tk/main_window.py:53
 msgid "Add folder"
 msgstr ""
 
@@ -109,7 +106,7 @@ msgid ""
 "Subfolders are included. Nothing is read yet - the documents are only analysed when you click Run."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:240
+#: tta/ui/tk/main_window.py:239
 msgid "Added {count} theses - click Run all"
 msgstr ""
 
@@ -201,7 +198,7 @@ msgstr ""
 msgid "Cancel run"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:287
+#: tta/ui/tk/main_window.py:286
 msgid "Cancelling - finishing in-flight theses..."
 msgstr ""
 
@@ -244,7 +241,7 @@ msgid ""
 "Nothing is changed - the database is opened read-only and no migration is applied. The command exits with a non-zero status if any check fails, so it can be used in a script."
 msgstr ""
 
-#: tta/ui/tk/grid.py:44
+#: tta/ui/tk/grid.py:45
 msgid "Column name: {name}"
 msgstr ""
 
@@ -272,13 +269,13 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:617
+#: tta/ui/tk/main_window.py:616
 msgid ""
 "Could not remember {path}:\n"
 "{error}"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:533
+#: tta/ui/tk/main_window.py:532
 msgid ""
 "Could not write the report:\n"
 "{error}"
@@ -336,7 +333,7 @@ msgstr ""
 msgid "Document content (kept on this machine only)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:574
+#: tta/ui/tk/main_window.py:573
 msgid "Don't ask again"
 msgstr ""
 
@@ -348,7 +345,7 @@ msgstr ""
 msgid "Error: {reason}"
 msgstr ""
 
-#: tta/ui/tk/grid.py:248
+#: tta/ui/tk/grid.py:270
 msgid ""
 "Exclude \"{filename}\" and permanently delete its cached analysis from this machine (extracted text, tokens, PDF metadata and all metric values)?\n"
 "\n"
@@ -366,7 +363,7 @@ msgid ""
 "This is the command-line form of the Excluded checkbox in the window. If the thesis has already been analysed, its cached analysis is deleted from this machine: the extracted text, the tokens and the PDF metadata, together with its metric values and its run history. That cannot be undone. The source PDF is never touched. Excluding a thesis before it is analysed simply prevents any analysis from being cached."
 msgstr ""
 
-#: tta/ui/tk/grid.py:247
+#: tta/ui/tk/grid.py:269
 msgid "Exclude thesis"
 msgstr ""
 
@@ -401,7 +398,7 @@ msgstr ""
 msgid "Export {count} theses (results only, no documents)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:108
+#: tta/ui/tk/main_window.py:105
 msgid "Export..."
 msgstr ""
 
@@ -415,7 +412,7 @@ msgid ""
 "Show in folder?"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:116
+#: tta/ui/tk/main_window.py:113
 msgid "Extended mode"
 msgstr ""
 
@@ -424,7 +421,7 @@ msgid "Extraction quality"
 msgstr ""
 
 #: tta/ui/tk/columns.py:57
-#: tta/ui/tk/main_window.py:111
+#: tta/ui/tk/main_window.py:108
 msgid "File"
 msgstr ""
 
@@ -477,11 +474,11 @@ msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr ""
 
 #: tta/ui/tk/help_view.py:36
-#: tta/ui/tk/main_window.py:124
+#: tta/ui/tk/main_window.py:121
 msgid "Help"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:121
+#: tta/ui/tk/main_window.py:118
 msgid "Help topics"
 msgstr ""
 
@@ -595,7 +592,7 @@ msgstr ""
 msgid "Not applicable for this thesis."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:589
+#: tta/ui/tk/main_window.py:588
 msgid "Not now"
 msgstr ""
 
@@ -635,8 +632,8 @@ msgstr ""
 msgid "Only when you explicitly export, and only the following values:"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:616
-#: tta/ui/tk/main_window.py:633
+#: tta/ui/tk/main_window.py:615
+#: tta/ui/tk/main_window.py:632
 msgid "Open Project"
 msgstr ""
 
@@ -644,11 +641,11 @@ msgstr ""
 msgid "Open Project..."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:607
+#: tta/ui/tk/main_window.py:606
 msgid "Open project folder"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:592
+#: tta/ui/tk/main_window.py:591
 msgid "Open report"
 msgstr ""
 
@@ -680,8 +677,8 @@ msgstr ""
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:251
-#: tta/ui/tk/main_window.py:275
+#: tta/ui/tk/main_window.py:250
+#: tta/ui/tk/main_window.py:274
 msgid "Planning..."
 msgstr ""
 
@@ -689,8 +686,8 @@ msgstr ""
 msgid "Print the plan without executing."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:122
-#: tta/ui/tk/main_window.py:638
+#: tta/ui/tk/main_window.py:119
+#: tta/ui/tk/main_window.py:637
 msgid "Privacy statement"
 msgstr ""
 
@@ -735,7 +732,7 @@ msgstr ""
 msgid "Q3"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:110
+#: tta/ui/tk/main_window.py:107
 msgid "Quit"
 msgstr ""
 
@@ -774,10 +771,6 @@ msgstr ""
 msgid "Ready"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:53
-msgid "Remove"
-msgstr ""
-
 #: tta/cli/main.py:411
 msgid "Remove a thesis from the project entirely."
 msgstr ""
@@ -797,6 +790,10 @@ msgstr ""
 
 #: tta/cli/main.py:448
 msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
+msgstr ""
+
+#: tta/ui/tk/grid.py:117
+msgid "Remove thesis..."
 msgstr ""
 
 #: tta/ui/tk/dialogs.py:107
@@ -824,13 +821,13 @@ msgstr ""
 msgid "Repeated word triples"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:532
-#: tta/ui/tk/main_window.py:563
+#: tta/ui/tk/main_window.py:531
+#: tta/ui/tk/main_window.py:562
 #: tta/ui/tk/main_window.py:57
 msgid "Report"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:519
+#: tta/ui/tk/main_window.py:518
 msgid "Report written to {path}"
 msgstr ""
 
@@ -842,7 +839,7 @@ msgstr ""
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:248
+#: tta/ui/tk/main_window.py:247
 msgid "Run"
 msgstr ""
 
@@ -850,15 +847,15 @@ msgstr ""
 msgid "Run all"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:336
+#: tta/ui/tk/main_window.py:335
 msgid "Run cancelled"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:336
+#: tta/ui/tk/main_window.py:335
 msgid "Run finished"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:318
+#: tta/ui/tk/main_window.py:317
 msgid "Running... thesis {ordinal}: {module} {status}"
 msgstr ""
 
@@ -870,16 +867,12 @@ msgstr ""
 msgid "Scatter plot of thesis word count against publication year."
 msgstr ""
 
-#: tta/ui/tk/grid.py:272
+#: tta/ui/tk/grid.py:294
 msgid "Scrub incomplete"
 msgstr ""
 
 #: tta/ui/tk/help_view.py:38
 msgid "See also"
-msgstr ""
-
-#: tta/ui/tk/main_window.py:231
-msgid "Select a thesis to remove."
 msgstr ""
 
 #: tta/ui/tk/columns.py:88
@@ -947,15 +940,15 @@ msgstr ""
 msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:629
+#: tta/ui/tk/main_window.py:628
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:627
+#: tta/ui/tk/main_window.py:626
 msgid "The project opens on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:569
+#: tta/ui/tk/main_window.py:568
 msgid "The run finished. Open the report for this project now?"
 msgstr ""
 
@@ -1027,7 +1020,7 @@ msgstr ""
 msgid "Verdict on how reliable the extracted text is (ok vs garbled)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:118
+#: tta/ui/tk/main_window.py:115
 msgid "View"
 msgstr ""
 
@@ -1211,7 +1204,7 @@ msgid "err"
 msgstr ""
 
 #: tta/core/progress.py:313
-#: tta/ui/tk/main_window.py:497
+#: tta/ui/tk/main_window.py:496
 msgid "estimating..."
 msgstr ""
 
@@ -1528,7 +1521,7 @@ msgstr ""
 msgid "theses"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:491
+#: tta/ui/tk/main_window.py:490
 msgid "thesis {done}/{total}"
 msgstr ""
 
@@ -1604,7 +1597,7 @@ msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
 #: tta/cli/main.py:279
-#: tta/ui/tk/grid.py:45
+#: tta/ui/tk/grid.py:46
 msgid "{count} theses"
 msgstr ""
 
@@ -1612,12 +1605,12 @@ msgstr ""
 msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:495
-#: tta/ui/tk/main_window.py:503
+#: tta/ui/tk/main_window.py:494
+#: tta/ui/tk/main_window.py:502
 msgid "{done}/{total} pairs"
 msgstr ""
 
-#: tta/ui/tk/grid.py:43
+#: tta/ui/tk/grid.py:44
 msgid "{filename} - {label}"
 msgstr ""
 
@@ -1630,15 +1623,15 @@ msgid ""
 "They are never exported. Delete that folder manually to remove them."
 msgstr ""
 
-#: tta/ui/tk/grid.py:41
+#: tta/ui/tk/grid.py:42
 msgid "{header} (asc)"
 msgstr ""
 
-#: tta/ui/tk/grid.py:42
+#: tta/ui/tk/grid.py:43
 msgid "{header} (desc)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:501
+#: tta/ui/tk/main_window.py:500
 msgid "{head} - {tail}"
 msgstr ""
 
@@ -1674,6 +1667,6 @@ msgstr ""
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:499
+#: tta/ui/tk/main_window.py:498
 msgid "~{eta} left"
 msgstr ""

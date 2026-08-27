@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tkinter as tk
 from tkinter import messagebox, ttk
 
 from tksheet import Sheet, num2alpha
@@ -57,7 +58,13 @@ def open_with_default_app(path) -> None:
 
 
 class GridView(ttk.Frame):
-    def __init__(self, parent, repo: Repository, store: ArtefactStore):
+    def __init__(
+        self,
+        parent,
+        repo: Repository,
+        store: ArtefactStore,
+        on_remove=None,
+    ):
         super().__init__(parent)
         self.repo = repo
         self.store = store
@@ -96,6 +103,21 @@ class GridView(ttk.Frame):
         header.bindtags((tag, *header.bindtags()))
         header.bind_class(tag, "<Button-1>", self._on_header_click)
         self.sheet.bind("<Double-Button-1>", self._on_double_click)
+        # Row context menu (#76). Removing a thesis is a ROW action: it acts on
+        # one thesis, and a destructive step nothing can undo should not sit a
+        # misclick from the Excluded checkbox. A trashcan in a cell was asked
+        # for and is not available - tksheet 7.6 has no per-cell image API, and
+        # a trashcan character would render as a missing-glyph box (#26,
+        # ADR-0018). Button-3 is bound and the row resolved here rather than
+        # through tksheet's own popup menu, so the row under the cursor is
+        # unambiguous - the same reason _on_header_click resolves its column.
+        self._on_remove = on_remove
+        self._row_menu = tk.Menu(self, tearoff=False)
+        self._row_menu.add_command(
+            label=_("Remove thesis..."), command=self._remove_menu_row
+        )
+        self._menu_row: int | None = None
+        self.sheet.MT.bind("<Button-3>", self._on_row_right_click)
         self.sheet.pack(fill="both", expand=True)
 
     # -- data ---------------------------------------------------------------
@@ -295,6 +317,29 @@ class GridView(ttk.Frame):
         if not (0 <= r < len(self.rows)):
             return None
         return self.rows[r].thesis.id
+
+    def _on_row_right_click(self, event) -> None:
+        """Select the row under the cursor and offer the row actions (#76)."""
+        if self._on_remove is None:
+            return
+        row = self.sheet.identify_row(event, allow_end=False)
+        if row is None or not (0 <= row < len(self.rows)):
+            return
+        self._menu_row = row
+        self.sheet.select_row(row)
+        self._row_menu.tk_popup(event.x_root, event.y_root)
+
+    def _remove_menu_row(self) -> None:
+        """Hand the right-clicked thesis to the caller's remove flow.
+
+        The dialog and the reload live in the parent: GridView deliberately
+        holds a Repository and an ArtefactStore, not a Project, so it cannot
+        run the flow itself (ADR-0002 keeps the grid a view).
+        """
+        row, self._menu_row = self._menu_row, None
+        if row is None or not (0 <= row < len(self.rows)) or self._on_remove is None:
+            return
+        self._on_remove(self.rows[row].thesis.id)
 
     def _on_double_click(self, event) -> None:
         """Double-click, the grid's single "open this" gesture (Sec. 9.9,
