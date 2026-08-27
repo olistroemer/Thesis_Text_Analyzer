@@ -16,8 +16,8 @@ their own middles.
 
 Cross-references (``module:`` / ``metric:`` / ``concept:`` + slug) are
 clickable and navigate in place; a target with no installed page renders as
-inert text, because the corpus legitimately points at pages that are not
-authored yet. ``http`` links render as text and are never handed to a
+inert text, so a contributed module's page may point at a page this
+installation does not have without raising. ``http`` links render as text and are never handed to a
 browser (QA-PRIV).
 """
 
@@ -129,8 +129,8 @@ def load_topics(root=None) -> list[Topic]:
     """Load every installed help page, ordered by section then slug.
 
     ``root`` may be any Traversable or ``pathlib.Path``; it defaults to the
-    packaged corpus. A missing section directory is normal (``concepts/`` does
-    not exist yet) and simply contributes nothing.
+    packaged corpus. A missing section directory is not an error - it simply
+    contributes nothing (the shipped corpus has all three since #2).
     """
     root = help_root() if root is None else root
     topics: list[Topic] = []
@@ -147,10 +147,10 @@ def load_topics(root=None) -> list[Topic]:
                 Topic(
                     kind=fields.get("kind") or SECTION_KINDS[section],
                     slug=slug,
-                    # ADR-0012 makes the front-matter title the durable label
-                    # source; until #2 authors every page, a page without one
-                    # falls back to the friendly column label (#16) and only
-                    # then to the bare slug.
+                    # Every shipped page carries a title (#2). A page without
+                    # one - a contributed module's, say - falls back to the
+                    # friendly column label (#16) and only then to the bare
+                    # slug, so the tree is never blank.
                     title=fields.get("title") or column_label(slug),
                     body=body,
                     see_also=parse_uri_list(fields.get("see_also", "")),
@@ -274,7 +274,7 @@ def document_blocks(topic: Topic, index: dict[str, Topic] | None = None) -> list
         for uri in topic.see_also:
             target = index.get(uri)
             if target is None:
-                # A page #2 has not authored yet: inert, never an error.
+                # No installed page: inert text, never an error.
                 blocks.append(Block("li", (Run(uri),)))
             else:
                 blocks.append(Block("li", (Run(target.title, target=uri),)))

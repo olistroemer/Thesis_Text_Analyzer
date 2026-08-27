@@ -10,7 +10,7 @@ see_also: [module:mod_classify_language, metric:language_code]
 
 # Sicherheit der Spracherkennung (`language_confidence`)
 
-Ein Wert zwischen 0 und 1, der angibt, wie einig sich die Spracherkennung bei [language_code](metric:language_code) war.
+Ein Wert zwischen 0 und 1, der angibt, wie einig sich die Spracherkennung [@langdetect] bei [language_code](metric:language_code) war.
 
 ## Das ist keine Wahrscheinlichkeit
 
