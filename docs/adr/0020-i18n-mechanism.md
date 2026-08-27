@@ -89,7 +89,9 @@ It also fixes a second defect for free, by separating two audiences that had bee
 
 Grid headers, the details panel and the help-viewer tree show a friendly label — "Readability (Flesch)", not `flesch_reading_ease` — resolved through `_()` so the German label is a catalog entry like any other string.
 
-The interim source is `COLUMN_LABELS` in `tta/ui/tk/columns.py`, alongside the `COLUMN_HELP` dict that #66 deliberately kept when it removed the grid tooltips. Per [ADR-0012](0012-help-content.md) the **durable** source is each help page's front-matter `title:`; the shipped corpus already carries German titles (`publication_year` → *Veröffentlichungsjahr*), and the `de` catalog's labels are worded to match them. Migrating `COLUMN_LABELS` to the front matter is deferred to #2, which authors the full corpus — 45 columns against 8 existing pages is not a migration yet.
+The source is `COLUMN_LABELS` in `tta/ui/tk/columns.py`, alongside the `COLUMN_HELP` dict that #66 deliberately kept when it removed the grid tooltips. Per [ADR-0012](0012-help-content.md) the durable source was to be each help page's front-matter `title:`; the corpus carries German titles (`publication_year` → *Veröffentlichungsjahr*) and the `de` catalog's labels are worded to match them.
+
+**Revision (2026-08-27, #2): that migration is blocked, not merely deferred.** #2 authored the full corpus — 13 module pages, 31 metric pages, 4 concept pages — and the missing pages turned out not to be the obstacle. The MVP corpus is authored **German-only** ([SDD §9.6](../SDD.md#96-i18n-posture)), so each page carries exactly one title, in German. The gettext catalogue carries *two* strings per column: the English msgid and its German translation. Moving the labels into the front matter would hand the English UI German column headers — it would trade a duplicated string for a broken locale. `COLUMN_LABELS` therefore stays the label source, and the corpus titles are kept in step with the `de` catalogue by wording, as they are today. Unblocking it needs either a second-language corpus (ADR-0012's first "Revisit when") or per-locale title fields in the front matter; neither is MVP scope.
 
 The raw metric name stays discoverable in the details panel, which names it on its own line under the label.
 
@@ -148,5 +150,5 @@ Non-ASCII belongs **only** in `.po`/`.mo`. Those are data files, explicitly out 
 
 - A third UI language appears (§12's "first non-English partner institution"). The mechanism scales as-is; that is the point where `babel`'s dependency cost may finally be justified by real CLDR formatting needs.
 - A locale with a non-Germanic plural rule appears — then wire up `ngettext` (see the plural-forms consequence).
-- #2 authors the full help corpus, at which point `COLUMN_LABELS` should collapse into the front-matter `title:` fields per ADR-0012.
+- A **second-language help corpus** exists, or the front-matter schema grows per-locale titles — the two ways the `COLUMN_LABELS` migration of §8 becomes possible. Authoring the full corpus (#2, done) was not sufficient: a German-only corpus cannot source an English label.
 - RTL is requested. Out of MVP scope (§9.6, §12); layouts are already `pack()`/`grid()`, so the pass is mechanical.

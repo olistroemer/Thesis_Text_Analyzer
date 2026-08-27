@@ -7,10 +7,10 @@ show "Readability (Flesch)" rather than ``flesch_reading_ease``. Labels and
 help text are English ASCII msgids (ADR-0018) resolved through ``_()``
 (ADR-0020), so the German UI is a catalog entry, not a second table here.
 
-Per ADR-0012 the *durable* label source is each help page's front-matter
-``title:``; the shipped corpus already carries German titles. Collapsing
-``COLUMN_LABELS`` into the front matter waits for #2, which authors the full
-corpus - 45 columns against 8 existing pages is not a migration yet.
+ADR-0012 wanted each help page's front-matter ``title:`` to become the durable
+label source. #2 authored the corpus and the migration is blocked, not pending
+(ADR-0020 Sec. 8): a German-only corpus (SDD Sec. 9.6) cannot source an English
+label, while this dict plus the catalog carry both. Titles are worded to match.
 """
 
 from __future__ import annotations

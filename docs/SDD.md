@@ -733,7 +733,9 @@ Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 
 ## 9.4 Help system
 
-Decision: [ADR-012](adr/0012-help-content.md). Help content under `core/help/`, organised as `modules/`, `metrics/`, and `concepts/`. Markdown with YAML front-matter; cross-references via `metric:` / `module:` / `concept:` URI schemes; citations via BibTeX in `references.bib`.
+Decision: [ADR-012](adr/0012-help-content.md). Help content under `core/help/`, organised as `modules/`, `metrics/`, and `concepts/`. Markdown with YAML front-matter; cross-references via `metric:` / `module:` / `concept:` URI schemes; citations via BibTeX keys against [`references.bib`](references.bib), which lives in `docs/` and is repository-time only (ADR-012 rev. 3).
+
+The corpus is **48 pages** (#2): one per module ([§7.1](#71-overview), 13), one per metric (31), and four concept pages that carry a caveat shared by many metrics instead of repeating it on each — `outlier_detection` ([§9.5](#95-outlier-highlighting)), `length_confound`, `metric_redundancy` and `cross_language_comparison`. It is authored **German-only** ([§9.6](#96-i18n-posture)) and it is the *only* explanatory surface the GUI has since #66 removed the grid tooltips, so the register is a non-technical academic asking whether a number means anything. What the bundled components get wrong is [`model-limitations.md`](model-limitations.md); the corpus is where a reader meets those limits per metric.
 
 Three render targets:
 - **GUI**: `ui/tk/help_view.py` — two panes (topic tree | read-only `tk.Text`), fed by a self-contained markdown-subset renderer; clickable cross-refs.
