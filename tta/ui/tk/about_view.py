@@ -21,12 +21,17 @@ import tkinter as tk
 from tkinter import ttk
 
 import tta
+from tta.core.i18n import N_, _
 
 REPO_URL = "https://github.com/olistroemer/Thesis_Text_Analyzer"
 LICENCE_SPDX = "GPL-3.0-or-later"
+# The group name is a proper noun and identical in every locale, so it is not
+# a msgid; everything else here is (ADR-0020).
 ATTRIBUTION = "Data Science Project Group SS26 - FH Wedel"
-WINDOW_TITLE = "About"
-SOURCE_LABEL = "Source code (GPL Sec. 6), copy the address to visit it:"
+WINDOW_TITLE = N_("About")
+SOURCE_LABEL = N_("Source code (GPL Sec. 6), copy the address to visit it:")
+LICENCE_LINE = N_("Free software under the GNU General Public License, {spdx} (SPDX).")
+COPIED_NOTICE = N_("Address copied to the clipboard.")
 
 
 def about_lines() -> tuple[str, ...]:
@@ -34,7 +39,7 @@ def about_lines() -> tuple[str, ...]:
     return (
         f"Thesis Text Analyzer {tta.__version__}",
         ATTRIBUTION,
-        f"Free software under the GNU General Public License, {LICENCE_SPDX} (SPDX).",
+        _(LICENCE_LINE).format(spdx=LICENCE_SPDX),
     )
 
 
@@ -43,7 +48,7 @@ class AboutWindow(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title(WINDOW_TITLE)
+        self.title(_(WINDOW_TITLE))
         self.resizable(False, False)
         frame = ttk.Frame(self, padding=16)
         frame.pack(fill="both", expand=True)
@@ -52,7 +57,7 @@ class AboutWindow(tk.Toplevel):
         ttk.Label(frame, text=heading, font="TkHeadingFont").pack(anchor="w")
         ttk.Label(frame, text=attribution).pack(anchor="w", pady=(2, 10))
         ttk.Label(frame, text=licence, wraplength=420, justify="left").pack(anchor="w")
-        ttk.Label(frame, text=SOURCE_LABEL, wraplength=420, justify="left").pack(
+        ttk.Label(frame, text=_(SOURCE_LABEL), wraplength=420, justify="left").pack(
             anchor="w", pady=(10, 2)
         )
 
@@ -61,12 +66,12 @@ class AboutWindow(tk.Toplevel):
         self.url_var = tk.StringVar(value=REPO_URL)
         self.url_entry = ttk.Entry(row, textvariable=self.url_var, state="readonly", width=48)
         self.url_entry.pack(side="left", fill="x", expand=True)
-        self.copy_button = ttk.Button(row, text="Copy", command=self.copy_url)
+        self.copy_button = ttk.Button(row, text=_("Copy"), command=self.copy_url)
         self.copy_button.pack(side="left", padx=(6, 0))
 
         self.status = ttk.Label(frame, text="")
         self.status.pack(anchor="w", pady=(6, 0))
-        ttk.Button(frame, text="Close", command=self.destroy).pack(anchor="e", pady=(12, 0))
+        ttk.Button(frame, text=_("Close"), command=self.destroy).pack(anchor="e", pady=(12, 0))
         self.url_entry.selection_range(0, "end")
         self.url_entry.focus_set()
 
@@ -74,7 +79,7 @@ class AboutWindow(tk.Toplevel):
         """Put the repository URL on the clipboard - no browser involved."""
         self.clipboard_clear()
         self.clipboard_append(REPO_URL)
-        self.status.configure(text="Address copied to the clipboard.")
+        self.status.configure(text=_(COPIED_NOTICE))
 
 
 def show_about(parent) -> AboutWindow:

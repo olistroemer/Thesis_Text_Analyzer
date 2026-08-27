@@ -7,6 +7,7 @@ import json
 from langdetect import DetectorFactory, detect_langs
 
 from tta.core import artefact_kinds
+from tta.core.i18n import N_
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
 # langdetect is randomised by default; a fixed seed makes identical
@@ -29,7 +30,7 @@ class ClassifyLanguage(Module):
     def run(self, ctx: RunContext) -> RunResult:
         text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8").strip()
         if len(text) < MIN_CHARS:
-            raise NotApplicable("text too short for confident detection")
+            raise NotApplicable(N_("text too short for confident detection"))
         best = detect_langs(text[:MAX_CHARS])[0]
         payload = {"code": best.lang, "confidence": round(best.prob, 4)}
         out_path = ctx.workdir / "language.json"

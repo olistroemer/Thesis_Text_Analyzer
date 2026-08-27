@@ -1,10 +1,16 @@
 """Grid column model (SDD Sec. 9.2/Sec. 9.3): lead columns + metric columns
-derived from the module catalogue; basic mode shows a curated subset."""
+derived from the module catalogue; basic mode shows a curated subset.
+
+The column help text is English ASCII msgids (ADR-0018) resolved through
+``_()`` (ADR-0020), so the German UI is a catalog entry rather than a second
+table here.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tta.core.i18n import N_, _
 from tta.core.modules.registry import ModuleRegistry
 
 # The four lead columns shown in BOTH modes (SDD Sec. 9.3 "Column sets").
@@ -32,64 +38,79 @@ BASIC_METRICS = (
     "extraction_quality",
 )
 
-#: One-line column-header explanations for the hover tooltips (Sec. 9.9). ASCII
-#: only (ADR-0018). Keyed by the raw column name, so the sort suffix that the
-#: grid appends to headers (" (asc)"/" (desc)") is irrelevant here.
+#: One-line column-header explanations, shown in the details panel (Sec. 9.9).
+#: The grid has no hover tooltips any more (#66) but the text outlived them.
+#: English ASCII msgids (ADR-0018); marked here, translated at use (ADR-0020).
+#: Keyed by the raw column name, so the sort suffix that the grid appends to
+#: headers (" (asc)"/" (desc)") is irrelevant here.
 COLUMN_HELP: dict[str, str] = {
     # lead columns
-    "excluded": (
+    "excluded": N_(
         "Exclude this thesis from analysis and exports. Excluding an already-"
         "analysed thesis deletes its cached analysis (artefacts + metrics) from "
         "this machine after a confirmation; the source PDF is not touched."
     ),
-    "state": (
+    "state": N_(
         "Per-row state. '[!]' means text extraction was flagged as garbled for "
         "this thesis, so every metric in this row may be unreliable "
         "(US-PROF-QUALITY); blank means no problem was detected."
     ),
-    "file": "File name of the thesis PDF. Double-click to open the PDF.",
-    "type": "Detected thesis type (bachelor / master / unspecified); blank until analysed.",
+    "file": N_("File name of the thesis PDF. Double-click to open the PDF."),
+    "type": N_(
+        "Detected thesis type (bachelor / master / unspecified); blank until analysed."
+    ),
     # artefact presence columns (extended mode)
-    "raw_text": "Cached extracted plain text. Double-click to open it.",
-    "language": "Cached language-detection artefact. Double-click to open it.",
-    "tokens": "Cached tokenisation artefact. Double-click to open it.",
-    "pdf_metadata": "Cached full PDF metadata artefact. Double-click to open it.",
+    "raw_text": N_("Cached extracted plain text. Double-click to open it."),
+    "language": N_("Cached language-detection artefact. Double-click to open it."),
+    "tokens": N_("Cached tokenisation artefact. Double-click to open it."),
+    "pdf_metadata": N_("Cached full PDF metadata artefact. Double-click to open it."),
     # metrics
-    "text_chars": "Number of characters in the text extracted from the PDF.",
-    "n_pages": "Page count from the PDF text layer.",
-    "n_images": "Number of embedded images detected in the PDF.",
-    "page_count_meta": "Page count reported by the PDF's own metadata.",
-    "producer_category": "Category of the PDF 'Producer' tool (e.g. LaTeX, Word).",
-    "creator_category": "Category of the PDF 'Creator' tool (e.g. LaTeX, Word).",
-    "creation_year": "Year the PDF was created, from its metadata.",
-    "modification_year": "Year the PDF was last modified, from its metadata.",
-    "publication_year": "Best-estimate publication year (title-page year, else PDF dates).",
-    "publication_year_source": "Which signal set the publication year (title page vs PDF metadata).",
-    "has_outline": "Whether the PDF carries a bookmarks/outline tree.",
-    "extraction_quality": "Verdict on how reliable the extracted text is (ok vs garbled).",
-    "thesis_type": "Detected degree from the title page: bachelor, master, or unspecified.",
-    "language_code": "Detected primary language as an ISO 639 code.",
-    "language_confidence": "Confidence of the language detection, from 0 to 1.",
-    "flesch_reading_ease": "Flesch Reading Ease; higher scores read more easily.",
-    "word_count": "Total number of words in the extracted text.",
-    "char_count_alpha": "Number of alphabetic characters in the text.",
-    "sentence_count": "Total number of sentences detected.",
-    "avg_word_len": "Average word length, in characters.",
-    "avg_sentence_len": "Average sentence length, in words.",
-    "std_sentence_len": "Standard deviation of sentence length, in words.",
-    "ttr": "Type-token ratio: distinct words divided by total words.",
-    "root_ttr": "Root type-token ratio (Guiraud's index); length-robust richness.",
-    "hapax_token_ratio": "Share of tokens that occur exactly once.",
-    "hapax_type_ratio": "Share of word types that occur exactly once.",
-    "yules_k": "Yule's K: vocabulary richness, robust to text length.",
-    "bigram_repetition_rate": "Fraction of repeated word bigrams (two-word runs).",
-    "trigram_repetition_rate": "Fraction of repeated word trigrams (three-word runs).",
+    "text_chars": N_("Number of characters in the text extracted from the PDF."),
+    "n_pages": N_("Page count from the PDF text layer."),
+    "n_images": N_("Number of embedded images detected in the PDF."),
+    "page_count_meta": N_("Page count reported by the PDF's own metadata."),
+    "producer_category": N_("Category of the PDF 'Producer' tool (e.g. LaTeX, Word)."),
+    "creator_category": N_("Category of the PDF 'Creator' tool (e.g. LaTeX, Word)."),
+    "creation_year": N_("Year the PDF was created, from its metadata."),
+    "modification_year": N_("Year the PDF was last modified, from its metadata."),
+    "publication_year": N_(
+        "Best-estimate publication year (title-page year, else PDF dates)."
+    ),
+    "publication_year_source": N_(
+        "Which signal set the publication year (title page vs PDF metadata)."
+    ),
+    "has_outline": N_("Whether the PDF carries a bookmarks/outline tree."),
+    "extraction_quality": N_(
+        "Verdict on how reliable the extracted text is (ok vs garbled)."
+    ),
+    "thesis_type": N_(
+        "Detected degree from the title page: bachelor, master, or unspecified."
+    ),
+    "language_code": N_("Detected primary language as an ISO 639 code."),
+    "language_confidence": N_("Confidence of the language detection, from 0 to 1."),
+    "flesch_reading_ease": N_("Flesch Reading Ease; higher scores read more easily."),
+    "word_count": N_("Total number of words in the extracted text."),
+    "char_count_alpha": N_("Number of alphabetic characters in the text."),
+    "sentence_count": N_("Total number of sentences detected."),
+    "avg_word_len": N_("Average word length, in characters."),
+    "avg_sentence_len": N_("Average sentence length, in words."),
+    "std_sentence_len": N_("Standard deviation of sentence length, in words."),
+    "ttr": N_("Type-token ratio: distinct words divided by total words."),
+    "root_ttr": N_("Root type-token ratio (Guiraud's index); length-robust richness."),
+    "hapax_token_ratio": N_("Share of tokens that occur exactly once."),
+    "hapax_type_ratio": N_("Share of word types that occur exactly once."),
+    "yules_k": N_("Yule's K: vocabulary richness, robust to text length."),
+    "bigram_repetition_rate": N_("Fraction of repeated word bigrams (two-word runs)."),
+    "trigram_repetition_rate": N_(
+        "Fraction of repeated word trigrams (three-word runs)."
+    ),
 }
 
 
 def column_help(name: str) -> str | None:
-    """Header tooltip for a column by its raw name, or None if unknown."""
-    return COLUMN_HELP.get(name)
+    """Details-panel help for a column by its raw name, or None if unknown."""
+    text = COLUMN_HELP.get(name)
+    return _(text) if text else None
 
 
 @dataclass(frozen=True)

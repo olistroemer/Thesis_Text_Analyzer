@@ -31,6 +31,7 @@ from pathlib import Path
 
 import tta
 from tta.core.db.repository import Repository
+from tta.core.i18n import _, active_locale, format_datetime, format_integer, format_number
 
 TRUSTWORTHY_METRICS = ("avg_word_len", "std_sentence_len", "yules_k", "flesch_reading_ease")
 
@@ -120,7 +121,7 @@ def collect(repo: Repository) -> ReportData:
     for metric in TRUSTWORTHY_METRICS:
         series = [v[metric] for v in usable.values() if isinstance(v.get(metric), (int, float))]
         if len(series) >= 4:
-            q1, _, q3 = statistics.quantiles(series, n=4, method="inclusive")
+            q1, _median, q3 = statistics.quantiles(series, n=4, method="inclusive")
             iqr = q3 - q1
             bounds[metric] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
     for tid, v in usable.items():
@@ -250,15 +251,20 @@ def _esc(text) -> str:
 
 def _fmt(value: float) -> str:
     """Axis-tick / table formatting: integers stay integers, and only as
-    many decimals as the magnitude needs."""
+    many decimals as the magnitude needs.
+
+    Routed through the locale-aware formatter (SDD Sec. 9.6), so a German
+    report reads 1.234,5 where an English one reads 1,234.5. Grouping starts
+    at 10 000, as it did before the report became locale-aware - a 4-digit
+    axis tick is easier to read without a separator."""
+    grouped = abs(value) >= 10000
     if value == int(value):
-        whole = int(value)
-        return f"{whole:,}" if abs(whole) >= 10000 else str(whole)
+        return format_integer(int(value), grouping=grouped)
     if abs(value) >= 100:
-        return f"{value:.0f}"
+        return format_number(value, 0, grouping=grouped)
     if abs(value) >= 1:
-        return f"{value:.1f}"
-    return f"{value:.2f}"
+        return format_number(value, 1, grouping=grouped)
+    return format_number(value, 2, grouping=grouped)
 
 
 def _fmt_year(value: float) -> str:
@@ -301,9 +307,11 @@ def _fold_series(ordered: list[tuple[str, list]]) -> list[tuple[str, list]]:
     if not tail:
         return head
     merged: list = []
-    for _, series in tail:
+    for _label, series in tail:
         merged.extend(series)
-    return head + [(f"other ({len(tail)} more)", merged)]
+    return head + [
+        (_("other ({count} more)").format(count=len(tail)), merged)
+    ]
 
 
 class _Plot:
@@ -416,11 +424,12 @@ def _legend(entries: list[tuple[str, str]]) -> str:
     return f'<ul class="legend">{items}</ul>'
 
 
-def _table(headers: list[str], rows: list[list[str]], summary: str = "Data table") -> str:
+def _table(headers: list[str], rows: list[list[str]], summary: str | None = None) -> str:
     """The chart's numbers, collapsed. Carries identity for readers who
     cannot separate the hues, and discharges the palette's contrast relief."""
     if not rows:
         return ""
+    summary = _("Data table") if summary is None else summary
     head = "".join(f"<th>{_esc(h)}</th>" for h in headers)
     body = "".join(
         "<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in row) + "</tr>" for row in rows
@@ -450,13 +459,13 @@ def _empty(message: str) -> str:
 def _chart_length_over_time(data: ReportData) -> str:
     points = data.words_by_year
     if not points:
-        return _empty("No thesis has both a word count and a publication year yet.")
+        return _empty(_("No thesis has both a word count and a publication year yet."))
     grouped: dict[str, list[tuple[int, float]]] = {}
     for year, word_count, thesis_type in points:
         grouped.setdefault(thesis_type, []).append((year, word_count))
     series = _fold_series(sorted(grouped.items()))
-    years = [y for y, _, _ in points]
-    words = [w for _, w, _ in points]
+    years = [year for year, _words, _type in points]
+    words = [count for _year, count, _type in points]
 
     trend = None
     lows, highs = [0.0, min(words)], [max(words)]
@@ -470,8 +479,8 @@ def _chart_length_over_time(data: ReportData) -> str:
     plot = _Plot(
         _axis_ticks(min(lows), max(highs)),
         x_ticks=_axis_ticks(min(years), max(years), min_step=1.0),
-        x_label="publication year",
-        y_label="words",
+        x_label=_("publication year"),
+        y_label=_("words"),
         x_fmt=_fmt_year,
     )
     for index, (label, pairs) in enumerate(series):
@@ -480,56 +489,64 @@ def _chart_length_over_time(data: ReportData) -> str:
             plot.body.append(
                 f'<circle class="dot {cls}" cx="{plot.x(year):.1f}"'
                 f' cy="{plot.y(word_count):.1f}" r="4.5"><title>'
-                f"{_esc(label)}: {_fmt(word_count)} words, {_fmt_year(year)}"
-                "</title></circle>"
+                + _esc(
+                    _("{label}: {words} words, {year}").format(
+                        label=label, words=_fmt(word_count), year=_fmt_year(year)
+                    )
+                )
+                + "</title></circle>"
             )
     if trend is not None:
         (x0, y0), (x1, y1) = trend
         plot.body.append(
             f'<line class="trend" x1="{plot.x(x0):.1f}" y1="{plot.y(y0):.1f}"'
             f' x2="{plot.x(x1):.1f}" y2="{plot.y(y1):.1f}"><title>'
-            "linear trend</title></line>"
+            + _esc(_("linear trend"))
+            + "</title></line>"
         )
     rows = [
         [_fmt_year(year), thesis_type, _fmt(word_count)]
         for year, word_count, thesis_type in sorted(points)
     ]
-    caption = (
-        '<p class="note">Dashed line: least-squares trend over all plotted theses.</p>'
+    caption = '<p class="note">%s</p>' % _esc(
+        _("Dashed line: least-squares trend over all plotted theses.")
         if trend is not None
-        else '<p class="note">Trend line needs at least 5 dated theses.</p>'
+        else _("Trend line needs at least 5 dated theses.")
     )
     return (
-        plot.render("Scatter plot of thesis word count against publication year.")
-        + _legend([(label, _series_class(i)) for i, (label, _) in enumerate(series)])
+        plot.render(_("Scatter plot of thesis word count against publication year."))
+        + _legend([(label, _series_class(i)) for i, (label, _pairs) in enumerate(series)])
         + caption
-        + _table(["publication year", "type", "words"], rows)
+        + _table([_("publication year"), _("type"), _("words")], rows)
     )
 
 
 def _chart_length_by_type(data: ReportData) -> str:
     present = [(name, values) for name, values in sorted(data.words_by_type.items()) if values]
     if not present:
-        return _empty("No word counts recorded yet.")
+        return _empty(_("No word counts recorded yet."))
     boxes = [(name, box_stats(values), values) for name, values in present]
     spread = [
         value
-        for _, box, _ in boxes
+        for _name, box, _values in boxes
         for value in (box.whisker_lo, box.whisker_hi, *box.fliers)
     ]
     plot = _Plot(
         _axis_ticks(min(spread), max(spread)),
-        categories=[name for name, _, _ in boxes],
-        y_label="words",
+        categories=[name for name, _box, _values in boxes],
+        y_label=_("words"),
     )
     width = min(plot.band_width() * 0.46, 84.0)
     for index, (name, box, values) in enumerate(boxes):
         cx = plot.band(index)
         left, top = cx - width / 2, plot.y(box.q3)
         height = max(abs(plot.y(box.q1) - plot.y(box.q3)), 1.0)
-        tip = (
-            f"{name}: n={len(values)}, median {_fmt(box.median)}, "
-            f"Q1 {_fmt(box.q1)}, Q3 {_fmt(box.q3)}"
+        tip = _("{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}").format(
+            name=name,
+            n=len(values),
+            median=_fmt(box.median),
+            q1=_fmt(box.q1),
+            q3=_fmt(box.q3),
         )
         plot.body.append(
             f'<line class="whisker" x1="{cx:.1f}" y1="{plot.y(box.whisker_lo):.1f}"'
@@ -552,7 +569,13 @@ def _chart_length_by_type(data: ReportData) -> str:
         for value in box.fliers:
             plot.body.append(
                 f'<circle class="flier" cx="{cx:.1f}" cy="{plot.y(value):.1f}" r="4">'
-                f"<title>{_esc(name)} outlier: {_fmt(value)} words</title></circle>"
+                + "<title>"
+                + _esc(
+                    _("{name} outlier: {words} words").format(
+                        name=name, words=_fmt(value)
+                    )
+                )
+                + "</title></circle>"
             )
     rows = [
         [
@@ -568,11 +591,24 @@ def _chart_length_by_type(data: ReportData) -> str:
         for name, box, values in boxes
     ]
     return (
-        plot.render("Box plots of thesis word count per detected thesis type.")
-        + '<p class="note">Box: Q1 to Q3 with the median. Whiskers reach the most'
-        " extreme thesis within 1.5 x IQR; points beyond are drawn separately.</p>"
+        plot.render(_("Box plots of thesis word count per detected thesis type."))
+        + '<p class="note">%s</p>' % _esc(
+            _(
+                "Box: Q1 to Q3 with the median. Whiskers reach the most extreme "
+                "thesis within 1.5 x IQR; points beyond are drawn separately."
+            )
+        )
         + _table(
-            ["type", "n", "low whisker", "Q1", "median", "Q3", "high whisker", "outliers"],
+            [
+                _("type"),
+                _("n"),
+                _("low whisker"),
+                _("Q1"),
+                _("median"),
+                _("Q3"),
+                _("high whisker"),
+                _("outliers"),
+            ],
             rows,
         )
     )
@@ -581,21 +617,21 @@ def _chart_length_by_type(data: ReportData) -> str:
 def _chart_reading_ease(data: ReportData) -> str:
     present = [(lang, values) for lang, values in data.fre_by_language.items() if values]
     if not present:
-        return _empty("No reading-ease scores recorded yet.")
+        return _empty(_("No reading-ease scores recorded yet."))
     # biggest samples keep the fixed categorical hues; the tail folds to one
     present.sort(key=lambda item: (-len(item[1]), item[0]))
     series = _fold_series(present)
-    everything = [value for _, values in series for value in values]
-    edges, _ = histogram(everything, bins=HIST_BINS)
+    everything = [value for _label, values in series for value in values]
+    edges, _counts = histogram(everything, bins=HIST_BINS)
     span = (edges[0], edges[-1])
     binned = [(label, histogram(values, bins=HIST_BINS, span=span)[1]) for label, values in series]
-    peak = max((count for _, counts in binned for count in counts), default=1)
+    peak = max((count for _label, counts in binned for count in counts), default=1)
 
     plot = _Plot(
         _axis_ticks(0, peak, min_step=1.0),
         x_ticks=_axis_ticks(span[0], span[1]),
-        x_label="Flesch reading ease",
-        y_label="theses",
+        x_label=_("Flesch reading ease"),
+        y_label=_("theses"),
     )
     for index, (label, counts) in enumerate(binned):
         cls = _series_class(index)
@@ -604,9 +640,11 @@ def _chart_reading_ease(data: ReportData) -> str:
                 continue
             left, right = plot.x(edges[slot]), plot.x(edges[slot + 1])
             top = plot.y(count)
-            tip = (
-                f"{label}: {count} thesis(es) between "
-                f"{_fmt(edges[slot])} and {_fmt(edges[slot + 1])}"
+            tip = _("{label}: {count} thesis(es) between {low} and {high}").format(
+                label=label,
+                count=count,
+                low=_fmt(edges[slot]),
+                high=_fmt(edges[slot + 1]),
             )
             plot.body.append(
                 f'<rect class="hbar {cls}" x="{left + 1:.1f}" y="{top:.1f}"'
@@ -615,28 +653,33 @@ def _chart_reading_ease(data: ReportData) -> str:
                 f"<title>{_esc(tip)}</title></rect>"
             )
     rows = [
-        [f"{_fmt(edges[slot])} to {_fmt(edges[slot + 1])}"]
-        + [str(counts[slot]) for _, counts in binned]
+        [_("{low} to {high}").format(low=_fmt(edges[slot]), high=_fmt(edges[slot + 1]))]
+        + [str(counts[slot]) for _label, counts in binned]
         for slot in range(HIST_BINS)
-        if any(counts[slot] for _, counts in binned)
+        if any(counts[slot] for _label, counts in binned)
     ]
     return (
-        plot.render("Histogram of Flesch reading-ease scores, one series per language.")
-        + _legend([(label, _series_class(i)) for i, (label, _) in enumerate(binned)])
-        + f'<p class="note">{HIST_BINS} equal-width bins; series are overlaid, not'
-        " stacked.</p>"
-        + _table(["reading ease"] + [label for label, _ in binned], rows)
+        plot.render(
+            _("Histogram of Flesch reading-ease scores, one series per language.")
+        )
+        + _legend([(label, _series_class(i)) for i, (label, _counts) in enumerate(binned)])
+        + '<p class="note">%s</p>' % _esc(
+            _("{bins} equal-width bins; series are overlaid, not stacked.").format(
+                bins=HIST_BINS
+            )
+        )
+        + _table([_("reading ease")] + [label for label, _counts in binned], rows)
     )
 
 
 def _chart_language_mix(data: ReportData) -> str:
     items = sorted(data.by_language.items())
     if not items:
-        return _empty("No language has been detected yet.")
+        return _empty(_("No language has been detected yet."))
     plot = _Plot(
-        _axis_ticks(0, max(count for _, count in items), min_step=1.0),
-        categories=[lang for lang, _ in items],
-        y_label="theses",
+        _axis_ticks(0, max(count for _lang, count in items), min_step=1.0),
+        categories=[lang for lang, _count in items],
+        y_label=_("theses"),
     )
     width = min(plot.band_width() * 0.55, 78.0)
     baseline = plot.y(0)
@@ -646,14 +689,21 @@ def _chart_language_mix(data: ReportData) -> str:
         plot.body.append(
             f'<rect class="bar s1" x="{cx - width / 2:.1f}" y="{top:.1f}"'
             f' width="{width:.1f}" height="{max(baseline - top, 1.0):.1f}" rx="4">'
-            f"<title>{_esc(lang)}: {count} thesis(es)</title></rect>"
+            + "<title>"
+            + _esc(
+                _("{language}: {count} thesis(es)").format(language=lang, count=count)
+            )
+            + "</title></rect>"
         )
         plot.body.append(
             f'<text class="value tx" x="{cx:.1f}" y="{top - 7:.1f}">{count}</text>'
         )
     return (
-        plot.render("Bar chart of thesis counts per detected language.")
-        + _table(["language", "theses"], [[lang, str(count)] for lang, count in items])
+        plot.render(_("Bar chart of thesis counts per detected language."))
+        + _table(
+            [_("language"), _("theses")],
+            [[lang, str(count)] for lang, count in items],
+        )
     )
 
 
@@ -749,15 +799,17 @@ def _card(term: str, value: str, note: str = "") -> str:
 def _summary_cards(data: ReportData) -> str:
     languages = " ".join(f"{k}={n}" for k, n in sorted(data.by_language.items())) or "-"
     years = f"{data.year_range[0]}-{data.year_range[1]}" if data.year_range else "-"
-    types = " | ".join(f"{k}: {n}" for k, n in sorted(data.by_type.items())) or "no type detected"
-    median = f"{data.median_words:,.0f}" if data.median_words is not None else "-"
+    types = " | ".join(f"{k}: {n}" for k, n in sorted(data.by_type.items())) or _(
+        "no type detected"
+    )
+    median = format_number(data.median_words, 0) if data.median_words is not None else "-"
     return (
         '<dl class="cards">'
-        + _card("Theses analysed", str(data.theses), types)
-        + _card("Excluded", str(data.excluded), "left out of every aggregate")
-        + _card("Languages", languages)
-        + _card("Publication years", years)
-        + _card("Median length", median, "words")
+        + _card(_("Theses analysed"), str(data.theses), types)
+        + _card(_("Excluded"), str(data.excluded), _("left out of every aggregate"))
+        + _card(_("Languages"), languages)
+        + _card(_("Publication years"), years)
+        + _card(_("Median length"), median, _("words"))
         + "</dl>"
     )
 
@@ -765,20 +817,27 @@ def _summary_cards(data: ReportData) -> str:
 def _notable_section(data: ReportData) -> str:
     if not data.notable:
         return _empty(
-            "No thesis is an outlier on two or more of the trustworthy metrics "
-            f"({', '.join(TRUSTWORTHY_METRICS)})."
+            _(
+                "No thesis is an outlier on two or more of the trustworthy metrics "
+                "({metrics})."
+            ).format(metrics=", ".join(TRUSTWORTHY_METRICS))
         )
-    head = "<thead><tr><th>Thesis</th><th>Outlier on</th></tr></thead>"
+    head = "<thead><tr><th>%s</th><th>%s</th></tr></thead>" % (
+        _esc(_("Thesis")),
+        _esc(_("Outlier on")),
+    )
     body = "".join(
         f"<tr><td>{_esc(label)}</td><td>{_esc(', '.join(metrics))}</td></tr>"
         for label, metrics in data.notable
     )
     return (
         f'<div class="scroll"><table class="notable">{head}<tbody>{body}</tbody></table></div>'
-        '<p class="note">Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least'
-        " two of avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses are"
-        " named by id - no file name leaves the database (Sec. 9.8.3); <code>tta list</code>"
-        " resolves an id.</p>"
+        + '<p class="note">%s</p>' % _(
+            "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of "
+            "avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses "
+            "are named by id - no file name leaves the database (Sec. 9.8.3); "
+            "<code>tta list</code> resolves an id."
+        )
     )
 
 
@@ -788,36 +847,53 @@ def render_html(data: ReportData, generated_at: datetime | None = None) -> str:
     All CSS and all SVG are inline and the document makes no external
     request whatsoever - no script, no image, no web font, no CDN
     (QA-PRIV). It contains no identifying value (Sec. 9.8.3)."""
-    stamp = (generated_at or datetime.now()).strftime("%Y-%m-%d %H:%M")
+    stamp = format_datetime(generated_at or datetime.now())
     garbled = (
-        f'<p class="caption">{data.garbled} thesis(es) with a garbled text extraction'
-        " are excluded from every aggregate above and below.</p>"
+        '<p class="caption">%s</p>'
+        % _esc(
+            _(
+                "{count} thesis(es) with a garbled text extraction are excluded "
+                "from every aggregate above and below."
+            ).format(count=data.garbled)
+        )
         if data.garbled
         else ""
     )
+    # The document declares the locale it was rendered in, so a screen reader
+    # and a browser translator both get it right (SDD Sec. 9.6).
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="en"><head><meta charset="utf-8">'
+        f'<html lang="{_esc(active_locale())}"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>Thesis Text Analyzer - cohort report {_esc(stamp)}</title>"
+        f"<title>{_esc(_('Thesis Text Analyzer - cohort report {stamp}').format(stamp=stamp))}</title>"
         f"<style>{_STYLE}</style></head><body><main>"
-        "<h1>Cohort report</h1>"
-        f'<p class="sub">Thesis Text Analyzer - {data.theses} analysed'
-        f" thesis(es), generated {_esc(stamp)}</p>"
+        f"<h1>{_esc(_('Cohort report'))}</h1>"
+        + '<p class="sub">%s</p>'
+        % _esc(
+            _(
+                "Thesis Text Analyzer - {count} analysed thesis(es), "
+                "generated {stamp}"
+            ).format(count=data.theses, stamp=stamp)
+        )
         + _summary_cards(data)
         + garbled
-        + "<h2>Trends</h2><div class=\"grid2\">"
-        + _panel("Length over time", _chart_length_over_time(data))
-        + _panel("Length by type", _chart_length_by_type(data))
-        + "</div><h2>Distributions</h2><div class=\"grid2\">"
-        + _panel("Reading ease distribution", _chart_reading_ease(data))
-        + _panel("Language mix", _chart_language_mix(data))
-        + "</div><h2>Notable theses</h2>"
+        + f"<h2>{_esc(_('Trends'))}</h2><div class=\"grid2\">"
+        + _panel(_("Length over time"), _chart_length_over_time(data))
+        + _panel(_("Length by type"), _chart_length_by_type(data))
+        + f"</div><h2>{_esc(_('Distributions'))}</h2><div class=\"grid2\">"
+        + _panel(_("Reading ease distribution"), _chart_reading_ease(data))
+        + _panel(_("Language mix"), _chart_language_mix(data))
+        + f"</div><h2>{_esc(_('Notable theses'))}</h2>"
         + f'<section class="panel">{_notable_section(data)}</section>'
-        + "<footer>Generated locally by tta "
-        + _esc(tta.__version__)
-        + ". This file is self-contained: it loads nothing from the network and"
-        " contains no file names, paths, notes or document text. Regenerate it any"
-        " time from the Report button or <code>tta report</code>.</footer>"
+        + "<footer>"
+        + _esc(
+            _(
+                "Generated locally by tta {version}. This file is self-contained: "
+                "it loads nothing from the network and contains no file names, "
+                "paths, notes or document text. Regenerate it any time from the "
+                "Report button or `tta report`."
+            ).format(version=tta.__version__)
+        )
+        + "</footer>"
         "</main></body></html>\n"
     )

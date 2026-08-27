@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 
 from tta.core import artefact_kinds
+from tta.core.i18n import N_
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
 #: Supported language codes -> NLTK language names (SDD Sec. 7.2).
@@ -87,7 +88,7 @@ class Tokenize(Module):
         if not sentences:
             # Never write an empty artefact: an `na` with a reason cascades
             # honestly, an empty `tokens` file measures nothing (#34).
-            raise NotApplicable("no sentences in text")
+            raise NotApplicable(N_("no sentences in text"))
         out_path = ctx.workdir / "tokens.json"
         out_path.write_text(
             json.dumps({"sentences": sentences, "language": language}, ensure_ascii=False),

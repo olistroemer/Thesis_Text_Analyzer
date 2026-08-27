@@ -16,6 +16,7 @@ from tkinter import messagebox, ttk
 
 from tta.core import events, progress, report
 from tta.core.config import save_config
+from tta.core.i18n import N_, _, format_integer
 from tta.core.modules.registry import default_registry
 from tta.core.privacy_metadata import render_report_md
 from tta.core.project import Project
@@ -25,11 +26,39 @@ from tta.ui.tk.grid import GridView
 
 POLL_MS = 100
 
-FIRST_LAUNCH_BANNER = (
+# Module-level copy: English ASCII msgids (ADR-0018), marked here and
+# translated where they are displayed (ADR-0020).
+FIRST_LAUNCH_BANNER = N_(
     "Your project lives at {path}. All thesis data and analyses are stored here. "
     "To move or back up the project, copy this folder. To use a different "
     "location, choose File -> Open Project..."
 )
+
+#: Toolbar button ids (Sec. 9.7). These are *identities*, not display text -
+#: `_toolbar_buttons` is keyed by them and the tests address buttons through
+#: them - so they stay untranslated English and the label is resolved beside
+#: them in `_render_toolbar`.
+BTN_ADD = "Add files"
+BTN_REMOVE = "Remove"
+BTN_RUN = "Run all"
+BTN_RERUN = "Re-run all"
+BTN_UPDATE = "Update stale"
+BTN_REPORT = "Report"
+BTN_EXPORT = "Export"
+BTN_HELP = "? Help"
+BTN_CANCEL = "Cancel run"
+
+TOOLBAR_LABELS = {
+    BTN_ADD: N_("Add files"),
+    BTN_REMOVE: N_("Remove"),
+    BTN_RUN: N_("Run all"),
+    BTN_RERUN: N_("Re-run all"),
+    BTN_UPDATE: N_("Update stale"),
+    BTN_REPORT: N_("Report"),
+    BTN_EXPORT: N_("Export"),
+    BTN_HELP: N_("? Help"),
+    BTN_CANCEL: N_("Cancel run"),
+}
 
 
 class MainWindow:
@@ -43,7 +72,9 @@ class MainWindow:
         self._notice = notice
         self.registry = default_registry()
         self.root = tk.Tk()
-        self.root.title(f"Thesis Text Analyzer - {project.dir}")
+        self.root.title(
+            _("Thesis Text Analyzer - {path}").format(path=project.dir)
+        )
         self.root.geometry("1100x700")
         self._event_queue: queue.Queue = queue.Queue()
         self._run_thread: threading.Thread | None = None
@@ -70,27 +101,27 @@ class MainWindow:
     def _build_menu(self) -> None:
         menubar = tk.Menu(self.root)
         file_menu = tk.Menu(menubar, tearoff=False)
-        file_menu.add_command(label="Open Project...", command=self._open_project)
+        file_menu.add_command(label=_("Open Project..."), command=self._open_project)
         file_menu.add_command(
-            label="Add Individual Files...", command=self._add_individual_files
+            label=_("Add Individual Files..."), command=self._add_individual_files
         )
-        file_menu.add_command(label="Export...", command=self._export)
+        file_menu.add_command(label=_("Export..."), command=self._export)
         file_menu.add_separator()
-        file_menu.add_command(label="Quit", command=self.root.destroy)
-        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label=_("Quit"), command=self.root.destroy)
+        menubar.add_cascade(label=_("File"), menu=file_menu)
 
         view_menu = tk.Menu(menubar, tearoff=False)
         self._extended = tk.BooleanVar(value=self.project.config.ui_mode == "extended")
         view_menu.add_checkbutton(
-            label="Extended mode", variable=self._extended, command=self._mode_changed
+            label=_("Extended mode"), variable=self._extended, command=self._mode_changed
         )
-        menubar.add_cascade(label="View", menu=view_menu)
+        menubar.add_cascade(label=_("View"), menu=view_menu)
 
         help_menu = tk.Menu(menubar, tearoff=False)
-        help_menu.add_command(label="Help topics", command=self._show_help)
-        help_menu.add_command(label="Privacy statement", command=self._show_privacy)
-        help_menu.add_command(label="About", command=self._show_about)
-        menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label=_("Help topics"), command=self._show_help)
+        help_menu.add_command(label=_("Privacy statement"), command=self._show_privacy)
+        help_menu.add_command(label=_("About"), command=self._show_about)
+        menubar.add_cascade(label=_("Help"), menu=help_menu)
         self.root.config(menu=menubar)
 
     def _build_banner(self, first_launch: bool = True, notice: str | None = None) -> None:
@@ -99,7 +130,7 @@ class MainWindow:
         if notice:
             lines.append(notice)
         if first_launch:
-            lines.append(FIRST_LAUNCH_BANNER.format(path=self.project.dir))
+            lines.append(_(FIRST_LAUNCH_BANNER).format(path=self.project.dir))
         text = "\n\n".join(lines)
         ttk.Label(banner, text=text, wraplength=900, justify="left").pack(side="left")
         ttk.Button(banner, text="X", width=3, command=banner.destroy).pack(side="right")
@@ -117,25 +148,25 @@ class MainWindow:
         extended = self._extended.get()
         # Sec. 9.7: basic = Add files | Remove | Run all | Report | Export | Help
         buttons = [
-            ("Add files", self._add_files),  # recursive folder add (#62)
-            ("Remove", self._remove_selected),  # #63
-            ("Run all", lambda: self._run(rerun=False)),
+            (BTN_ADD, self._add_files),  # recursive folder add (#62)
+            (BTN_REMOVE, self._remove_selected),  # #63
+            (BTN_RUN, lambda: self._run(rerun=False)),
         ]
         if extended:
             buttons += [
-                ("Re-run all", lambda: self._run(rerun=True)),
-                ("Update stale", lambda: self._run(rerun=False)),
+                (BTN_RERUN, lambda: self._run(rerun=True)),
+                (BTN_UPDATE, lambda: self._run(rerun=False)),
             ]
         buttons += [
-            ("Report", self._show_report),
-            ("Export", self._export),
-            ("? Help", self._show_help),
+            (BTN_REPORT, self._show_report),
+            (BTN_EXPORT, self._export),
+            (BTN_HELP, self._show_help),
         ]
         self._toolbar_buttons = {}
-        for label, command in buttons:
-            button = ttk.Button(self.toolbar, text=label, command=command)
+        for key, command in buttons:
+            button = ttk.Button(self.toolbar, text=_(TOOLBAR_LABELS[key]), command=command)
             button.pack(side="left", padx=2)
-            self._toolbar_buttons[label] = button
+            self._toolbar_buttons[key] = button
         self._update_report_button()
 
     def _build_grid(self) -> None:
@@ -152,7 +183,7 @@ class MainWindow:
             show_artefacts=self._extended.get(),
         )
         self._update_report_button()
-        self._set_status("Ready")
+        self._set_status(_("Ready"))
 
     def _update_report_button(self) -> None:
         """Disabled until one successful run exists (ADR-0016)."""
@@ -163,7 +194,7 @@ class MainWindow:
             ).fetchone()[0]
             > 0
         )
-        button = self._toolbar_buttons.get("Report")
+        button = self._toolbar_buttons.get(BTN_REPORT)
         if button:
             button.configure(state="normal" if has_data else "disabled")
 
@@ -197,7 +228,7 @@ class MainWindow:
         exclude, nothing restores it."""
         thesis_id = self.grid_view.selected_thesis_id()
         if thesis_id is None:
-            self._set_status("Select a thesis to remove.")
+            self._set_status(_("Select a thesis to remove."))
             return
         if dialogs.remove_thesis_flow(self.root, self.project, thesis_id):
             self.refresh()
@@ -205,13 +236,19 @@ class MainWindow:
     def _after_add(self, added: int) -> None:
         if added:
             self.refresh()
-            self._set_status(f"Added {added} theses - click Run all")
+            self._set_status(
+                _("Added {count} theses - click Run all").format(
+                    count=format_integer(added)
+                )
+            )
 
     def _run(self, rerun: bool) -> None:
         if self._run_thread and self._run_thread.is_alive():
-            messagebox.showinfo("Run", "A run is already in progress.", parent=self.root)
+            messagebox.showinfo(
+                _("Run"), _("A run is already in progress."), parent=self.root
+            )
             return
-        self._set_status("Planning...")
+        self._set_status(_("Planning..."))
         self._show_cancel_control()
         self._run_thread = threading.Thread(
             target=self._run_worker, args=(rerun,), daemon=True
@@ -226,14 +263,16 @@ class MainWindow:
         for child in self.toolbar.winfo_children():
             child.destroy()
         self._toolbar_buttons = {}
-        button = ttk.Button(self.toolbar, text="Cancel run", command=self._cancel_run)
+        button = ttk.Button(
+            self.toolbar, text=_(TOOLBAR_LABELS[BTN_CANCEL]), command=self._cancel_run
+        )
         button.pack(side="left", padx=2)
-        self._toolbar_buttons["Cancel run"] = button
+        self._toolbar_buttons[BTN_CANCEL] = button
         self._progress_bar = ttk.Progressbar(
             self.toolbar, mode="determinate", length=240, maximum=1, value=0
         )
         self._progress_bar.pack(side="left", padx=(12, 4))
-        self._progress_label = ttk.Label(self.toolbar, text="Planning...")
+        self._progress_label = ttk.Label(self.toolbar, text=_("Planning..."))
         self._progress_label.pack(side="left", padx=2)
 
     def _cancel_run(self) -> None:
@@ -242,10 +281,10 @@ class MainWindow:
         runner = self._runner
         if runner is not None:
             runner.cancel()
-        button = self._toolbar_buttons.get("Cancel run")
+        button = self._toolbar_buttons.get(BTN_CANCEL)
         if button:
             button.configure(state="disabled")
-        self._set_status("Cancelling - finishing in-flight theses...")
+        self._set_status(_("Cancelling - finishing in-flight theses..."))
 
     def _run_worker(self, rerun: bool) -> None:
         """Background run: own the DB connection here, since sqlite3
@@ -276,8 +315,11 @@ class MainWindow:
                 elif isinstance(event, events.ModuleCompleted):
                     self._advance_progress(event)
                     self._set_status(
-                        f"Running... thesis {self._thesis_ordinal(event.thesis_id)}: "
-                        f"{event.module_name} {event.status}"
+                        _("Running... thesis {ordinal}: {module} {status}").format(
+                            ordinal=self._thesis_ordinal(event.thesis_id),
+                            module=event.module_name,
+                            status=event.status,
+                        )
                     )
                 elif isinstance(event, events.ThesisCompleted):
                     self._run_theses_done += 1
@@ -290,7 +332,9 @@ class MainWindow:
                     self._reset_progress_state()  # drop the (now destroyed) bar refs
                     self.refresh()
                     cancelled = isinstance(event, events.RunCancelled)
-                    self._set_status("Run cancelled" if cancelled else "Run finished")
+                    self._set_status(
+                        _("Run cancelled") if cancelled else _("Run finished")
+                    )
                     # Sec. 9.8.3: offer the report (#70). The tab that used to
                     # re-render itself here is gone (ADR-0016 rev. 2).
                     self._maybe_offer_report(event, cancelled)
@@ -444,13 +488,21 @@ class MainWindow:
         if not est.total:
             return ""
         if est.theses_total:
-            head = f"thesis {est.theses_done}/{est.theses_total}"
+            head = _("thesis {done}/{total}").format(
+                done=est.theses_done, total=est.theses_total
+            )
         else:  # no plan thesis count (shouldn't happen in a real run)
-            head = f"{est.done}/{est.total} pairs"
-        tail = "estimating..." if eta is None else f"~{progress.format_eta(eta)} left"
-        text = f"{head} - {tail}"
+            head = _("{done}/{total} pairs").format(done=est.done, total=est.total)
+        tail = (
+            _("estimating...")
+            if eta is None
+            else _("~{eta} left").format(eta=progress.format_eta(eta))
+        )
+        text = _("{head} - {tail}").format(head=head, tail=tail)
         if est.theses_total and self._extended.get():
-            text += f" - {est.done}/{est.total} pairs"
+            text += " - " + _("{done}/{total} pairs").format(
+                done=est.done, total=est.total
+            )
         return text
 
     #: the open post-run prompt, if any (#70). Class-level so the attribute
@@ -464,7 +516,7 @@ class MainWindow:
         path = self._write_report()
         if path is None:
             return
-        self._set_status(f"Report written to {path}")
+        self._set_status(_("Report written to {path}").format(path=path))
         webbrowser.open(path.as_uri())
 
     def _write_report(self) -> Path | None:
@@ -477,7 +529,9 @@ class MainWindow:
             path.write_text(report.render_html(report.collect(self.project.repo)), "utf-8")
         except OSError as exc:
             messagebox.showerror(
-                "Report", f"Could not write the report:\n{exc}", parent=self.root
+                _("Report"),
+                _("Could not write the report:\n{error}").format(error=exc),
+                parent=self.root,
             )
             return None
         return path
@@ -506,18 +560,18 @@ class MainWindow:
             existing.lift()  # one prompt at a time, however many runs finish
             return
         window = tk.Toplevel(self.root)
-        window.title("Report")
+        window.title(_("Report"))
         window.transient(self.root)
         frame = ttk.Frame(window, padding=12)
         frame.pack(fill="both", expand=True)
         ttk.Label(
             frame,
-            text="The run finished. Open the report for this project now?",
+            text=_("The run finished. Open the report for this project now?"),
             wraplength=360,
             justify="left",
         ).pack(anchor="w")
         remember = tk.BooleanVar(value=False)
-        ttk.Checkbutton(frame, text="Don't ask again", variable=remember).pack(
+        ttk.Checkbutton(frame, text=_("Don't ask again"), variable=remember).pack(
             anchor="w", pady=(8, 12)
         )
 
@@ -532,10 +586,12 @@ class MainWindow:
 
         buttons = ttk.Frame(frame)
         buttons.pack(anchor="e")
-        ttk.Button(buttons, text="Not now", command=lambda: answer(False)).pack(
+        ttk.Button(buttons, text=_("Not now"), command=lambda: answer(False)).pack(
             side="left", padx=(0, 6)
         )
-        ttk.Button(buttons, text="Open report", command=lambda: answer(True)).pack(side="left")
+        ttk.Button(buttons, text=_("Open report"), command=lambda: answer(True)).pack(
+            side="left"
+        )
         self._report_prompt_window = window
 
     def _export(self) -> None:
@@ -547,7 +603,9 @@ class MainWindow:
 
         from tta.core.project import DB_FILENAME, remember_project
 
-        chosen = filedialog.askdirectory(parent=self.root, title="Open project folder")
+        chosen = filedialog.askdirectory(
+            parent=self.root, title=_("Open project folder")
+        )
         if not chosen:
             return
         target = Path(chosen)
@@ -555,8 +613,10 @@ class MainWindow:
             remember_project(target)
         except OSError as exc:
             messagebox.showerror(
-                "Open Project",
-                f"Could not remember {target}:\n{type(exc).__name__}: {exc}",
+                _("Open Project"),
+                _("Could not remember {path}:\n{error}").format(
+                    path=target, error=f"{type(exc).__name__}: {exc}"
+                ),
                 parent=self.root,
             )
             return
@@ -564,14 +624,18 @@ class MainWindow:
         # sends the user here to pick a different location - so say plainly
         # that the project will be created there (#41, SDD Sec. 9.7).
         if (target / DB_FILENAME).exists():
-            detail = "The project opens on next start."
+            detail = _("The project opens on next start.")
         else:
-            detail = "That folder is not a project yet; it is created there on next start."
-        messagebox.showinfo("Open Project", f"{target}\n\n{detail}", parent=self.root)
+            detail = _(
+                "That folder is not a project yet; it is created there on next start."
+            )
+        messagebox.showinfo(
+            _("Open Project"), f"{target}\n\n{detail}", parent=self.root
+        )
 
     def _show_privacy(self) -> None:
         window = tk.Toplevel(self.root)
-        window.title("Privacy statement")
+        window.title(_("Privacy statement"))
         window.geometry("800x600")
         text = tk.Text(window, wrap="word")
         text.insert("1.0", render_report_md())

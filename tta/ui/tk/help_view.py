@@ -30,14 +30,21 @@ from importlib import resources
 from tkinter import font as tkfont
 from tkinter import ttk
 
-WINDOW_TITLE = "Help"
-EMPTY_MESSAGE = "no help topics installed yet"
+from tta.core.i18n import N_, _
+
+WINDOW_TITLE = N_("Help")
+EMPTY_MESSAGE = N_("no help topics installed yet")
+SEE_ALSO_HEADING = N_("See also")
 
 # Corpus layout (ADR-0012). "privacy" is deliberately absent: the privacy
 # statement is not help content and keeps its own menu entry.
 SECTIONS = ("modules", "metrics", "concepts")
 SECTION_KINDS = {"modules": "module", "metrics": "metric", "concepts": "concept"}
-SECTION_LABELS = {"modules": "Modules", "metrics": "Metrics", "concepts": "Concepts"}
+SECTION_LABELS = {
+    "modules": N_("Modules"),
+    "metrics": N_("Metrics"),
+    "concepts": N_("Concepts"),
+}
 
 CROSS_REF = re.compile(r"(?:module|metric|concept):[A-Za-z0-9_.-]+\Z")
 
@@ -258,7 +265,7 @@ def document_blocks(topic: Topic, index: dict[str, Topic] | None = None) -> list
     if not blocks or blocks[0].kind != "h1":
         blocks.insert(0, Block("h1", (Run(topic.title),)))
     if topic.see_also:
-        blocks.append(Block("h2", (Run("See also"),)))
+        blocks.append(Block("h2", (Run(_(SEE_ALSO_HEADING)),)))
         for uri in topic.see_also:
             target = index.get(uri)
             if target is None:
@@ -277,7 +284,7 @@ class HelpWindow(tk.Toplevel):
 
     def __init__(self, parent, topics=None):
         super().__init__(parent)
-        self.title(WINDOW_TITLE)
+        self.title(_(WINDOW_TITLE))
         self.geometry("900x640")
         self.topics = list(load_topics() if topics is None else topics)
         self.index = index_topics(self.topics)
@@ -314,7 +321,7 @@ class HelpWindow(tk.Toplevel):
         if self.topics:
             self.show_topic(self.topics[0])
         else:
-            self._write([Block("p", (Run(EMPTY_MESSAGE),))])
+            self._write([Block("p", (Run(_(EMPTY_MESSAGE)),))])
 
     def _configure_tags(self) -> None:
         body = tkfont.nametofont("TkTextFont")
@@ -352,7 +359,9 @@ class HelpWindow(tk.Toplevel):
             if not in_section:
                 continue
             parent = f"section:{kind}"
-            self.tree.insert("", "end", iid=parent, text=SECTION_LABELS[section], open=True)
+            self.tree.insert(
+                "", "end", iid=parent, text=_(SECTION_LABELS[section]), open=True
+            )
             for topic in in_section:
                 self.tree.insert(parent, "end", iid=topic.uri, text=topic.title)
 

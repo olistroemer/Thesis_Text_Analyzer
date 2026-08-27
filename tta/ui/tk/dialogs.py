@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 
 from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database
+from tta.core.i18n import _, format_integer
 from tta.core.project import Project
 
 
@@ -19,7 +20,9 @@ def add_files_flow(parent, project: Project) -> int:
     by ``mod_classify_thesis_type``, and adding stays instant and dialog-free
     (US-RES-LOW-FRICTION; ADR-0006 rev. 4 defers hashing to run time)."""
     filenames = filedialog.askopenfilenames(
-        parent=parent, title="Add thesis PDFs", filetypes=[("PDF files", "*.pdf")]
+        parent=parent,
+        title=_("Add thesis PDFs"),
+        filetypes=[(_("PDF files"), "*.pdf")],
     )
     if not filenames:
         return 0
@@ -41,7 +44,8 @@ def add_folder_flow(parent, project: Project) -> int:
     invocation; ``collect_pdfs`` itself takes any number, which is what
     ``tta run DIR1 DIR2 ...`` passes."""
     chosen = filedialog.askdirectory(
-        parent=parent, title="Add all thesis PDFs in a folder (including subfolders)"
+        parent=parent,
+        title=_("Add all thesis PDFs in a folder (including subfolders)"),
     )
     if not chosen:
         return 0
@@ -49,14 +53,18 @@ def add_folder_flow(parent, project: Project) -> int:
     pdfs = collect_pdfs([folder])
     if not pdfs:
         messagebox.showinfo(
-            "Add folder", f"No PDFs found in or below:\n{folder}", parent=parent
+            _("Add folder"),
+            _("No PDFs found in or below:\n{folder}").format(folder=folder),
+            parent=parent,
         )
         return 0
     if not messagebox.askyesno(
-        "Add folder",
-        f"Add {len(pdfs)} PDFs from:\n{folder}\n\n"
-        "Subfolders are included. Nothing is read yet - the documents are "
-        "only analysed when you click Run.",
+        _("Add folder"),
+        _(
+            "Add {count} PDFs from:\n{folder}\n\n"
+            "Subfolders are included. Nothing is read yet - the documents are "
+            "only analysed when you click Run."
+        ).format(count=format_integer(len(pdfs)), folder=folder),
         parent=parent,
     ):
         return 0
@@ -87,18 +95,24 @@ def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
         thesis = project.repo.get_thesis(thesis_id)
     except KeyError:
         messagebox.showerror(
-            "Remove thesis", f"Thesis {thesis_id} is no longer in this project.", parent=parent
+            _("Remove thesis"),
+            _("Thesis {thesis_id} is no longer in this project.").format(
+                thesis_id=thesis_id
+            ),
+            parent=parent,
         )
         return False
     if not messagebox.askyesno(
-        "Remove thesis",
-        f"Remove {thesis.pdf_filename} from the project?\n\n"
-        "Its analysis results (cached text, tokens, metrics and run history) "
-        "are permanently deleted from this machine, and the thesis is "
-        "forgotten entirely - unlike excluding it, there is nothing left to "
-        "re-include. Adding the same file again later creates a new thesis "
-        "with no history.\n\nThe PDF itself is not touched. "
-        "This cannot be undone.",
+        _("Remove thesis"),
+        _(
+            "Remove {filename} from the project?\n\n"
+            "Its analysis results (cached text, tokens, metrics and run history) "
+            "are permanently deleted from this machine, and the thesis is "
+            "forgotten entirely - unlike excluding it, there is nothing left to "
+            "re-include. Adding the same file again later creates a new thesis "
+            "with no history.\n\nThe PDF itself is not touched. "
+            "This cannot be undone."
+        ).format(filename=thesis.pdf_filename),
         parent=parent,
         icon="warning",
         default="no",
@@ -109,10 +123,13 @@ def remove_thesis_flow(parent, project: Project, thesis_id: int) -> bool:
     except OSError as exc:
         artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
         messagebox.showwarning(
-            "Remove thesis",
-            f"{thesis.pdf_filename} was removed from the project, but some "
-            f"cached files could not be deleted:\n{artefacts_dir}\n({exc})\n\n"
-            "They are never exported. Delete that folder manually to remove them.",
+            _("Remove thesis"),
+            _(
+                "{filename} was removed from the project, but some cached files "
+                "could not be deleted:\n{folder}\n({error})\n\n"
+                "They are never exported. Delete that folder manually to remove "
+                "them."
+            ).format(filename=thesis.pdf_filename, folder=artefacts_dir, error=exc),
             parent=parent,
         )
     return True
@@ -123,32 +140,43 @@ def export_flow(parent, project: Project) -> None:
     Export button, no further choices."""
     theses = project.repo.list_theses(local_only=True, include_excluded=False)
     if not theses:
-        messagebox.showinfo("Export", "Nothing to export yet - add and analyse theses first.",
-                            parent=parent)
+        messagebox.showinfo(
+            _("Export"),
+            _("Nothing to export yet - add and analyse theses first."),
+            parent=parent,
+        )
         return
     label = project.config.institution or "export"
     exports_dir = project.dir / "exports"
     exports_dir.mkdir(exist_ok=True)
     out = filedialog.asksaveasfilename(
         parent=parent,
-        title=f"Export {len(theses)} theses (results only, no documents)",
+        title=_("Export {count} theses (results only, no documents)").format(
+            count=format_integer(len(theses))
+        ),
         initialdir=exports_dir,
         initialfile=f"{label}-{date.today():%Y-%m-%d}.sqlite",
         defaultextension=".sqlite",
-        filetypes=[("SQLite database", "*.sqlite")],
+        filetypes=[(_("SQLite database"), "*.sqlite")],
     )
     if not out:
         return
     try:
         stats = export_database(project.repo.conn, out, ExportPolicy.FULL)
     except FileExistsError as exc:
-        messagebox.showerror("Export", str(exc), parent=parent)
+        messagebox.showerror(_("Export"), str(exc), parent=parent)
         return
     if messagebox.askyesno(
-        "Export complete",
-        f"Exported {stats.theses} theses ({stats.runs} runs) to:\n{stats.path}\n\n"
-        "Only anonymised metric values were written - no documents, file names, "
-        "or text left your machine.\n\nShow in folder?",
+        _("Export complete"),
+        _(
+            "Exported {theses} theses ({runs} runs) to:\n{path}\n\n"
+            "Only anonymised metric values were written - no documents, file "
+            "names, or text left your machine.\n\nShow in folder?"
+        ).format(
+            theses=format_integer(stats.theses),
+            runs=format_integer(stats.runs),
+            path=stats.path,
+        ),
         parent=parent,
     ):
         from tta.ui.tk.grid import open_with_default_app

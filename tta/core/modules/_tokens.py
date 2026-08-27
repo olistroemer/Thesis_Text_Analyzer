@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 
 from tta.core import artefact_kinds
+from tta.core.i18n import N_
 from tta.core.modules.base import NotApplicable, RunContext
 
 
@@ -27,5 +28,5 @@ def word_sentences(ctx: RunContext) -> list[list[str]]:
     sentences = [[t for t in sentence if is_word(t)] for sentence in load_sentences(ctx)]
     sentences = [s for s in sentences if s]
     if not sentences:
-        raise NotApplicable("no word tokens in tokenisation")
+        raise NotApplicable(N_("no word tokens in tokenisation"))
     return sentences

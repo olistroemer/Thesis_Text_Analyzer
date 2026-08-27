@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tta.core import artefact_kinds
+from tta.core.i18n import N_
 from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from tta.core.types import Thesis
 
@@ -30,7 +31,7 @@ class ExtractPymupdf(Module):
 
     def applicable(self, thesis: Thesis) -> Applicability:
         if Path(thesis.pdf_path).suffix.lower() != ".pdf":
-            return Applicability(ok=False, reason="not a PDF")
+            return Applicability(ok=False, reason=N_("not a PDF"))
         return Applicability(ok=True)
 
     def run(self, ctx: RunContext) -> RunResult:

@@ -10,6 +10,7 @@ from tksheet import Sheet, num2alpha
 
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
+from tta.core.i18n import N_, _, format_integer
 from tta.ui.tk import detail, grid_model
 from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
 
@@ -29,6 +30,12 @@ FILE_COL = LEAD_COLUMNS.index("file")
 # Sec. 9.9 whole-row indicator, rendered in the State column (#65). ADR-0018:
 # ASCII marker, not a glyph.
 STATE_GARBLED = "[!]"
+
+# Sec. 9.2 header sort indicator (#40) and the details-panel heading (#16).
+SORT_ASC = N_("{header} (asc)")
+SORT_DESC = N_("{header} (desc)")
+DETAIL_HEADING = N_("{filename} - {column}")
+STATUS_THESES = N_("{count} theses")
 
 
 def open_with_default_app(path) -> None:
@@ -106,7 +113,8 @@ class GridView(ttk.Frame):
         if self._sorted:
             index = self._sorted_header_index()
             if index is not None:
-                headers[index] += " (desc)" if self._sort_reverse else " (asc)"
+                template = SORT_DESC if self._sort_reverse else SORT_ASC
+                headers[index] = _(template).format(header=headers[index])
         return headers
 
     def _sorted_header_index(self) -> int | None:
@@ -223,12 +231,14 @@ class GridView(ttk.Frame):
         new_excluded = bool(event.value)
         if grid_model.exclude_toggle_needs_confirmation(row, new_excluded):
             confirmed = messagebox.askyesno(
-                "Exclude thesis",
-                f'Exclude "{row.thesis.pdf_filename}" and permanently delete its '
-                "cached analysis from this machine (extracted text, tokens, PDF "
-                "metadata and all metric values)?\n\n"
-                "This is destructive and cannot be undone. The source PDF file is "
-                "not touched.",
+                _("Exclude thesis"),
+                _(
+                    'Exclude "{filename}" and permanently delete its cached '
+                    "analysis from this machine (extracted text, tokens, PDF "
+                    "metadata and all metric values)?\n\n"
+                    "This is destructive and cannot be undone. The source PDF file "
+                    "is not touched."
+                ).format(filename=row.thesis.pdf_filename),
                 icon="warning",
                 default="no",
                 parent=self,
@@ -246,12 +256,14 @@ class GridView(ttk.Frame):
                 # machine (ADR-0007) - say so rather than imply a clean scrub.
                 folder = self.store.resolve(f"artefacts/{row.thesis.id}")
                 messagebox.showwarning(
-                    "Scrub incomplete",
-                    f'"{row.thesis.pdf_filename}" was excluded and its analysis '
-                    "records were removed, but some cached files could not be "
-                    f"deleted:\n\n{folder}\n\nThey remain on this machine only and "
-                    "are never exported. Delete that folder manually to remove "
-                    "them.",
+                    _("Scrub incomplete"),
+                    _(
+                        '"{filename}" was excluded and its analysis records were '
+                        "removed, but some cached files could not be deleted:"
+                        "\n\n{folder}\n\nThey remain on this machine only and are "
+                        "never exported. Delete that folder manually to remove "
+                        "them."
+                    ).format(filename=row.thesis.pdf_filename, folder=folder),
                     parent=self,
                 )
         self._reload_current()
@@ -311,11 +323,13 @@ class GridView(ttk.Frame):
         """Open the Sec. 9.9 details panel for one cell. The heading names the
         row and column and carries that column's one-line help, which is why
         COLUMN_HELP outlived the tooltips (#66, and #16 reuses it)."""
-        heading = f"{row.thesis.pdf_filename} - {column_name}"
+        heading = _(DETAIL_HEADING).format(
+            filename=row.thesis.pdf_filename, column=column_name
+        )
         help_text = column_help(column_name)
         if help_text:
             heading += "\n" + help_text
         detail.show_details(self, heading=heading, body=body)
 
     def status_text(self) -> str:
-        return f"{len(self.rows)} theses"
+        return _(STATUS_THESES).format(count=format_integer(len(self.rows)))

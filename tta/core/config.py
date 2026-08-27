@@ -12,9 +12,15 @@ from pathlib import Path
 
 import tomli_w
 
+from tta.core.i18n import SUPPORTED_LOCALES, normalise_locale
+
 CONFIG_FILENAME = "tta.toml"
 
 UI_MODES = ("basic", "extended")
+
+#: UI locales selectable from `tta.toml` (SDD Sec. 9.6, ADR-0020). Re-exported
+#: so callers configure the locale without importing core.i18n themselves.
+UI_LOCALES = SUPPORTED_LOCALES
 
 
 @dataclass
@@ -25,6 +31,9 @@ class Config:
     thesis_timeout_s: float | None = None
     cancel_grace_s: float | None = None  # None -> runner default 2 s (#57)
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
+    # UI locale (SDD Sec. 9.6, ADR-0020). None -> resolve from TTA_LOCALE, else
+    # the German default. Deliberately NOT derived from the OS locale.
+    ui_locale: str | None = None
     outlier_scheme: str = "default"  # extended-mode highlighting scheme (Sec. 9.5)
     # post-run report offer: ask | always | never (Sec. 9.8.3, #70). Validated
     # where it is consumed (`core.report.should_offer_report`), not here.
@@ -49,6 +58,9 @@ def load_config(project_dir: Path | str) -> Config:
         ui_mode = "basic"
     # Hand edits and older versions can put anything here; a non-string
     # pointer must be ignored, not carried into a Path() at startup.
+    # An unsupported or non-string locale is ignored rather than fatal: a hand
+    # edit must not make the application unstartable (ADR-0020).
+    ui_locale = normalise_locale(raw.get("ui", {}).get("locale"))
     last_opened = raw.get("project", {}).get("last_opened")
     if not isinstance(last_opened, str) or not last_opened.strip():
         last_opened = None
@@ -58,6 +70,7 @@ def load_config(project_dir: Path | str) -> Config:
         thesis_timeout_s=raw.get("runner", {}).get("thesis_timeout_s"),
         cancel_grace_s=raw.get("runner", {}).get("cancel_grace_s"),
         ui_mode=ui_mode,
+        ui_locale=ui_locale,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
         open_report_after_run=raw.get("ui", {}).get("open_report_after_run", "ask"),
         institution=raw.get("project", {}).get("institution"),
@@ -84,6 +97,10 @@ def save_config(project_dir: Path | str, config: Config) -> None:
             runner[key] = float(value)
     ui = dict(raw.get("ui", {}))
     ui["mode"] = config.ui_mode
+    if config.ui_locale is None:
+        ui.pop("locale", None)  # absent means "resolve it" (ADR-0020)
+    else:
+        ui["locale"] = config.ui_locale
     ui["outlier_scheme"] = config.outlier_scheme
     ui["open_report_after_run"] = config.open_report_after_run
     project = dict(raw.get("project", {}))
