@@ -1,0 +1,1590 @@
+# German UI catalog for the Thesis Text Analyzer (#28, ADR-0020).
+#
+# German is the DEFAULT locale (SDD Sec. 9.6), so this file is what a
+# professor actually reads. Rules, both enforced by
+# tests/core/test_i18n_catalogs.py:
+#
+#   * every msgid needs a non-empty msgstr - a partial catalog is a UI
+#     that mixes languages sentence by sentence;
+#   * the {placeholders} of a msgstr must match its msgid's, or the
+#     render raises KeyError in the locale nobody reads first.
+#
+# After editing: python packaging/compile_catalogs.py
+# (tta.mo is committed too - a missing .mo falls back to English
+# silently, and there is no build step to generate one.)
+msgid ""
+msgstr ""
+"Project-Id-Version: tta\n"
+"Report-Msgid-Bugs-To: https://github.com/olistroemer/Thesis_Text_Analyzer/issues\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: tta/cli/main.py:595
+msgid " | cancelled"
+msgstr " | abgebrochen"
+
+#: tta/ui/tk/grid.py:273
+msgid ""
+"\"{filename}\" was excluded and its analysis records were removed, but some cached files could not be deleted:\n"
+"\n"
+"{folder}\n"
+"\n"
+"They remain on this machine only and are never exported. Delete that folder manually to remove them."
+msgstr ""
+"\"{filename}\" wurde ausgeschlossen und die Analysedatensätze wurden entfernt, aber einige zwischengespeicherte Dateien konnten nicht gelöscht werden:\n"
+"\n"
+"{folder}\n"
+"\n"
+"Sie bleiben ausschließlich auf diesem Rechner und werden nie exportiert. Löschen Sie diesen Ordner manuell, um sie zu entfernen."
+
+#: tta/cli/main.py:470
+msgid "- (reads the PDF directly)"
+msgstr "- (liest die PDF-Datei direkt)"
+
+#: tta/core/privacy_metadata.py:185
+msgid "1. What we process"
+msgstr "1. Was verarbeitet wird"
+
+#: tta/core/privacy_metadata.py:211
+msgid "2. Module-level processing"
+msgstr "2. Verarbeitung auf Modulebene"
+
+#: tta/core/privacy_metadata.py:224
+msgid "3. Cached files (never exported)"
+msgstr "3. Zwischengespeicherte Dateien (werden nie exportiert)"
+
+#: tta/core/privacy_metadata.py:234
+msgid "4. Storage and retention"
+msgstr "4. Speicherung und Aufbewahrung"
+
+#: tta/core/privacy_metadata.py:242
+msgid "5. What leaves your machine"
+msgstr "5. Was Ihren Rechner verlässt"
+
+#: tta/core/privacy_metadata.py:259
+msgid "6. Your rights under GDPR"
+msgstr "6. Ihre Rechte nach der DSGVO"
+
+#: tta/core/privacy_metadata.py:261
+msgid "7. Controller contact"
+msgstr "7. Kontakt des Verantwortlichen"
+
+#: tta/ui/tk/main_window.py:59
+msgid "? Help"
+msgstr "? Hilfe"
+
+#: tta/ui/tk/main_window.py:248
+msgid "A run is already in progress."
+msgstr "Es läuft bereits eine Analyse."
+
+#: tta/ui/tk/about_view.py:31
+#: tta/ui/tk/main_window.py:123
+msgid "About"
+msgstr "Über"
+
+#: tta/ui/tk/main_window.py:106
+msgid "Add Individual Files..."
+msgstr "Einzelne Dateien hinzufügen..."
+
+#: tta/ui/tk/dialogs.py:48
+msgid "Add all thesis PDFs in a folder (including subfolders)"
+msgstr "Alle PDF-Dateien eines Ordners hinzufügen (samt Unterordnern)"
+
+#: tta/ui/tk/main_window.py:52
+msgid "Add files"
+msgstr "Dateien hinzufügen"
+
+#: tta/ui/tk/dialogs.py:56
+#: tta/ui/tk/dialogs.py:62
+msgid "Add folder"
+msgstr "Ordner hinzufügen"
+
+#: tta/ui/tk/dialogs.py:24
+msgid "Add thesis PDFs"
+msgstr "PDF-Dateien der Arbeiten hinzufügen"
+
+#: tta/ui/tk/dialogs.py:63
+msgid ""
+"Add {count} PDFs from:\n"
+"{folder}\n"
+"\n"
+"Subfolders are included. Nothing is read yet - the documents are only analysed when you click Run."
+msgstr ""
+"{count} PDF-Dateien hinzufügen aus:\n"
+"{folder}\n"
+"\n"
+"Unterordner werden eingeschlossen. Es wird noch nichts gelesen - die Dokumente werden erst analysiert, wenn Sie die Analyse starten."
+
+#: tta/ui/tk/main_window.py:240
+msgid "Added {count} theses - click Run all"
+msgstr "{count} Arbeiten hinzugefügt - jetzt \"Alle analysieren\" klicken"
+
+#: tta/ui/tk/about_view.py:34
+msgid "Address copied to the clipboard."
+msgstr "Adresse in die Zwischenablage kopiert."
+
+#: tta/core/privacy_metadata.py:236
+msgid "All data lives in the project folder on this machine and is retained {retention}. The application is fully offline: it makes no network connections of any kind."
+msgstr "Alle Daten liegen im Projektordner auf diesem Rechner und werden {retention} aufbewahrt. Die Anwendung arbeitet vollständig offline: sie baut keinerlei Netzverbindungen auf."
+
+#: tta/core/privacy_metadata.py:158
+msgid "Analysis results (aggregated text statistics)"
+msgstr "Analyseergebnisse (aggregierte Textstatistiken)"
+
+#: tta/ui/tk/columns.py:155
+msgid "Average sentence length, in words."
+msgstr "Mittlere Satzlänge in Wörtern."
+
+#: tta/ui/tk/columns.py:154
+msgid "Average word length, in characters."
+msgstr "Mittlere Wortlänge in Zeichen."
+
+#: tta/ui/tk/columns.py:87
+msgid "Avg. sentence length"
+msgstr "Mittlere Satzlänge"
+
+#: tta/ui/tk/columns.py:86
+msgid "Avg. word length"
+msgstr "Mittlere Wortlänge"
+
+#: tta/core/report.py:702
+msgid "Bar chart of thesis counts per detected language."
+msgstr "Balkendiagramm der Anzahl Arbeiten je erkannter Sprache."
+
+#: tta/ui/tk/columns.py:135
+msgid "Best-estimate publication year (title-page year, else PDF dates)."
+msgstr "Bestmögliche Schätzung des Veröffentlichungsjahres (Jahr der Titelseite, sonst die PDF-Datumsangaben)."
+
+#: tta/ui/tk/columns.py:77
+msgid "Bookmarks"
+msgstr "Lesezeichen"
+
+#: tta/core/report.py:594
+msgid "Box plots of thesis word count per detected thesis type."
+msgstr "Boxplots der Wortzahl je erkannter Abschlussart."
+
+#: tta/core/report.py:596
+msgid "Box: Q1 to Q3 with the median. Whiskers reach the most extreme thesis within 1.5 x IQR; points beyond are drawn separately."
+msgstr "Box: Q1 bis Q3 mit dem Median. Die Whisker reichen bis zur äußersten Arbeit innerhalb von 1,5 x IQA; Punkte darüber hinaus werden einzeln eingezeichnet."
+
+#: tta/ui/tk/columns.py:65
+msgid "Cached PDF metadata"
+msgstr "PDF-Metadaten (Cache)"
+
+#: tta/ui/tk/columns.py:122
+msgid "Cached extracted plain text. Double-click to open it."
+msgstr "Zwischengespeicherter extrahierter Klartext. Doppelklick öffnet ihn."
+
+#: tta/ui/tk/columns.py:125
+msgid "Cached full PDF metadata artefact. Double-click to open it."
+msgstr "Zwischengespeichertes Artefakt der vollständigen PDF-Metadaten. Doppelklick öffnet es."
+
+#: tta/ui/tk/columns.py:63
+msgid "Cached language"
+msgstr "Sprache (Cache)"
+
+#: tta/ui/tk/columns.py:123
+msgid "Cached language-detection artefact. Double-click to open it."
+msgstr "Zwischengespeichertes Artefakt der Spracherkennung. Doppelklick öffnet es."
+
+#: tta/ui/tk/columns.py:62
+msgid "Cached text"
+msgstr "Text (Cache)"
+
+#: tta/ui/tk/columns.py:124
+msgid "Cached tokenisation artefact. Double-click to open it."
+msgstr "Zwischengespeichertes Artefakt der Tokenisierung. Doppelklick öffnet es."
+
+#: tta/ui/tk/columns.py:64
+msgid "Cached tokens"
+msgstr "Tokens (Cache)"
+
+#: tta/ui/tk/main_window.py:60
+msgid "Cancel run"
+msgstr "Analyse abbrechen"
+
+#: tta/ui/tk/main_window.py:287
+msgid "Cancelling - finishing in-flight theses..."
+msgstr "Wird abgebrochen - laufende Arbeiten werden noch beendet..."
+
+#: tta/core/privacy_metadata.py:226
+msgid "Category"
+msgstr "Kategorie"
+
+#: tta/ui/tk/columns.py:132
+msgid "Category of the PDF 'Creator' tool (e.g. LaTeX, Word)."
+msgstr "Kategorie des PDF-Felds 'Creator', also des Ausgangsprogramms (z. B. LaTeX, Word)."
+
+#: tta/ui/tk/columns.py:131
+msgid "Category of the PDF 'Producer' tool (e.g. LaTeX, Word)."
+msgstr "Kategorie des PDF-Felds 'Producer', also des erzeugenden Programms (z. B. LaTeX, Word)."
+
+#: tta/ui/tk/detail.py:19
+msgid "Cell details"
+msgstr "Zelldetails"
+
+#: tta/ui/tk/columns.py:67
+msgid "Characters (extracted)"
+msgstr "Zeichen (extrahiert)"
+
+#: tta/ui/tk/about_view.py:74
+msgid "Close"
+msgstr "Schließen"
+
+#: tta/core/report.py:870
+msgid "Cohort report"
+msgstr "Kohortenbericht"
+
+#: tta/ui/tk/grid.py:44
+msgid "Column name: {name}"
+msgstr "Spaltenname: {name}"
+
+#: tta/ui/tk/help_view.py:47
+msgid "Concepts"
+msgstr "Konzepte"
+
+#: tta/cli/main.py:501
+msgid "Concurrent theses (default: cores - 1)."
+msgstr "Gleichzeitig verarbeitete Arbeiten (Vorgabe: Kerne - 1)."
+
+#: tta/ui/tk/columns.py:149
+msgid "Confidence of the language detection, from 0 to 1."
+msgstr "Sicherheit der Spracherkennung, von 0 bis 1."
+
+#: tta/core/privacy_metadata.py:157
+msgid "Content fingerprints (no personal data recoverable)"
+msgstr "Inhaltsfingerabdrücke (keine personenbezogenen Daten rekonstruierbar)"
+
+#: tta/ui/tk/about_view.py:69
+msgid "Copy"
+msgstr "Kopieren"
+
+#: tta/ui/tk/main_window.py:617
+msgid ""
+"Could not remember {path}:\n"
+"{error}"
+msgstr ""
+"{path} konnte nicht gemerkt werden:\n"
+"{error}"
+
+#: tta/ui/tk/main_window.py:533
+msgid ""
+"Could not write the report:\n"
+"{error}"
+msgstr ""
+"Der Bericht konnte nicht geschrieben werden:\n"
+"{error}"
+
+#: tta/ui/tk/columns.py:73
+msgid "Created (year)"
+msgstr "Erstellt (Jahr)"
+
+#: tta/ui/tk/columns.py:72
+msgid "Creator tool"
+msgstr "Ausgangsprogramm"
+
+#: tta/core/report.py:512
+msgid "Dashed line: least-squares trend over all plotted theses."
+msgstr "Gestrichelte Linie: Trend nach kleinsten Quadraten über alle dargestellten Arbeiten."
+
+#: tta/core/report.py:432
+msgid "Data table"
+msgstr "Datentabelle"
+
+#: tta/core/privacy_metadata.py:226
+msgid "Description"
+msgstr "Beschreibung"
+
+#: tta/ui/tk/columns.py:145
+msgid "Detected degree from the title page: bachelor, master, or unspecified."
+msgstr "Von der Titelseite erkannter Abschluss: bachelor, master oder unspecified."
+
+#: tta/ui/tk/columns.py:148
+msgid "Detected primary language as an ISO 639 code."
+msgstr "Erkannte Hauptsprache als ISO-639-Code."
+
+#: tta/ui/tk/columns.py:118
+msgid "Detected thesis type (bachelor / master / unspecified); blank until analysed."
+msgstr "Erkannte Abschlussart (bachelor / master / unspecified); leer bis zur Analyse."
+
+#: tta/core/privacy_metadata.py:160
+msgid "Directly identifying values (kept on this machine only)"
+msgstr "Unmittelbar identifizierende Werte (bleiben ausschließlich auf diesem Rechner)"
+
+#: tta/core/report.py:883
+msgid "Distributions"
+msgstr "Verteilungen"
+
+#: tta/core/privacy_metadata.py:159
+msgid "Document content (kept on this machine only)"
+msgstr "Dokumentinhalte (bleiben ausschließlich auf diesem Rechner)"
+
+#: tta/ui/tk/main_window.py:574
+msgid "Don't ask again"
+msgstr "Nicht mehr fragen"
+
+#: tta/cli/main.py:624
+msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
+msgstr "Die Laufzeiten je Lauf als CSV ausgeben statt des Kohortenexports (QA-RES)."
+
+#: tta/ui/tk/grid_model.py:30
+msgid "Error: {reason}"
+msgstr "Fehler: {reason}"
+
+#: tta/ui/tk/grid.py:248
+msgid ""
+"Exclude \"{filename}\" and permanently delete its cached analysis from this machine (extracted text, tokens, PDF metadata and all metric values)?\n"
+"\n"
+"This is destructive and cannot be undone. The source PDF file is not touched."
+msgstr ""
+"\"{filename}\" ausschließen und die zwischengespeicherte Analyse dauerhaft von diesem Rechner löschen (extrahierter Text, Tokens, PDF-Metadaten und alle Metrikwerte)?\n"
+"\n"
+"Dies ist destruktiv und kann nicht rückgängig gemacht werden. Die PDF-Quelldatei wird nicht angetastet."
+
+#: tta/ui/tk/grid.py:247
+msgid "Exclude thesis"
+msgstr "Arbeit ausschließen"
+
+#: tta/cli/main.py:297
+msgid "Exclude thesis {thesis_id} and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? This is destructive and cannot be undone. The source PDF is not touched."
+msgstr "Arbeit {thesis_id} ausschließen und ihre zwischengespeicherte Analyse dauerhaft von diesem Rechner löschen (Artefakte, Metriken, Laufhistorie)? Dies ist destruktiv und kann nicht rückgängig gemacht werden. Die PDF-Quelldatei wird nicht angetastet."
+
+#: tta/ui/tk/columns.py:107
+msgid "Exclude this thesis from analysis and exports. Excluding an already-analysed thesis deletes its cached analysis (artefacts + metrics) from this machine after a confirmation; the source PDF is not touched."
+msgstr "Diese Arbeit von Analyse und Export ausschließen. Wird eine bereits analysierte Arbeit ausgeschlossen, so wird ihre zwischengespeicherte Analyse (Artefakte und Metriken) nach einer Rückfrage von diesem Rechner gelöscht; die PDF-Quelldatei wird nicht angetastet."
+
+#: tta/core/report.py:809
+#: tta/ui/tk/columns.py:55
+msgid "Excluded"
+msgstr "Ausgeschlossen"
+
+#: tta/core/privacy_metadata.py:252
+msgid "Excluded theses, file paths and names, free-form notes and tags, raw text, tokenisations, full PDF metadata, error tracebacks, and module diagnostics never leave this machine."
+msgstr "Ausgeschlossene Arbeiten, Dateipfade und -namen, freie Notizen und Schlagwörter, Rohtext, Tokenisierungen, vollständige PDF-Metadaten, Fehler-Tracebacks und Moduldiagnosen verlassen diesen Rechner nie."
+
+#: tta/ui/tk/dialogs.py:144
+#: tta/ui/tk/dialogs.py:167
+#: tta/ui/tk/main_window.py:58
+msgid "Export"
+msgstr "Export"
+
+#: tta/ui/tk/dialogs.py:170
+msgid "Export complete"
+msgstr "Export abgeschlossen"
+
+#: tta/ui/tk/dialogs.py:154
+msgid "Export {count} theses (results only, no documents)"
+msgstr "{count} Arbeiten exportieren (nur Ergebnisse, keine Dokumente)"
+
+#: tta/ui/tk/main_window.py:108
+msgid "Export..."
+msgstr "Exportieren..."
+
+#: tta/ui/tk/dialogs.py:171
+msgid ""
+"Exported {theses} theses ({runs} runs) to:\n"
+"{path}\n"
+"\n"
+"Only anonymised metric values were written - no documents, file names, or text left your machine.\n"
+"\n"
+"Show in folder?"
+msgstr ""
+"{theses} Arbeiten ({runs} Läufe) exportiert nach:\n"
+"{path}\n"
+"\n"
+"Es wurden nur anonymisierte Metrikwerte geschrieben - keine Dokumente, Dateinamen oder Texte haben diesen Rechner verlassen.\n"
+"\n"
+"Im Ordner anzeigen?"
+
+#: tta/ui/tk/main_window.py:116
+msgid "Extended mode"
+msgstr "Erweiterter Modus"
+
+#: tta/ui/tk/columns.py:78
+msgid "Extraction quality"
+msgstr "Extraktionsqualität"
+
+#: tta/ui/tk/columns.py:57
+#: tta/ui/tk/main_window.py:111
+msgid "File"
+msgstr "Datei"
+
+#: tta/ui/tk/columns.py:97
+msgid "File modified (year)"
+msgstr "Änderungsjahr der Datei"
+
+#: tta/ui/tk/columns.py:117
+msgid "File name of the thesis PDF. Double-click to open the PDF."
+msgstr "Dateiname der PDF-Datei der Arbeit. Doppelklick öffnet die PDF-Datei."
+
+#: tta/ui/tk/columns.py:96
+msgid "File size (bytes)"
+msgstr "Dateigröße (Bytes)"
+
+#: tta/core/report.py:835
+msgid "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses are named by id - no file name leaves the database (Sec. 9.8.3); <code>tta list</code> resolves an id."
+msgstr "Markiert je Metrik über den Interquartilsabstand (1,5 x IQA jenseits von Q1/Q3) bei mindestens zwei von avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Arbeiten werden nur über ihre ID benannt - kein Dateiname verlässt die Datenbank (Abschn. 9.8.3); <code>tta list</code> löst eine ID auf."
+
+#: tta/core/privacy_metadata.py:131
+msgid "Flesch (en) / Amstad (de) reading-ease score"
+msgstr "Lesbarkeitswert nach Flesch (en) bzw. Amstad (de)"
+
+#: tta/ui/tk/columns.py:150
+msgid "Flesch Reading Ease; higher scores read more easily."
+msgstr "Flesch-Lesbarkeitsindex; höhere Werte lesen sich leichter."
+
+#: tta/core/report.py:633
+msgid "Flesch reading ease"
+msgstr "Flesch-Lesbarkeit"
+
+#: tta/ui/tk/columns.py:162
+msgid "Fraction of repeated word bigrams (two-word runs)."
+msgstr "Anteil wiederholter Wort-Bigramme (Zwei-Wort-Folgen)."
+
+#: tta/ui/tk/columns.py:163
+msgid "Fraction of repeated word trigrams (three-word runs)."
+msgstr "Anteil wiederholter Wort-Trigramme (Drei-Wort-Folgen)."
+
+#: tta/ui/tk/about_view.py:33
+msgid "Free software under the GNU General Public License, {spdx} (SPDX)."
+msgstr "Freie Software unter der GNU General Public License, {spdx} (SPDX)."
+
+#: tta/core/report.py:890
+msgid "Generated locally by tta {version}. This file is self-contained: it loads nothing from the network and contains no file names, paths, notes or document text. Regenerate it any time from the Report button or `tta report`."
+msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: sie lädt nichts aus dem Netz und enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Sie kann jederzeit über die Schaltfläche \"Bericht\" oder mit `tta report` neu erzeugt werden."
+
+#: tta/core/privacy_metadata.py:180
+msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
+msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
+
+#: tta/ui/tk/help_view.py:36
+#: tta/ui/tk/main_window.py:124
+msgid "Help"
+msgstr "Hilfe"
+
+#: tta/ui/tk/main_window.py:121
+msgid "Help topics"
+msgstr "Hilfethemen"
+
+#: tta/core/report.py:663
+msgid "Histogram of Flesch reading-ease scores, one series per language."
+msgstr "Histogramm der Flesch-Lesbarkeitswerte, eine Reihe je Sprache."
+
+#: tta/ui/tk/columns.py:69
+msgid "Images"
+msgstr "Abbildungen"
+
+#: tta/core/privacy_metadata.py:226
+msgid "Kind"
+msgstr "Art"
+
+#: tta/ui/tk/columns.py:80
+msgid "Language"
+msgstr "Sprache"
+
+#: tta/ui/tk/columns.py:81
+msgid "Language confidence"
+msgstr "Sicherheit der Spracherkennung"
+
+#: tta/core/report.py:885
+msgid "Language mix"
+msgstr "Sprachverteilung"
+
+#: tta/core/report.py:810
+msgid "Languages"
+msgstr "Sprachen"
+
+#: tta/core/privacy_metadata.py:199
+msgid "Leaves your machine on export"
+msgstr "Verlässt beim Export Ihren Rechner"
+
+#: tta/core/report.py:882
+msgid "Length by type"
+msgstr "Länge nach Abschlussart"
+
+#: tta/core/report.py:881
+msgid "Length over time"
+msgstr "Länge über die Zeit"
+
+#: tta/ui/tk/columns.py:84
+msgid "Letters"
+msgstr "Buchstaben"
+
+#: tta/core/report.py:812
+msgid "Median length"
+msgstr "Medianlänge"
+
+#: tta/ui/tk/help_view.py:46
+msgid "Metrics"
+msgstr "Metriken"
+
+#: tta/ui/tk/columns.py:74
+msgid "Modified (year)"
+msgstr "Geändert (Jahr)"
+
+#: tta/core/privacy_metadata.py:214
+msgid "Module"
+msgstr "Modul"
+
+#: tta/ui/tk/help_view.py:45
+msgid "Modules"
+msgstr "Module"
+
+#: tta/ui/tk/dialogs.py:57
+msgid ""
+"No PDFs found in or below:\n"
+"{folder}"
+msgstr ""
+"Keine PDF-Dateien in oder unter:\n"
+"{folder}"
+
+#: tta/core/report.py:678
+msgid "No language has been detected yet."
+msgstr "Noch wurde keine Sprache erkannt."
+
+#: tta/core/report.py:620
+msgid "No reading-ease scores recorded yet."
+msgstr "Noch keine Lesbarkeitswerte erfasst."
+
+#: tta/core/report.py:462
+msgid "No thesis has both a word count and a publication year yet."
+msgstr "Noch hat keine Arbeit sowohl eine Wortzahl als auch ein Veröffentlichungsjahr."
+
+#: tta/core/report.py:820
+msgid "No thesis is an outlier on two or more of the trustworthy metrics ({metrics})."
+msgstr "Keine Arbeit ist bei zwei oder mehr der belastbaren Metriken ein Ausreißer ({metrics})."
+
+#: tta/core/report.py:527
+msgid "No word counts recorded yet."
+msgstr "Noch keine Wortzahlen erfasst."
+
+#: tta/ui/tk/grid_model.py:28
+msgid "Not applicable for this thesis."
+msgstr "Für diese Arbeit nicht anwendbar."
+
+#: tta/ui/tk/main_window.py:589
+msgid "Not now"
+msgstr "Jetzt nicht"
+
+#: tta/ui/tk/grid_model.py:23
+msgid "Not yet analysed - click Run to compute."
+msgstr "Noch nicht analysiert - Analyse starten, um den Wert zu berechnen."
+
+#: tta/core/report.py:886
+msgid "Notable theses"
+msgstr "Auffällige Arbeiten"
+
+#: tta/ui/tk/dialogs.py:145
+msgid "Nothing to export yet - add and analyse theses first."
+msgstr "Noch nichts zu exportieren - fügen Sie zuerst Arbeiten hinzu und analysieren Sie sie."
+
+#: tta/ui/tk/columns.py:152
+msgid "Number of alphabetic characters in the text."
+msgstr "Anzahl der Buchstaben im Text."
+
+#: tta/ui/tk/columns.py:127
+msgid "Number of characters in the text extracted from the PDF."
+msgstr "Anzahl der Zeichen im aus der PDF-Datei extrahierten Text."
+
+#: tta/ui/tk/columns.py:129
+msgid "Number of embedded images detected in the PDF."
+msgstr "Anzahl der in der PDF-Datei erkannten eingebetteten Bilder."
+
+#: tta/ui/tk/columns.py:91
+msgid "Once-only words (of tokens)"
+msgstr "Einmalwörter (an Tokens)"
+
+#: tta/ui/tk/columns.py:92
+msgid "Once-only words (of types)"
+msgstr "Einmalwörter (an Typen)"
+
+#: tta/core/privacy_metadata.py:244
+msgid "Only when you explicitly export, and only the following values:"
+msgstr "Nur wenn Sie ausdrücklich exportieren, und nur die folgenden Werte:"
+
+#: tta/ui/tk/main_window.py:616
+#: tta/ui/tk/main_window.py:633
+msgid "Open Project"
+msgstr "Projekt öffnen"
+
+#: tta/ui/tk/main_window.py:104
+msgid "Open Project..."
+msgstr "Projekt öffnen..."
+
+#: tta/ui/tk/main_window.py:607
+msgid "Open project folder"
+msgstr "Projektordner öffnen"
+
+#: tta/ui/tk/main_window.py:592
+msgid "Open report"
+msgstr "Bericht öffnen"
+
+#: tta/core/report.py:827
+msgid "Outlier on"
+msgstr "Ausreißer bei"
+
+#: tta/ui/tk/dialogs.py:25
+msgid "PDF files"
+msgstr "PDF-Dateien"
+
+#: tta/ui/tk/columns.py:128
+msgid "Page count from the PDF text layer."
+msgstr "Seitenzahl aus der Textebene der PDF-Datei."
+
+#: tta/ui/tk/columns.py:130
+msgid "Page count reported by the PDF's own metadata."
+msgstr "Seitenzahl laut den eigenen Metadaten der PDF-Datei."
+
+#: tta/ui/tk/columns.py:68
+msgid "Pages"
+msgstr "Seiten"
+
+#: tta/ui/tk/columns.py:70
+msgid "Pages (PDF metadata)"
+msgstr "Seiten (PDF-Metadaten)"
+
+#: tta/ui/tk/columns.py:112
+msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
+msgstr "Zustand der Zeile. '[!]' bedeutet, dass die Textextraktion für diese Arbeit als unlesbar markiert wurde und daher jede Metrik dieser Zeile unzuverlässig sein kann (US-PROF-QUALITY); leer heißt, es wurde kein Problem erkannt."
+
+#: tta/ui/tk/main_window.py:251
+#: tta/ui/tk/main_window.py:275
+msgid "Planning..."
+msgstr "Planung..."
+
+#: tta/cli/main.py:499
+msgid "Print the plan without executing."
+msgstr "Den Plan ausgeben, ohne ihn auszuführen."
+
+#: tta/ui/tk/main_window.py:122
+#: tta/ui/tk/main_window.py:638
+msgid "Privacy statement"
+msgstr "Datenschutzerklärung"
+
+#: tta/core/privacy_metadata.py:177
+msgid "Privacy statement - Thesis Text Analyzer"
+msgstr "Datenschutzerklärung - Thesis Text Analyzer"
+
+#: tta/ui/tk/columns.py:71
+msgid "Producer tool"
+msgstr "Erzeugendes Programm"
+
+#: tta/core/privacy_metadata.py:214
+msgid "Produces"
+msgstr "Erzeugt"
+
+#: tta/cli/main.py:61
+msgid "Project directory (default: current directory)."
+msgstr "Projektverzeichnis (Vorgabe: aktuelles Verzeichnis)."
+
+#: tta/ui/tk/columns.py:75
+msgid "Publication year"
+msgstr "Veröffentlichungsjahr"
+
+#: tta/ui/tk/columns.py:76
+msgid "Publication year source"
+msgstr "Quelle des Veröffentlichungsjahres"
+
+#: tta/core/report.py:811
+msgid "Publication years"
+msgstr "Veröffentlichungsjahre"
+
+#: tta/core/privacy_metadata.py:198
+#: tta/core/privacy_metadata.py:214
+msgid "Purpose"
+msgstr "Zweck"
+
+#: tta/core/report.py:606
+msgid "Q1"
+msgstr "Q1"
+
+#: tta/core/report.py:608
+msgid "Q3"
+msgstr "Q3"
+
+#: tta/ui/tk/main_window.py:110
+msgid "Quit"
+msgstr "Beenden"
+
+#: tta/ui/tk/main_window.py:55
+msgid "Re-run all"
+msgstr "Alle neu analysieren"
+
+#: tta/cli/main.py:498
+msgid "Re-run everything regardless of state."
+msgstr "Alles neu ausführen, unabhängig vom Zustand."
+
+#: tta/ui/tk/columns.py:82
+msgid "Readability (Flesch)"
+msgstr "Lesbarkeit (Flesch)"
+
+#: tta/core/report.py:884
+msgid "Reading ease distribution"
+msgstr "Verteilung der Lesbarkeit"
+
+#: tta/core/privacy_metadata.py:214
+msgid "Reads"
+msgstr "Liest"
+
+#: tta/ui/tk/main_window.py:186
+msgid "Ready"
+msgstr "Bereit"
+
+#: tta/ui/tk/main_window.py:53
+msgid "Remove"
+msgstr "Entfernen"
+
+#: tta/ui/tk/dialogs.py:106
+#: tta/ui/tk/dialogs.py:126
+#: tta/ui/tk/dialogs.py:98
+msgid "Remove thesis"
+msgstr "Arbeit entfernen"
+
+#: tta/cli/main.py:382
+msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
+msgstr "Arbeit {thesis_id} ({filename}) vollständig aus dem Projekt entfernen und ihre zwischengespeicherte Analyse dauerhaft von diesem Rechner löschen (Artefakte, Metriken, Laufhistorie)? Die Arbeit wird vollständig vergessen - dies kann nicht rückgängig gemacht werden, und die PDF-Quelldatei wird nicht angetastet."
+
+#: tta/ui/tk/dialogs.py:107
+msgid ""
+"Remove {filename} from the project?\n"
+"\n"
+"Its analysis results (cached text, tokens, metrics and run history) are permanently deleted from this machine, and the thesis is forgotten entirely - unlike excluding it, there is nothing left to re-include. Adding the same file again later creates a new thesis with no history.\n"
+"\n"
+"The PDF itself is not touched. This cannot be undone."
+msgstr ""
+"{filename} aus dem Projekt entfernen?\n"
+"\n"
+"Die Analyseergebnisse (zwischengespeicherter Text, Tokens, Metriken und Laufhistorie) werden dauerhaft von diesem Rechner gelöscht, und die Arbeit wird vollständig vergessen - anders als beim Ausschließen bleibt nichts zurück, das wieder aufgenommen werden könnte. Wird dieselbe Datei später erneut hinzugefügt, entsteht eine neue Arbeit ohne Historie.\n"
+"\n"
+"Die PDF-Datei selbst wird nicht angetastet. Dies kann nicht rückgängig gemacht werden."
+
+#: tta/ui/tk/columns.py:94
+msgid "Repeated word pairs"
+msgstr "Wiederholte Wortpaare"
+
+#: tta/ui/tk/columns.py:95
+msgid "Repeated word triples"
+msgstr "Wiederholte Wortdrillinge"
+
+#: tta/ui/tk/main_window.py:532
+#: tta/ui/tk/main_window.py:563
+#: tta/ui/tk/main_window.py:57
+msgid "Report"
+msgstr "Bericht"
+
+#: tta/ui/tk/main_window.py:519
+msgid "Report written to {path}"
+msgstr "Bericht geschrieben nach {path}"
+
+#: tta/cli/main.py:497
+msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
+msgstr "Auf bestimmte Module beschränken (mehrfach angebbar; US-PROF-SELECT)."
+
+#: tta/ui/tk/columns.py:158
+msgid "Root type-token ratio (Guiraud's index); length-robust richness."
+msgstr "Wurzel-Type-Token-Verhältnis (Guiraud-Index); längenrobustes Maß für Wortschatzreichtum."
+
+#: tta/ui/tk/main_window.py:248
+msgid "Run"
+msgstr "Analyse"
+
+#: tta/ui/tk/main_window.py:54
+msgid "Run all"
+msgstr "Alle analysieren"
+
+#: tta/ui/tk/main_window.py:336
+msgid "Run cancelled"
+msgstr "Analyse abgebrochen"
+
+#: tta/ui/tk/main_window.py:336
+msgid "Run finished"
+msgstr "Analyse abgeschlossen"
+
+#: tta/ui/tk/main_window.py:318
+msgid "Running... thesis {ordinal}: {module} {status}"
+msgstr "Analyse läuft... Arbeit {ordinal}: {module} {status}"
+
+#: tta/ui/tk/dialogs.py:160
+msgid "SQLite database"
+msgstr "SQLite-Datenbank"
+
+#: tta/core/report.py:517
+msgid "Scatter plot of thesis word count against publication year."
+msgstr "Streudiagramm der Wortzahl über dem Veröffentlichungsjahr."
+
+#: tta/ui/tk/grid.py:272
+msgid "Scrub incomplete"
+msgstr "Löschung unvollständig"
+
+#: tta/ui/tk/help_view.py:38
+msgid "See also"
+msgstr "Siehe auch"
+
+#: tta/ui/tk/main_window.py:231
+msgid "Select a thesis to remove."
+msgstr "Bitte eine Arbeit zum Entfernen auswählen."
+
+#: tta/ui/tk/columns.py:88
+msgid "Sentence length variation"
+msgstr "Streuung der Satzlänge"
+
+#: tta/ui/tk/columns.py:85
+msgid "Sentences"
+msgstr "Sätze"
+
+#: tta/ui/tk/columns.py:159
+msgid "Share of tokens that occur exactly once."
+msgstr "Anteil der Tokens, die genau einmal vorkommen."
+
+#: tta/ui/tk/columns.py:160
+msgid "Share of word types that occur exactly once."
+msgstr "Anteil der Worttypen, die genau einmal vorkommen."
+
+#: tta/ui/tk/columns.py:168
+msgid "Size of the PDF file on disk, in bytes."
+msgstr "Größe der PDF-Datei auf dem Datenträger in Bytes."
+
+#: tta/cli/main.py:272
+#: tta/cli/main.py:361
+msgid "Skip the confirmation prompt (for scripts)."
+msgstr "Die Rückfrage überspringen (für Skripte)."
+
+#: tta/ui/tk/about_view.py:32
+msgid "Source code (GPL Sec. 6), copy the address to visit it:"
+msgstr "Quellcode (GPL Abschn. 6), Adresse zum Aufrufen kopieren:"
+
+#: tta/cli/main.py:684
+msgid "Source label, e.g. \"FH Wedel CS 2026\"."
+msgstr "Bezeichnung der Quelle, z. B. \"FH Wedel CS 2026\"."
+
+#: tta/ui/tk/columns.py:156
+msgid "Standard deviation of sentence length, in words."
+msgstr "Standardabweichung der Satzlänge in Wörtern."
+
+#: tta/ui/tk/columns.py:56
+msgid "State"
+msgstr "Status"
+
+#: tta/core/privacy_metadata.py:197
+msgid "Stored value"
+msgstr "Gespeicherter Wert"
+
+#: tta/core/privacy_metadata.py:156
+msgid "Technical bookkeeping (no personal data)"
+msgstr "Technische Verwaltung (keine personenbezogenen Daten)"
+
+#: tta/ui/tk/grid_model.py:24
+msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
+msgstr "Die Textextraktion wurde für diese Arbeit als unlesbar markiert; jede Metrik in dieser Zeile kann unzuverlässig sein (US-PROF-QUALITY)."
+
+#: tta/ui/tk/main_window.py:629
+msgid "That folder is not a project yet; it is created there on next start."
+msgstr "Dieser Ordner ist noch kein Projekt; es wird beim nächsten Start dort angelegt."
+
+#: tta/ui/tk/main_window.py:627
+msgid "The project opens on next start."
+msgstr "Das Projekt wird beim nächsten Start geöffnet."
+
+#: tta/ui/tk/main_window.py:569
+msgid "The run finished. Open the report for this project now?"
+msgstr "Die Analyse ist abgeschlossen. Bericht für dieses Projekt jetzt öffnen?"
+
+#: tta/core/report.py:808
+msgid "Theses analysed"
+msgstr "Analysierte Arbeiten"
+
+#: tta/core/report.py:826
+msgid "Thesis"
+msgstr "Arbeit"
+
+#: tta/core/report.py:868
+msgid "Thesis Text Analyzer - cohort report {stamp}"
+msgstr "Thesis Text Analyzer - Kohortenbericht {stamp}"
+
+#: tta/core/report.py:873
+msgid "Thesis Text Analyzer - {count} analysed thesis(es), generated {stamp}"
+msgstr "Thesis Text Analyzer - {count} analysierte Arbeit(en), erstellt {stamp}"
+
+#: tta/ui/tk/main_window.py:76
+msgid "Thesis Text Analyzer - {path}"
+msgstr "Thesis Text Analyzer - {path}"
+
+#: tta/ui/tk/columns.py:79
+msgid "Thesis type"
+msgstr "Abschlussart"
+
+#: tta/ui/tk/dialogs.py:99
+msgid "Thesis {thesis_id} is no longer in this project."
+msgstr "Arbeit {thesis_id} ist nicht mehr in diesem Projekt."
+
+#: tta/ui/tk/columns.py:153
+msgid "Total number of sentences detected."
+msgstr "Gesamtzahl der erkannten Sätze."
+
+#: tta/ui/tk/columns.py:151
+msgid "Total number of words in the extracted text."
+msgstr "Gesamtzahl der Wörter im extrahierten Text."
+
+#: tta/core/report.py:514
+msgid "Trend line needs at least 5 dated theses."
+msgstr "Die Trendlinie benötigt mindestens 5 datierte Arbeiten."
+
+#: tta/core/report.py:880
+msgid "Trends"
+msgstr "Trends"
+
+#: tta/cli/main.py:622
+msgid "Trim history to the latest run per (thesis, module)."
+msgstr "Die Historie auf den letzten Lauf je (Arbeit, Modul) kürzen."
+
+#: tta/ui/tk/columns.py:58
+msgid "Type"
+msgstr "Art"
+
+#: tta/ui/tk/columns.py:157
+msgid "Type-token ratio: distinct words divided by total words."
+msgstr "Type-Token-Verhältnis: verschiedene Wörter geteilt durch alle Wörter."
+
+#: tta/ui/tk/main_window.py:56
+msgid "Update stale"
+msgstr "Veraltete aktualisieren"
+
+#: tta/ui/tk/columns.py:142
+msgid "Verdict on how reliable the extracted text is (ok vs garbled)."
+msgstr "Einschätzung, wie verlässlich der extrahierte Text ist (ok oder unlesbar)."
+
+#: tta/ui/tk/main_window.py:118
+msgid "View"
+msgstr "Ansicht"
+
+#: tta/ui/tk/columns.py:90
+msgid "Vocabulary richness (Guiraud)"
+msgstr "Wortschatzreichtum (Guiraud)"
+
+#: tta/ui/tk/columns.py:89
+msgid "Vocabulary richness (TTR)"
+msgstr "Wortschatzreichtum (TTR)"
+
+#: tta/ui/tk/columns.py:93
+msgid "Vocabulary richness (Yule's K)"
+msgstr "Wortschatzreichtum (Yules K)"
+
+#: tta/cli/main.py:751
+msgid "Where to write it (default: <project>/reports/report-<date>.html)."
+msgstr "Wohin geschrieben wird (Vorgabe: <Projekt>/reports/report-<Datum>.html)."
+
+#: tta/ui/tk/columns.py:141
+msgid "Whether the PDF carries a bookmarks/outline tree."
+msgstr "Ob die PDF-Datei eine Lesezeichen- bzw. Gliederungsstruktur enthält."
+
+#: tta/ui/tk/columns.py:138
+msgid "Which signal set the publication year (title page vs PDF metadata)."
+msgstr "Welches Signal das Veröffentlichungsjahr gesetzt hat (Titelseite oder PDF-Metadaten)."
+
+#: tta/ui/tk/columns.py:83
+msgid "Words"
+msgstr "Wörter"
+
+#: tta/cli/main.py:503
+msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
+msgstr "Den HTML-Bericht schreiben und nach Ende der Analyse im Browser öffnen (standardmäßig aus; Abschn. 9.8.3, #70)."
+
+#: tta/ui/tk/columns.py:133
+msgid "Year the PDF was created, from its metadata."
+msgstr "Jahr der Erstellung der PDF-Datei laut ihren Metadaten."
+
+#: tta/ui/tk/columns.py:134
+msgid "Year the PDF was last modified, from its metadata."
+msgstr "Jahr der letzten Änderung der PDF-Datei laut ihren Metadaten."
+
+#: tta/ui/tk/columns.py:169
+msgid "Year the file was last modified on disk. A weak signal: copying or downloading a file resets it, so it is not used for the publication year."
+msgstr "Jahr der letzten Änderung der Datei auf dem Datenträger. Ein schwaches Signal: Kopieren oder Herunterladen setzt es zurück, daher wird es für das Veröffentlichungsjahr nicht verwendet."
+
+#: tta/ui/tk/main_window.py:31
+msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
+msgstr "Ihr Projekt liegt unter {path}. Alle Daten und Analysen der Arbeiten werden hier gespeichert. Zum Verschieben oder Sichern des Projekts kopieren Sie diesen Ordner. Für einen anderen Ort wählen Sie Datei -> Projekt öffnen..."
+
+#: tta/ui/tk/columns.py:161
+msgid "Yule's K: vocabulary richness, robust to text length."
+msgstr "Yules K: Wortschatzreichtum, robust gegenüber der Textlänge."
+
+#: tta/cli/main.py:305
+#: tta/cli/main.py:391
+msgid "aborted; no changes made"
+msgstr "abgebrochen; keine Änderungen vorgenommen"
+
+#: tta/cli/main.py:521
+msgid "added {count} theses from {paths} input path(s)"
+msgstr "{count} Arbeiten aus {paths} Eingabepfad(en) hinzugefügt"
+
+#: tta/cli/main.py:188
+msgid "applied migrations: {versions}"
+msgstr "angewandte Migrationen: {versions}"
+
+#: tta/core/privacy_metadata.py:109
+msgid "artefact kind of the cached file"
+msgstr "Artefaktart der zwischengespeicherten Datei"
+
+#: tta/cli/main.py:474
+msgid "artefacts: {value}"
+msgstr "Artefakte:  {value}"
+
+#: tta/core/privacy_metadata.py:79
+msgid "audit trail"
+msgstr "Nachweisspur"
+
+#: tta/core/privacy_metadata.py:90
+msgid "audit trail (exported at day precision only)"
+msgstr "Nachweisspur (Export nur auf Tagesgenauigkeit)"
+
+#: tta/core/privacy_metadata.py:100
+msgid "audit trail, profiling"
+msgstr "Nachweisspur, Laufzeitmessung"
+
+#: tta/cli/main.py:794
+msgid "available topics:"
+msgstr "verfügbare Themen:"
+
+#: tta/cli/main.py:562
+msgid "cancelling - finishing in-flight theses (Ctrl-C again to force)..."
+msgstr "wird abgebrochen - laufende Arbeiten werden noch beendet (Strg-C erneut erzwingt den Abbruch)..."
+
+#: tta/cli/main.py:147
+msgid "checks:"
+msgstr "Prüfungen:"
+
+#: tta/core/privacy_metadata.py:84
+msgid "coarse size statistics"
+msgstr "grobe Größenstatistik"
+
+#: tta/core/privacy_metadata.py:149
+msgid "complete PDF Info dict + XMP, incl. Author/Title (JSON)"
+msgstr "vollständiges PDF-Info-Verzeichnis und XMP, einschließlich Autor und Titel (JSON)"
+
+#: tta/core/privacy_metadata.py:87
+msgid "confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)"
+msgstr "Abwahl vertraulicher Arbeiten (US-PROF-EXCLUDE); nur lokal - ausgeschlossene Zeilen werden aus Exporten entfernt, die Spalte wäre dort also konstant null (#64)"
+
+#: tta/cli/main.py:447
+msgid "consumes"
+msgstr "verbraucht"
+
+#: tta/cli/main.py:469
+msgid "consumes:  {value}"
+msgstr "verbraucht:  {value}"
+
+#: tta/core/privacy_metadata.py:83
+msgid "content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier"
+msgstr "inhaltsbasierte Identität; wird beim ersten Lauf berechnet (bis dahin NULL); übersteht Umbenennungen; exportübergreifend portabler Bezeichner"
+
+#: tta/core/privacy_metadata.py:135
+msgid "count embedded images in the PDF"
+msgstr "eingebettete Bilder in der PDF-Datei zählen"
+
+#: tta/core/privacy_metadata.py:75
+msgid "cross-cohort grouping in the merged research DB"
+msgstr "Gruppierung über Kohorten hinweg in der zusammengeführten Forschungsdatenbank"
+
+#: tta/core/privacy_metadata.py:98
+msgid "debugging; may embed filesystem paths"
+msgstr "Fehlersuche; kann Dateisystempfade enthalten"
+
+#: tta/core/privacy_metadata.py:123
+msgid "detect the degree (bachelor/master/diploma) from title-page keywords for grouping"
+msgstr "den Abschluss (bachelor/master/diploma) anhand von Schlüsselwörtern der Titelseite erkennen, um gruppieren zu können"
+
+#: tta/core/privacy_metadata.py:121
+msgid "detect the thesis language to select language-aware analyses"
+msgstr "die Sprache der Arbeit erkennen, um sprachabhängige Analysen zu wählen"
+
+#: tta/core/privacy_metadata.py:147
+msgid "detected language code + confidence (JSON)"
+msgstr "erkannter Sprachcode und Sicherheit (JSON)"
+
+#: tta/core/privacy_metadata.py:86
+msgid "display label in the grid (may contain student names)"
+msgstr "Anzeigebezeichnung in der Tabelle (kann Namen von Studierenden enthalten)"
+
+#: tta/core/privacy_metadata.py:74
+msgid "distinguish own data from imported cohorts"
+msgstr "Unterscheidung eigener Daten von importierten Kohorten"
+
+#: tta/ui/tk/grid_model.py:46
+msgid "err"
+msgstr "Fehler"
+
+#: tta/core/progress.py:313
+#: tta/ui/tk/main_window.py:497
+msgid "estimating..."
+msgstr "wird geschätzt..."
+
+#: tta/cli/main.py:251
+msgid "excluded"
+msgstr "ausgeschlossen"
+
+#: tta/cli/main.py:316
+msgid "excluded thesis {thesis_id}"
+msgstr "Arbeit {thesis_id} ausgeschlossen"
+
+#: tta/cli/main.py:328
+msgid "excluded thesis {thesis_id}; analysis records removed, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
+msgstr "Arbeit {thesis_id} ausgeschlossen; die Analysedatensätze wurden entfernt, aber einige zwischengespeicherte Dateien konnten nicht gelöscht werden: {folder} ({error}). Sie werden nie exportiert; löschen Sie diesen Ordner manuell, um sie zu entfernen."
+
+#: tta/cli/main.py:319
+msgid "excluded thesis {thesis_id}; cached analysis scrubbed"
+msgstr "Arbeit {thesis_id} ausgeschlossen; zwischengespeicherte Analyse gelöscht"
+
+#: tta/cli/main.py:656
+msgid "exported {rows} module runs across {modules} modules ({policy}) -> {path}"
+msgstr "{rows} Modulläufe über {modules} Module exportiert ({policy}) -> {path}"
+
+#: tta/cli/main.py:668
+msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy}) -> {path}"
+msgstr "{theses} Arbeiten, {runs} Läufe, {metrics} Metrikwerte exportiert ({policy}) -> {path}"
+
+#: tta/core/privacy_metadata.py:117
+msgid "extract the plain text from the PDF; count pages and characters"
+msgstr "den Klartext aus der PDF-Datei extrahieren; Seiten und Zeichen zählen"
+
+#: tta/cli/main.py:154
+msgid "failing checks: {names}"
+msgstr "fehlgeschlagene Prüfungen: {names}"
+
+#: tta/core/modules/extract_filesystem_metadata.py:65
+msgid "file not found"
+msgstr "Datei nicht gefunden"
+
+#: tta/cli/main.py:251
+msgid "filename"
+msgstr "Dateiname"
+
+#: tta/core/privacy_metadata.py:119
+msgid "flag garbled or sparse text extractions so bad data is visible"
+msgstr "unlesbare oder zu dünne Textextraktionen markieren, damit schlechte Daten sichtbar werden"
+
+#: tta/core/privacy_metadata.py:88
+msgid "free-form user notes"
+msgstr "freie Notizen des Nutzers"
+
+#: tta/core/privacy_metadata.py:89
+msgid "free-form user tags"
+msgstr "freie Schlagwörter des Nutzers"
+
+#: tta/core/privacy_metadata.py:146
+msgid "full extracted thesis text (UTF-8 file)"
+msgstr "vollständig extrahierter Text der Arbeit (UTF-8-Datei)"
+
+#: tta/core/privacy_metadata.py:139
+msgid "fuse the title-page year and PDF metadata dates into a best-estimate publication year"
+msgstr "das Jahr der Titelseite und die Datumsangaben der PDF-Metadaten zu einem bestmöglich geschätzten Veröffentlichungsjahr zusammenführen"
+
+#: tta/core/report.py:609
+msgid "high whisker"
+msgstr "oberer Whisker"
+
+#: tta/cli/main.py:251
+msgid "id"
+msgstr "ID"
+
+#: tta/core/privacy_metadata.py:77
+msgid "import compatibility check"
+msgstr "Prüfung der Importkompatibilität"
+
+#: tta/cli/main.py:694
+msgid "imported source {source_id} ({name}): {theses} theses, {runs} runs, {metrics} metric values"
+msgstr "Quelle {source_id} ({name}) importiert: {theses} Arbeiten, {runs} Läufe, {metrics} Metrikwerte"
+
+#: tta/cli/main.py:354
+msgid "included thesis {thesis_id}"
+msgstr "Arbeit {thesis_id} wieder aufgenommen"
+
+#: tta/core/privacy_metadata.py:103
+#: tta/core/privacy_metadata.py:108
+#: tta/core/privacy_metadata.py:81
+#: tta/core/privacy_metadata.py:92
+msgid "internal key"
+msgstr "interner Schlüssel"
+
+#: tta/core/privacy_metadata.py:72
+msgid "key for grouping data by origin"
+msgstr "Schlüssel zur Gruppierung der Daten nach Herkunft"
+
+#: tta/core/privacy_metadata.py:73
+msgid "label of the data origin (institution-level, not personal)"
+msgstr "Bezeichnung der Datenherkunft (auf Ebene der Institution, nicht personenbezogen)"
+
+#: tta/core/report.py:704
+msgid "language"
+msgstr "Sprache"
+
+#: tta/core/report.py:809
+msgid "left out of every aggregate"
+msgstr "aus jeder Auswertung herausgehalten"
+
+#: tta/core/report.py:504
+msgid "linear trend"
+msgstr "linearer Trend"
+
+#: tta/core/privacy_metadata.py:110
+msgid "locate the cached file in the project folder"
+msgstr "Auffinden der zwischengespeicherten Datei im Projektordner"
+
+#: tta/core/report.py:605
+msgid "low whisker"
+msgstr "unterer Whisker"
+
+#: tta/core/report.py:607
+msgid "median"
+msgstr "Median"
+
+#: tta/cli/main.py:477
+msgid "metrics:   {value}"
+msgstr "Metriken:   {value}"
+
+#: tta/cli/main.py:447
+msgid "module"
+msgstr "Modul"
+
+#: tta/cli/main.py:446
+msgid "module catalogue"
+msgstr "Modulkatalog"
+
+#: tta/core/privacy_metadata.py:99
+msgid "module diagnostics; may contain content-derived values"
+msgstr "Moduldiagnose; kann aus Inhalten abgeleitete Werte enthalten"
+
+#: tta/ui/tk/grid_model.py:29
+msgid "module raised an exception"
+msgstr "Modul hat eine Ausnahme ausgelöst"
+
+#: tta/core/report.py:604
+msgid "n"
+msgstr "n"
+
+#: tta/core/privacy_metadata.py:203
+msgid "no"
+msgstr "nein"
+
+#: tta/cli/main.py:785
+msgid "no help topic {topic}"
+msgstr "kein Hilfethema {topic}"
+
+#: tta/cli/main.py:798
+#: tta/ui/tk/help_view.py:37
+msgid "no help topics installed yet"
+msgstr "noch keine Hilfethemen installiert"
+
+#: tta/core/doctor.py:207
+msgid "no project at {folder} ({filename} missing) - run 'tta db init' first"
+msgstr "kein Projekt unter {folder} ({filename} fehlt) - führen Sie zuerst 'tta db init' aus"
+
+#: tta/cli/main.py:184
+msgid "no project at {path} - run `tta db init` first"
+msgstr "kein Projekt unter {path} - führen Sie zuerst `tta db init` aus"
+
+#: tta/core/modules/redundancy.py:41
+msgid "no sentence long enough for bigrams"
+msgstr "kein Satz lang genug für Bigramme"
+
+#: tta/core/modules/tokenize.py:91
+msgid "no sentences in text"
+msgstr "keine Sätze im Text"
+
+#: tta/core/report.py:802
+msgid "no type detected"
+msgstr "keine Abschlussart erkannt"
+
+#: tta/core/modules/_tokens.py:31
+msgid "no word tokens in tokenisation"
+msgstr "keine Worttokens in der Tokenisierung"
+
+#: tta/core/modules/count_images.py:28
+#: tta/core/modules/extract_pdf_metadata.py:69
+#: tta/core/modules/extract_pymupdf.py:34
+msgid "not a PDF"
+msgstr "keine PDF-Datei"
+
+#: tta/core/privacy_metadata.py:96
+msgid "ok / not-applicable / error"
+msgstr "ok / nicht anwendbar / Fehler"
+
+#: tta/core/privacy_metadata.py:82
+msgid "origin of the thesis row"
+msgstr "Herkunft des Datensatzes der Arbeit"
+
+#: tta/core/report.py:313
+msgid "other ({count} more)"
+msgstr "andere ({count} weitere)"
+
+#: tta/core/report.py:610
+msgid "outliers"
+msgstr "Ausreißer"
+
+#: tta/cli/main.py:151
+msgid "overall: {status}"
+msgstr "Gesamt: {status}"
+
+#: tta/core/doctor.py:233
+msgid "pending migrations {versions} - run 'tta db migrate'"
+msgstr "ausstehende Migrationen {versions} - führen Sie 'tta db migrate' aus"
+
+#: tta/cli/main.py:447
+msgid "produces"
+msgstr "erzeugt"
+
+#: tta/core/privacy_metadata.py:101
+msgid "profiling (QA-RES budgets)"
+msgstr "Laufzeitmessung (QA-RES-Budgets)"
+
+#: tta/cli/main.py:172
+msgid "project ready at {path}"
+msgstr "Projekt bereit unter {path}"
+
+#: tta/core/report.py:482
+#: tta/core/report.py:520
+msgid "publication year"
+msgstr "Veröffentlichungsjahr"
+
+#: tta/core/doctor.py:150
+msgid "punkt_tab model for {language} not found - release builds bundle it (ADR-0014); from source run 'python -m nltk.downloader punkt_tab'"
+msgstr "punkt_tab-Modell für {language} nicht gefunden - Release-Builds bringen es mit (ADR-0014); aus dem Quellcode heraus führen Sie 'python -m nltk.downloader punkt_tab' aus"
+
+#: tta/core/privacy_metadata.py:85
+msgid "re-open the file locally (may contain user/student names)"
+msgstr "erneutes lokales Öffnen der Datei (kann Namen von Nutzern oder Studierenden enthalten)"
+
+#: tta/core/privacy_metadata.py:137
+msgid "read PDF tool metadata; only categorised, year-precision values become metrics"
+msgstr "die Programmmetadaten der PDF-Datei lesen; nur kategorisierte und auf das Jahr gerundete Werte werden zu Metriken"
+
+#: tta/core/privacy_metadata.py:141
+msgid "read the file's size and modification year from the filesystem; only the year is kept"
+msgstr "Größe und Änderungsjahr der Datei aus dem Dateisystem lesen; nur das Jahr wird behalten"
+
+#: tta/core/report.py:671
+msgid "reading ease"
+msgstr "Lesbarkeit"
+
+#: tta/cli/main.py:400
+msgid "removed thesis {thesis_id}"
+msgstr "Arbeit {thesis_id} entfernt"
+
+#: tta/cli/main.py:406
+msgid "removed thesis {thesis_id}; database rows deleted, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
+msgstr "Arbeit {thesis_id} entfernt; die Datenbankzeilen wurden gelöscht, aber einige zwischengespeicherte Dateien konnten nicht gelöscht werden: {folder} ({error}). Sie werden nie exportiert; löschen Sie diesen Ordner manuell, um sie zu entfernen."
+
+#: tta/core/privacy_metadata.py:133
+msgid "repeated word-pair/triple rates"
+msgstr "Anteile wiederholter Wortpaare und Wortdrillinge"
+
+#: tta/cli/main.py:766
+msgid "report over {theses} theses -> {path}"
+msgstr "Bericht über {theses} Arbeiten -> {path}"
+
+#: tta/cli/main.py:610
+msgid "report written to {path}"
+msgstr "Bericht geschrieben nach {path}"
+
+#: tta/core/privacy_metadata.py:76
+msgid "reproducibility: which app produced the data"
+msgstr "Reproduzierbarkeit: welche Anwendung die Daten erzeugt hat"
+
+#: tta/core/privacy_metadata.py:78
+msgid "reproducibility: which modules ran"
+msgstr "Reproduzierbarkeit: welche Module gelaufen sind"
+
+#: tta/cli/main.py:190
+msgid "schema is up to date"
+msgstr "Schema ist aktuell"
+
+#: tta/core/privacy_metadata.py:148
+msgid "sentence/word tokenisation of the full text (JSON)"
+msgstr "Satz- und Worttokenisierung des vollständigen Textes (JSON)"
+
+#: tta/core/privacy_metadata.py:125
+msgid "split the text into sentences and words for counting modules"
+msgstr "den Text in Sätze und Wörter zerlegen, damit die zählenden Module darauf aufbauen können"
+
+#: tta/core/privacy_metadata.py:95
+msgid "staleness detection, reproducibility"
+msgstr "Erkennung veralteter Ergebnisse, Reproduzierbarkeit"
+
+#: tta/cli/main.py:251
+msgid "status"
+msgstr "Status"
+
+#: tta/core/modules/classify_language.py:33
+msgid "text too short for confident detection"
+msgstr "Text zu kurz für eine verlässliche Erkennung"
+
+#: tta/core/privacy_metadata.py:106
+msgid "the research signal: categorical metric value"
+msgstr "das Forschungssignal: kategorialer Metrikwert"
+
+#: tta/core/privacy_metadata.py:105
+msgid "the research signal: numeric metric value"
+msgstr "das Forschungssignal: numerischer Metrikwert"
+
+#: tta/core/report.py:634
+#: tta/core/report.py:682
+#: tta/core/report.py:704
+msgid "theses"
+msgstr "Arbeiten"
+
+#: tta/ui/tk/main_window.py:491
+msgid "thesis {done}/{total}"
+msgstr "Arbeit {done}/{total}"
+
+#: tta/core/privacy_metadata.py:69
+#: tta/core/privacy_metadata.py:70
+msgid "track applied DB migrations"
+msgstr "Nachverfolgung angewandter Datenbankmigrationen"
+
+#: tta/cli/main.py:251
+#: tta/core/report.py:520
+#: tta/core/report.py:603
+msgid "type"
+msgstr "Art"
+
+#: tta/core/privacy_metadata.py:34
+msgid "until the user deletes the project folder"
+msgstr "bis der Nutzer den Projektordner löscht"
+
+#: tta/cli/main.py:200
+msgid "vacuumed"
+msgstr "Datenbank verdichtet"
+
+#: tta/cli/main.py:447
+msgid "version"
+msgstr "Version"
+
+#: tta/core/privacy_metadata.py:129
+msgid "vocabulary richness measures (TTR, hapax ratios, Yule's K)"
+msgstr "Maße für den Wortschatzreichtum (TTR, Einmalwortanteile, Yules K)"
+
+#: tta/core/privacy_metadata.py:94
+msgid "which analysis ran (QA-REPRO)"
+msgstr "welche Analyse gelaufen ist (QA-REPRO)"
+
+#: tta/core/privacy_metadata.py:104
+msgid "which metric"
+msgstr "welche Metrik"
+
+#: tta/core/privacy_metadata.py:111
+msgid "which run produced the cached file"
+msgstr "welcher Lauf die zwischengespeicherte Datei erzeugt hat"
+
+#: tta/core/privacy_metadata.py:93
+msgid "which thesis was analysed"
+msgstr "welche Arbeit analysiert wurde"
+
+#: tta/core/privacy_metadata.py:97
+msgid "why a run was na or errored (one line, no content)"
+msgstr "warum ein Lauf nicht anwendbar war oder fehlschlug (eine Zeile, keine Inhalte)"
+
+#: tta/core/privacy_metadata.py:127
+msgid "word/sentence/character counts and length statistics"
+msgstr "Wort-, Satz- und Zeichenzahlen sowie Längenstatistiken"
+
+#: tta/core/report.py:483
+#: tta/core/report.py:520
+#: tta/core/report.py:537
+#: tta/core/report.py:812
+msgid "words"
+msgstr "Wörter"
+
+#: tta/cli/main.py:260
+#: tta/core/privacy_metadata.py:203
+msgid "yes"
+msgstr "ja"
+
+#: tta/core/report.py:667
+msgid "{bins} equal-width bins; series are overlaid, not stacked."
+msgstr "{bins} gleich breite Klassen; die Reihen sind überlagert, nicht gestapelt."
+
+#: tta/cli/main.py:548
+msgid "{count} (thesis x module) pairs planned"
+msgstr "{count} Paare (Arbeit x Modul) geplant"
+
+#: tta/cli/main.py:247
+#: tta/ui/tk/grid.py:45
+msgid "{count} theses"
+msgstr "{count} Arbeiten"
+
+#: tta/core/report.py:854
+msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
+msgstr "{count} Arbeit(en) mit unlesbarer Textextraktion sind aus allen Auswertungen oben und unten ausgenommen."
+
+#: tta/ui/tk/main_window.py:495
+#: tta/ui/tk/main_window.py:503
+msgid "{done}/{total} pairs"
+msgstr "{done}/{total} Paare"
+
+#: tta/ui/tk/grid.py:43
+msgid "{filename} - {label}"
+msgstr "{filename} - {label}"
+
+#: tta/ui/tk/dialogs.py:127
+msgid ""
+"{filename} was removed from the project, but some cached files could not be deleted:\n"
+"{folder}\n"
+"({error})\n"
+"\n"
+"They are never exported. Delete that folder manually to remove them."
+msgstr ""
+"{filename} wurde aus dem Projekt entfernt, aber einige zwischengespeicherte Dateien konnten nicht gelöscht werden:\n"
+"{folder}\n"
+"({error})\n"
+"\n"
+"Sie werden nie exportiert. Löschen Sie diesen Ordner manuell, um sie zu entfernen."
+
+#: tta/ui/tk/grid.py:41
+msgid "{header} (asc)"
+msgstr "{header} (aufst.)"
+
+#: tta/ui/tk/grid.py:42
+msgid "{header} (desc)"
+msgstr "{header} (abst.)"
+
+#: tta/ui/tk/main_window.py:501
+msgid "{head} - {tail}"
+msgstr "{head} - {tail}"
+
+#: tta/core/report.py:643
+msgid "{label}: {count} thesis(es) between {low} and {high}"
+msgstr "{label}: {count} Arbeit(en) zwischen {low} und {high}"
+
+#: tta/core/report.py:493
+msgid "{label}: {words} words, {year}"
+msgstr "{label}: {words} Wörter, {year}"
+
+#: tta/core/report.py:694
+msgid "{language}: {count} thesis(es)"
+msgstr "{language}: {count} Arbeit(en)"
+
+#: tta/core/report.py:656
+msgid "{low} to {high}"
+msgstr "{low} bis {high}"
+
+#: tta/core/report.py:574
+msgid "{name} outlier: {words} words"
+msgstr "{name}, Ausreißer: {words} Wörter"
+
+#: tta/core/report.py:544
+msgid "{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}"
+msgstr "{name}: n={n}, Median {median}, Q1 {q1}, Q3 {q3}"
+
+#: tta/cli/main.py:255
+msgid "{ok} ok | {na} na | {error} err | {missing} todo"
+msgstr "{ok} ok | {na} n/a | {error} Fehler | {missing} offen"
+
+#: tta/cli/main.py:597
+msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
+msgstr "{theses} Arbeiten | {ok} ok | {na} n/a | {error} Fehler | {duration} s"
+
+#: tta/ui/tk/main_window.py:499
+msgid "~{eta} left"
+msgstr "~{eta} übrig"

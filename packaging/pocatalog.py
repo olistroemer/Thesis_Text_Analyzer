@@ -224,8 +224,12 @@ def read_po(text: str, *, origin: str = "<po>") -> Catalog:
             elif line.startswith("#."):
                 comments.append(line[2:].strip())
             elif not seen and catalog.header == "":
-                # free comments above the header entry: the file's own preamble
-                preamble.append(line[1:].strip())
+                # Free comments above the header entry: the file's own
+                # preamble. Exactly one space after the "#" is the separator
+                # the writer adds, so exactly one is removed - anything more is
+                # the author's own indentation and round-trips intact.
+                body = line[1:]
+                preamble.append(body[1:] if body.startswith(" ") else body)
             continue
         field_match = _FIELD_LINE.match(line)
         if field_match:

@@ -10,6 +10,7 @@ an implementation detail.
 import datetime
 import importlib.util
 import pathlib
+import sys
 
 import pytest
 
@@ -31,6 +32,10 @@ def _load_script(path, name):
     """
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
+    # Registered before exec: a dataclass resolves its annotations through
+    # sys.modules[cls.__module__], which is None for a module loaded purely
+    # from a spec.
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
