@@ -25,7 +25,7 @@ Power users can still use `tta export --current-only` from the CLI to produce a 
 - Rows where `theses.excluded = 1`, **and the `theses.excluded` column itself** (#64). With the rows filtered out, the column is constant-zero by construction: no information, and a misleading hint that excluded theses might ship. The filter stays; the column goes.
 - The entire `artefact_files` table (contents = raw text + tokens + full PDF metadata = full PII risk).
 - `module_runs.error_traceback` (may include filesystem paths).
-- `module_runs.notes` (free-form module diagnostics; may contain content-derived values).
+- `module_runs.diagnostics` (free-form module diagnostics; may contain content-derived values).
 - `theses.added_at` is rounded to day to reduce timing fingerprints.
 - `theses.id` is preserved as-is (it's just an integer, no PII).
 - `pdf_sha256` is preserved (PII-free, used as portable cross-export identifier).

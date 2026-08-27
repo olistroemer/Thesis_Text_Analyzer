@@ -406,7 +406,7 @@ class RunContext:
 class RunResult:
     metrics: dict[str, Any] = field(default_factory=dict)
     artefacts: dict[str, Path] = field(default_factory=dict)
-    notes: dict[str, Any] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Applicability:
@@ -427,7 +427,7 @@ class Module(ABC):
 
 `applicable()` covers checks that need only the `Thesis` row (e.g. file extension); data-dependent checks from the applicability matrix ([§7.2](#72-applicability-matrix)) — detected language, minimum text length — happen inside `run()` via `NotApplicable`, since consumed artefact content is not available before execution.
 
-`RunResult.notes` is free-form diagnostic context that is neither a metric nor an artefact (e.g. the stop-word ratio behind an `extraction_quality` verdict). It is persisted as JSON in `module_runs.notes` for local inspection, but — because it may contain content-derived values — it is always stripped from exports ([§8.3.1](#831-anonymisation-rules)).
+`RunResult.diagnostics` is free-form diagnostic context that is neither a metric nor an artefact (e.g. the stop-word ratio behind an `extraction_quality` verdict). It is persisted as JSON in `module_runs.diagnostics` for local inspection, but — because it may contain content-derived values — it is always stripped from exports ([§8.3.1](#831-anonymisation-rules)).
 
 Decisions: [ADR-004](adr/0004-module-contract.md) for the contract, [ADR-005](adr/0005-producer-swap-deferred.md) for producer-swap semantics.
 
@@ -480,8 +480,8 @@ Thirteen modules, thirty-one metrics. See [ADR-011](adr/0011-mvp-module-catalogu
 | 8 | `mod_redundancy` | `tokens` | — | `bigram_repetition_rate`, `trigram_repetition_rate` | stdlib |
 | 9 | `mod_count_images` | — (PDF directly) | — | `n_images` | pypdf |
 | 10 | `mod_extract_pdf_metadata` | — (PDF directly) | `pdf_metadata` | `page_count_meta`, `producer_category`, `creator_category`, `creation_year`, `modification_year`, `has_outline` | pypdf |
-| 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`diploma`/`unspecified`) | title-page keyword heuristic (#9, #67, ADR-0019); evidence in `notes` |
-| 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `notes` |
+| 11 | `mod_classify_thesis_type` | `raw_text` | — | `thesis_type` (text: `bachelor`/`master`/`diploma`/`unspecified`) | title-page keyword heuristic (#9, #67, ADR-0019); evidence in `diagnostics` |
+| 12 | `mod_determine_publication_year` | `raw_text`, `pdf_metadata` | — | `publication_year` (num), `publication_year_source` (text) | fuses in-text title-page year (primary) with PDF `creation_year`/`modification_year` (#17); winning source in the metric, detail in `diagnostics` |
 | 13 | `mod_extract_filesystem_metadata` | — (PDF path directly) | — | `file_size_bytes` (num), `fs_modified_year` (num) | stdlib `os.stat`; run-time file size + mtime year. Weak, easily-reset signals (#18) — see [§7.4](#74-notes-on-specific-modules) |
 
 The third-party libraries named in the *Notes* column are inventoried — name, purpose, version,
@@ -524,15 +524,15 @@ Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf
 
 **`mod_extract_pdf_metadata`** writes the full PDF metadata (including potentially-identifying Author/Title) to a local-only artefact, but stores only a curated set of six safe metrics. Producer and Creator strings are mapped to a small categorical (`latex`/`word`/`openoffice`/…) — the raw strings never reach the DB. Dates are stored to year precision only. Additional PDF-technical fields (encryption flag, form-data flags, etc.) are kept in the local artefact but not promoted to metrics; see §12. See the module's help page for the full rationale.
 
-**`mod_classify_thesis_type`** (#9, [ADR-0019](adr/0019-thesis-type-by-detection.md)) detects the degree from the title page of `raw_text` by a case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English degree terms), producing the single `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`}. `diploma` covers pre-Bologna German theses whose title page says *Diplomarbeit* (#67, ADR-0019 rev. 2); when several degrees are named in the window the **earliest marker wins**. The diploma keyword set deliberately excludes bare `diplom` and `dipl.`, because supervisor titles ("Betreuer: Dipl.-Inform. X") sit inside the same leading window — the same false-positive reasoning as for bare `ma`/`msc`. It replaces the removed add-time type dialog and the dropped `theses.type` column; correction of a detected value is deferred to editable metrics (#10). Garbled or sparse text yields `unspecified`, never `na`, so the metric is always present. Detection evidence (matched keywords) is written to the run's local-only `notes`.
+**`mod_classify_thesis_type`** (#9, [ADR-0019](adr/0019-thesis-type-by-detection.md)) detects the degree from the title page of `raw_text` by a case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English degree terms), producing the single `thesis_type` metric ∈ {`bachelor`, `master`, `diploma`, `unspecified`}. `diploma` covers pre-Bologna German theses whose title page says *Diplomarbeit* (#67, ADR-0019 rev. 2); when several degrees are named in the window the **earliest marker wins**. The diploma keyword set deliberately excludes bare `diplom` and `dipl.`, because supervisor titles ("Betreuer: Dipl.-Inform. X") sit inside the same leading window — the same false-positive reasoning as for bare `ma`/`msc`. It replaces the removed add-time type dialog and the dropped `theses.type` column; correction of a detected value is deferred to editable metrics (#10). Garbled or sparse text yields `unspecified`, never `na`, so the metric is always present. Detection evidence (matched keywords) is written to the run's local-only `diagnostics`.
 
-**`mod_determine_publication_year`** (#17) fuses date signals into a best-estimate `publication_year` for the primary research goal (§2.1). Precedence: (1) the in-text **title-page year** parsed from `raw_text` (most reliable — the submission year printed on the page), then (2) the PDF-metadata **`creation_year`**, then (3) **`modification_year`** (both read from the `pdf_metadata` artefact). The winning signal is recorded in the `publication_year_source` metric (`title_page`/`pdf_creation`/`pdf_modification`/`none`); fusion detail goes in `notes`. When no signal is available the run is still `ok` with `publication_year` NULL and source `none`. Filesystem dates are deliberately **not** fused in: `mod_extract_filesystem_metadata` (#18) surfaces `fs_modified_year` as an independent, clearly-labelled weak signal rather than letting it silently win a precedence slot (see its note below). Both title-page modules share `core/modules/_titlepage.py` so the leading-window extraction and normalisation stay consistent.
+**`mod_determine_publication_year`** (#17) fuses date signals into a best-estimate `publication_year` for the primary research goal (§2.1). Precedence: (1) the in-text **title-page year** parsed from `raw_text` (most reliable — the submission year printed on the page), then (2) the PDF-metadata **`creation_year`**, then (3) **`modification_year`** (both read from the `pdf_metadata` artefact). The winning signal is recorded in the `publication_year_source` metric (`title_page`/`pdf_creation`/`pdf_modification`/`none`); fusion detail goes in `diagnostics`. When no signal is available the run is still `ok` with `publication_year` NULL and source `none`. Filesystem dates are deliberately **not** fused in: `mod_extract_filesystem_metadata` (#18) surfaces `fs_modified_year` as an independent, clearly-labelled weak signal rather than letting it silently win a precedence slot (see its note below). Both title-page modules share `core/modules/_titlepage.py` so the leading-window extraction and normalisation stay consistent.
 
 **`mod_extract_filesystem_metadata`** (#18) is a root module reading the PDF path directly (like `mod_count_images`), via stdlib `os.stat` only. It promotes exactly two metrics: **`file_size_bytes`**, the size observed *at run time* — a second, independent observation of the add-time `theses.pdf_size_bytes` column, so a file swapped between adding and analysing becomes visible — and **`fs_modified_year`**, the mtime reduced to year precision (the same privacy posture as `mod_extract_pdf_metadata`'s dates: no day, no clock time).
 
 **Reliability caveat — these are weak signals, by construction.** Filesystem timestamps describe the *copy of the file on this machine*, not the thesis: copying, downloading, unzipping or syncing resets them, so `fs_modified_year` is at best a very loose upper bound on the submission year. It is therefore surfaced as its own labelled metric and is **not** a precedence step in `mod_determine_publication_year` (#17), which would hide that weakness behind a fused value.
 
-Two timestamps are deliberately **not** promoted. **atime** is worthless: mount options (`noatime`/`relatime`) frequently disable it, and merely analysing the PDF updates it — the metric would partly measure tta itself. **ctime / creation time** is not one fact but two: on Windows it is the creation time, on POSIX the inode-change time, and `st_birthtime` is unavailable on Linux — so the same metric name would carry incomparable meanings across the platforms the app ships on (ADR-0014). The full raw `os.stat` values (all timestamps, at full precision) are kept in the run's local-only `notes` so the discarded signals can still be inspected on the machine that produced them, without becoming exportable metrics.
+Two timestamps are deliberately **not** promoted. **atime** is worthless: mount options (`noatime`/`relatime`) frequently disable it, and merely analysing the PDF updates it — the metric would partly measure tta itself. **ctime / creation time** is not one fact but two: on Windows it is the creation time, on POSIX the inode-change time, and `st_birthtime` is unavailable on Linux — so the same metric name would carry incomparable meanings across the platforms the app ships on (ADR-0014). The full raw `os.stat` values (all timestamps, at full precision) are kept in the run's local-only `diagnostics` so the discarded signals can still be inspected on the machine that produced them, without becoming exportable metrics.
 
 ---
 
@@ -565,7 +565,7 @@ erDiagram
         text pdf_path "PII; local only"
         text pdf_filename "PII; local only"
         int excluded
-        text notes "PII; stripped from export"
+        text diagnostics "PII; stripped from export"
         text tags "PII; stripped from export"
         text added_at "exported at day precision"
     }
@@ -638,7 +638,7 @@ It is bound by exactly the same two rules as the cohort export: **local source o
 | Source table | What ships | What's stripped |
 |---|---|---|
 | `theses` | `id`, `pdf_sha256` (may be NULL for never-run rows), `pdf_size_bytes`, `added_at` (rounded to day) | `pdf_path`, `pdf_filename`, `notes`, `tags`, `excluded` (the **column**, #64 — see below), rows where `excluded=1` (thesis type now ships as the `thesis_type` metric, not a column) |
-| `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `notes` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `notes` |
+| `module_runs` | All columns except `error_traceback` (may contain filesystem paths) and `diagnostics` (free-form diagnostics, may contain content-derived values) | `error_traceback`, `diagnostics` |
 | `metric_values` | All | — |
 | `producer_chains` | n/a (no producer-chain table in MVP) | — |
 | `artefact_files` | — (entire table not exported) | — |
