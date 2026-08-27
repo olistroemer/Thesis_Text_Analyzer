@@ -12,6 +12,9 @@ Bundled data (must survive freezing - verified by the CLI smoke test):
     (mod_readability, via textstat); a runtime hook prepends the parent to
     ``nltk.data.path``.
   * SQL migrations ``tta/core/db/migrations/*.sql`` (schema bootstrap).
+  * Compiled gettext catalogs ``tta/locale/*/LC_MESSAGES/*.mo`` (#28/#29);
+    the build fails if none are present, since a silent English fallback
+    would break the German-first posture without erroring.
   * Help markdown ``tta/core/help/**/*.md`` (CLI ``help`` / ``privacy``).
   * ``THIRD_PARTY_LICENSES.txt`` (ADR-0014, #4) - generated BEFORE this spec
     runs; the build is refused without it, because a --onefile binary
@@ -39,6 +42,7 @@ Run from the repo root:
 """
 
 import os
+import pathlib
 import site
 
 import nltk
@@ -81,6 +85,17 @@ def _root(*parts):
 _punkt_tab = str(nltk.data.find("tokenizers/punkt_tab"))
 _cmudict = str(nltk.data.find("corpora/cmudict"))
 
+# ---- compiled message catalogs (#28, #29) ---------------------------------
+# A binary that silently fell back to English msgids would defeat the
+# German-first posture (SDD 9.6) without failing anything, so the build
+# refuses rather than shipping a UI in the wrong language.
+_catalogs = sorted(pathlib.Path(_root("tta", "locale")).glob("*/LC_MESSAGES/*.mo"))
+if not _catalogs:
+    raise SystemExit(
+        "packaging/tta.spec: no compiled catalogs under tta/locale (SDD 9.6).\n"
+        "  fix: python packaging/pocatalog.py compile\n"
+    )
+
 # ---- third-party licence manifest (ADR-0014, #4) --------------------------
 # A --onefile executable is a redistribution of every library inside it, and
 # the MIT / BSD / Apache-2.0 / PSF licences in the dependency set - plus
@@ -111,6 +126,12 @@ datas = [
      os.path.join("tta", "core", "db", "migrations")),
     (_root("tta", "core", "help"),
      os.path.join("tta", "core", "help")),
+    # Compiled gettext catalogs (#28, #29). Only the .mo files: the .po is
+    # source, and tta.core.i18n resolves the root as a Traversable via
+    # importlib.resources.files("tta") / "locale", so the dest layout below
+    # must mirror the package layout for a frozen build to find them.
+    *[(str(_mo), os.path.join("tta", "locale", _mo.parent.parent.name, "LC_MESSAGES"))
+      for _mo in _catalogs],
     (_licenses, "."),
 ]
 

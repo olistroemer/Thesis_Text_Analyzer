@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from tta.core import artefact_kinds
 from tta.core.modules import _tokens
+from tta.core.i18n import N_
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
 
@@ -37,7 +38,7 @@ class Redundancy(Module):
         bigram = _repetition_rate(sentences, 2)
         trigram = _repetition_rate(sentences, 3)
         if bigram is None:
-            raise NotApplicable("no sentence long enough for bigrams")
+            raise NotApplicable(N_("no sentence long enough for bigrams"))
         return RunResult(
             metrics={
                 "bigram_repetition_rate": bigram,

@@ -782,6 +782,8 @@ Cells outside the IQR range are coloured according to a small palette; the palet
 
 MVP ships **German-first**: the default UI locale is German (`de`), with English still available. All user-facing strings are wrapped in `_(...)` (gettext); the source msgids are English and the `de` catalog is the default translation shipped and selected on first run. The **help corpus** ([ADR-0012](adr/0012-help-content.md)) is authored **German-only** for MVP (it does not exist yet, so it is written directly in German). The **GDPR statement** ([ADR-0009](adr/0009-privacy-as-code.md)) renders in the active locale, German by default, with German legal stubs. Date and number formatting goes through locale-aware helpers. RTL languages are not supported in MVP; layouts use `pack()`/`grid()` so a future RTL pass is mechanical. Additional UI languages, RTL, and a non-German help corpus remain deferred ([§12](#12-out-of-mvp-scope)).
 
+The **mechanism** is [ADR-0020](adr/0020-i18n-mechanism.md): stdlib `gettext`, catalogs committed as both `tta/locale/<lang>/LC_MESSAGES/tta.po` and the compiled `tta.mo`, extraction and compilation by two in-repo scripts under `packaging/` (no `xgettext`/`msgfmt` dependency), and locale resolution `[ui] locale` in `tta.toml` → `TTA_LOCALE` → default `de` — deliberately **never** the OS locale, so a German professor on English-locale Windows still gets a German UI. Metric columns show human-friendly labels through the same catalog (#16); the raw metric name stays visible in the details panel.
+
 *German-first supersedes the project's initial English-only MVP posture (a requirement added before distribution). Tracked by #29 (gettext foundation), #28 (`de` UI catalog), #2 (German help corpus), #6 (German GDPR statement), #16 (German metric labels).*
 
 ## 9.7 Happy path walkthrough
@@ -988,6 +990,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
 | [0018](adr/0018-ascii-source.md) | ASCII-only Python source — non-ASCII string content via `\uXXXX` escapes | Accepted |
 | [0019](adr/0019-thesis-type-by-detection.md) | Thesis type by detection — add-time dialog removed, override columns dropped | Accepted |
+| [0020](adr/0020-i18n-mechanism.md) | i18n mechanism — stdlib gettext, committed `.po`+`.mo` catalogs, no external tools, locale never from the OS | Accepted |
 
 ---
 

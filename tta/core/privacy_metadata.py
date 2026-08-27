@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from enum import Enum
 
 import tta
+from tta.core.i18n import N_, _
 
 
 class Category(str, Enum):
@@ -25,7 +26,12 @@ class Category(str, Enum):
     IDENTIFYING = "identifying"  # paths/filenames/notes - direct PII.
 
 
-RETAIN_PROJECT = "until the user deletes the project folder"
+# Registry prose is English and ASCII (ADR-0018) because the SAME registry
+# feeds `render_report_json()`, a machine-readable artefact whose wording is a
+# contract. N_() marks it; `render_report_md` translates it on the way to the
+# rendered statement, so the GDPR statement follows the active locale
+# (SDD Sec. 9.6) while the JSON stays stable (ADR-0020).
+RETAIN_PROJECT = N_("until the user deletes the project folder")
 
 
 @dataclass(frozen=True)
@@ -60,165 +66,199 @@ def _f(table: str, column: str, category: Category, purpose: str, exported: bool
 
 FIELDS: tuple[Field, ...] = (
     # schema_version
-    _f("schema_version", "version", Category.TECHNICAL, "track applied DB migrations", False),
-    _f("schema_version", "applied_at", Category.TECHNICAL, "track applied DB migrations", False),
+    _f("schema_version", "version", Category.TECHNICAL, N_("track applied DB migrations"), False),
+    _f("schema_version", "applied_at", Category.TECHNICAL, N_("track applied DB migrations"), False),
     # sources
-    _f("sources", "id", Category.TECHNICAL, "key for grouping data by origin", True),
-    _f("sources", "name", Category.TECHNICAL, "label of the data origin (institution-level, not personal)", True),
-    _f("sources", "kind", Category.TECHNICAL, "distinguish own data from imported cohorts", True),
-    _f("sources", "institution", Category.TECHNICAL, "cross-cohort grouping in the merged research DB", True),
-    _f("sources", "app_version", Category.TECHNICAL, "reproducibility: which app produced the data", True),
-    _f("sources", "schema_version", Category.TECHNICAL, "import compatibility check", True),
-    _f("sources", "pipeline_summary", Category.TECHNICAL, "reproducibility: which modules ran", True),
-    _f("sources", "created_at", Category.TECHNICAL, "audit trail", True),
+    _f("sources", "id", Category.TECHNICAL, N_("key for grouping data by origin"), True),
+    _f("sources", "name", Category.TECHNICAL, N_("label of the data origin (institution-level, not personal)"), True),
+    _f("sources", "kind", Category.TECHNICAL, N_("distinguish own data from imported cohorts"), True),
+    _f("sources", "institution", Category.TECHNICAL, N_("cross-cohort grouping in the merged research DB"), True),
+    _f("sources", "app_version", Category.TECHNICAL, N_("reproducibility: which app produced the data"), True),
+    _f("sources", "schema_version", Category.TECHNICAL, N_("import compatibility check"), True),
+    _f("sources", "pipeline_summary", Category.TECHNICAL, N_("reproducibility: which modules ran"), True),
+    _f("sources", "created_at", Category.TECHNICAL, N_("audit trail"), True),
     # theses
-    _f("theses", "id", Category.TECHNICAL, "internal key", True),
-    _f("theses", "source_id", Category.TECHNICAL, "origin of the thesis row", True),
-    _f("theses", "pdf_sha256", Category.CONTENT_HASH, "content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier", True),
-    _f("theses", "pdf_size_bytes", Category.TECHNICAL, "coarse size statistics", True),
-    _f("theses", "pdf_path", Category.IDENTIFYING, "re-open the file locally (may contain user/student names)", False),
-    _f("theses", "pdf_filename", Category.IDENTIFYING, "display label in the grid (may contain student names)", False),
-    _f("theses", "excluded", Category.TECHNICAL, "confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)", False),
-    _f("theses", "notes", Category.IDENTIFYING, "free-form user notes", False),
-    _f("theses", "tags", Category.IDENTIFYING, "free-form user tags", False),
-    _f("theses", "added_at", Category.TECHNICAL, "audit trail (exported at day precision only)", True),
+    _f("theses", "id", Category.TECHNICAL, N_("internal key"), True),
+    _f("theses", "source_id", Category.TECHNICAL, N_("origin of the thesis row"), True),
+    _f("theses", "pdf_sha256", Category.CONTENT_HASH, N_("content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier"), True),
+    _f("theses", "pdf_size_bytes", Category.TECHNICAL, N_("coarse size statistics"), True),
+    _f("theses", "pdf_path", Category.IDENTIFYING, N_("re-open the file locally (may contain user/student names)"), False),
+    _f("theses", "pdf_filename", Category.IDENTIFYING, N_("display label in the grid (may contain student names)"), False),
+    _f("theses", "excluded", Category.TECHNICAL, N_("confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)"), False),
+    _f("theses", "notes", Category.IDENTIFYING, N_("free-form user notes"), False),
+    _f("theses", "tags", Category.IDENTIFYING, N_("free-form user tags"), False),
+    _f("theses", "added_at", Category.TECHNICAL, N_("audit trail (exported at day precision only)"), True),
     # module_runs
-    _f("module_runs", "id", Category.TECHNICAL, "internal key", True),
-    _f("module_runs", "thesis_id", Category.TECHNICAL, "which thesis was analysed", True),
-    _f("module_runs", "module_name", Category.TECHNICAL, "which analysis ran (QA-REPRO)", True),
-    _f("module_runs", "module_version", Category.TECHNICAL, "staleness detection, reproducibility", True),
-    _f("module_runs", "status", Category.TECHNICAL, "ok / not-applicable / error", True),
-    _f("module_runs", "reason", Category.TECHNICAL, "why a run was na or errored (one line, no content)", True),
-    _f("module_runs", "error_traceback", Category.IDENTIFYING, "debugging; may embed filesystem paths", False),
-    _f("module_runs", "notes", Category.CONTENT, "module diagnostics; may contain content-derived values", False),
-    _f("module_runs", "started_at", Category.TECHNICAL, "audit trail, profiling", True),
-    _f("module_runs", "duration_ms", Category.TECHNICAL, "profiling (QA-RES budgets)", True),
+    _f("module_runs", "id", Category.TECHNICAL, N_("internal key"), True),
+    _f("module_runs", "thesis_id", Category.TECHNICAL, N_("which thesis was analysed"), True),
+    _f("module_runs", "module_name", Category.TECHNICAL, N_("which analysis ran (QA-REPRO)"), True),
+    _f("module_runs", "module_version", Category.TECHNICAL, N_("staleness detection, reproducibility"), True),
+    _f("module_runs", "status", Category.TECHNICAL, N_("ok / not-applicable / error"), True),
+    _f("module_runs", "reason", Category.TECHNICAL, N_("why a run was na or errored (one line, no content)"), True),
+    _f("module_runs", "error_traceback", Category.IDENTIFYING, N_("debugging; may embed filesystem paths"), False),
+    _f("module_runs", "notes", Category.CONTENT, N_("module diagnostics; may contain content-derived values"), False),
+    _f("module_runs", "started_at", Category.TECHNICAL, N_("audit trail, profiling"), True),
+    _f("module_runs", "duration_ms", Category.TECHNICAL, N_("profiling (QA-RES budgets)"), True),
     # metric_values
-    _f("metric_values", "run_id", Category.TECHNICAL, "internal key", True),
-    _f("metric_values", "metric_name", Category.TECHNICAL, "which metric", True),
-    _f("metric_values", "value_num", Category.METRIC, "the research signal: numeric metric value", True),
-    _f("metric_values", "value_text", Category.METRIC, "the research signal: categorical metric value", True),
+    _f("metric_values", "run_id", Category.TECHNICAL, N_("internal key"), True),
+    _f("metric_values", "metric_name", Category.TECHNICAL, N_("which metric"), True),
+    _f("metric_values", "value_num", Category.METRIC, N_("the research signal: numeric metric value"), True),
+    _f("metric_values", "value_text", Category.METRIC, N_("the research signal: categorical metric value"), True),
     # artefact_files (table never exported)
-    _f("artefact_files", "thesis_id", Category.TECHNICAL, "internal key", False),
-    _f("artefact_files", "kind", Category.TECHNICAL, "artefact kind of the cached file", False),
-    _f("artefact_files", "relative_path", Category.IDENTIFYING, "locate the cached file in the project folder", False),
-    _f("artefact_files", "run_id", Category.TECHNICAL, "which run produced the cached file", False),
+    _f("artefact_files", "thesis_id", Category.TECHNICAL, N_("internal key"), False),
+    _f("artefact_files", "kind", Category.TECHNICAL, N_("artefact kind of the cached file"), False),
+    _f("artefact_files", "relative_path", Category.IDENTIFYING, N_("locate the cached file in the project folder"), False),
+    _f("artefact_files", "run_id", Category.TECHNICAL, N_("which run produced the cached file"), False),
 )
 
 
 MODULES: tuple[ModuleEntry, ...] = (
     ModuleEntry("mod_extract_pymupdf", (Category.CONTENT,), (Category.CONTENT, Category.METRIC),
-                "extract the plain text from the PDF; count pages and characters"),
+                N_("extract the plain text from the PDF; count pages and characters")),
     ModuleEntry("mod_check_extraction_quality", (Category.CONTENT,), (Category.METRIC,),
-                "flag garbled or sparse text extractions so bad data is visible"),
+                N_("flag garbled or sparse text extractions so bad data is visible")),
     ModuleEntry("mod_classify_language", (Category.CONTENT,), (Category.METRIC,),
-                "detect the thesis language to select language-aware analyses"),
+                N_("detect the thesis language to select language-aware analyses")),
     ModuleEntry("mod_classify_thesis_type", (Category.CONTENT,), (Category.METRIC,),
-                "detect the degree (bachelor/master/diploma) from title-page keywords for grouping"),
+                N_("detect the degree (bachelor/master/diploma) from title-page keywords for grouping")),
     ModuleEntry("mod_tokenize", (Category.CONTENT,), (Category.CONTENT,),
-                "split the text into sentences and words for counting modules"),
+                N_("split the text into sentences and words for counting modules")),
     ModuleEntry("mod_surface_counts", (Category.CONTENT,), (Category.METRIC,),
-                "word/sentence/character counts and length statistics"),
+                N_("word/sentence/character counts and length statistics")),
     ModuleEntry("mod_vocabulary", (Category.CONTENT,), (Category.METRIC,),
-                "vocabulary richness measures (TTR, hapax ratios, Yule's K)"),
+                N_("vocabulary richness measures (TTR, hapax ratios, Yule's K)")),
     ModuleEntry("mod_readability", (Category.CONTENT,), (Category.METRIC,),
-                "Flesch (en) / Amstad (de) reading-ease score"),
+                N_("Flesch (en) / Amstad (de) reading-ease score")),
     ModuleEntry("mod_redundancy", (Category.CONTENT,), (Category.METRIC,),
-                "repeated word-pair/triple rates"),
+                N_("repeated word-pair/triple rates")),
     ModuleEntry("mod_count_images", (Category.CONTENT,), (Category.METRIC,),
-                "count embedded images in the PDF"),
+                N_("count embedded images in the PDF")),
     ModuleEntry("mod_extract_pdf_metadata", (Category.IDENTIFYING,), (Category.IDENTIFYING, Category.METRIC),
-                "read PDF tool metadata; only categorised, year-precision values become metrics"),
+                N_("read PDF tool metadata; only categorised, year-precision values become metrics")),
     ModuleEntry("mod_determine_publication_year", (Category.CONTENT, Category.IDENTIFYING), (Category.METRIC,),
-                "fuse the title-page year and PDF metadata dates into a best-estimate publication year"),
+                N_("fuse the title-page year and PDF metadata dates into a best-estimate publication year")),
     ModuleEntry("mod_extract_filesystem_metadata", (Category.IDENTIFYING,), (Category.METRIC,),
-                "read the file's size and modification year from the filesystem; only the year is kept"),
+                N_("read the file's size and modification year from the filesystem; only the year is kept")),
 )
 
 
 ARTEFACT_KINDS: tuple[ArtefactKindEntry, ...] = (
-    ArtefactKindEntry("raw_text", Category.CONTENT, "full extracted thesis text (UTF-8 file)", False),
-    ArtefactKindEntry("language", Category.METRIC, "detected language code + confidence (JSON)", False),
-    ArtefactKindEntry("tokens", Category.CONTENT, "sentence/word tokenisation of the full text (JSON)", False),
-    ArtefactKindEntry("pdf_metadata", Category.IDENTIFYING, "complete PDF Info dict + XMP, incl. Author/Title (JSON)", False),
+    ArtefactKindEntry("raw_text", Category.CONTENT, N_("full extracted thesis text (UTF-8 file)"), False),
+    ArtefactKindEntry("language", Category.METRIC, N_("detected language code + confidence (JSON)"), False),
+    ArtefactKindEntry("tokens", Category.CONTENT, N_("sentence/word tokenisation of the full text (JSON)"), False),
+    ArtefactKindEntry("pdf_metadata", Category.IDENTIFYING, N_("complete PDF Info dict + XMP, incl. Author/Title (JSON)"), False),
 )
 
 
 # -- report rendering ---------------------------------------------------------
 
 _CATEGORY_LABELS = {
-    Category.TECHNICAL: "Technical bookkeeping (no personal data)",
-    Category.CONTENT_HASH: "Content fingerprints (no personal data recoverable)",
-    Category.METRIC: "Analysis results (aggregated text statistics)",
-    Category.CONTENT: "Document content (kept on this machine only)",
-    Category.IDENTIFYING: "Directly identifying values (kept on this machine only)",
+    Category.TECHNICAL: N_("Technical bookkeeping (no personal data)"),
+    Category.CONTENT_HASH: N_("Content fingerprints (no personal data recoverable)"),
+    Category.METRIC: N_("Analysis results (aggregated text statistics)"),
+    Category.CONTENT: N_("Document content (kept on this machine only)"),
+    Category.IDENTIFYING: N_(
+        "Directly identifying values (kept on this machine only)"
+    ),
 }
 
 
 def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
-    """Sections 1-5 are generated from the registry; 6-7 are reviewed stubs."""
+    """Sections 1-5 are generated from the registry; 6-7 are reviewed stubs.
+
+    Rendered in the active locale, German by default (SDD Sec. 9.6). The
+    registry itself stays English - it is also the source of
+    ``render_report_json``, which is a machine contract - so every piece of
+    prose is translated here, at render time (ADR-0020). The generated
+    timestamp stays ISO 8601: it is an audit value, not display text.
+    """
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     lines = [
-        "# Privacy statement - Thesis Text Analyzer",
+        "# " + _("Privacy statement - Thesis Text Analyzer"),
         "",
-        f"*Generated {now} by tta {tta.__version__} from `core/privacy_metadata.py`.*",
+        "*"
+        + _("Generated {now} by tta {version} from `core/privacy_metadata.py`.").format(
+            now=now, version=tta.__version__
+        )
+        + "*",
         "",
-        "## 1. What we process",
+        "## " + _("1. What we process"),
         "",
     ]
     for category in Category:
         fields = [f for f in FIELDS if f.category is category]
         if not fields:
             continue
-        lines.append(f"### {_CATEGORY_LABELS[category]}")
+        lines.append("### " + _(_CATEGORY_LABELS[category]))
         lines.append("")
-        lines.append("| Stored value | Purpose | Leaves your machine on export |")
+        lines.append(
+            "| %s | %s | %s |"
+            % (
+                _("Stored value"),
+                _("Purpose"),
+                _("Leaves your machine on export"),
+            )
+        )
         lines.append("|---|---|---|")
+        yes, no = _("yes"), _("no")
         for f in fields:
-            lines.append(f"| `{f.table}.{f.column}` | {f.purpose} | {'yes' if f.exported else 'no'} |")
+            lines.append(
+                f"| `{f.table}.{f.column}` | {_(f.purpose)} | {yes if f.exported else no} |"
+            )
         lines.append("")
 
-    lines += ["## 2. Module-level processing", "", "| Module | Reads | Produces | Purpose |", "|---|---|---|---|"]
+    lines += [
+        "## " + _("2. Module-level processing"),
+        "",
+        "| %s | %s | %s | %s |"
+        % (_("Module"), _("Reads"), _("Produces"), _("Purpose")),
+        "|---|---|---|---|",
+    ]
     for m in MODULES:
         reads = ", ".join(c.value for c in m.reads_categories)
         writes = ", ".join(c.value for c in m.writes_categories)
-        lines.append(f"| `{m.name}` | {reads} | {writes} | {m.purpose} |")
+        lines.append(f"| `{m.name}` | {reads} | {writes} | {_(m.purpose)} |")
 
     lines += [
         "",
-        "## 3. Cached files (never exported)",
+        "## " + _("3. Cached files (never exported)"),
         "",
-        "| Kind | Category | Description |",
+        "| %s | %s | %s |" % (_("Kind"), _("Category"), _("Description")),
         "|---|---|---|",
     ]
     for k in ARTEFACT_KINDS:
-        lines.append(f"| `{k.kind}` | {k.category.value} | {k.description} |")
+        lines.append(f"| `{k.kind}` | {k.category.value} | {_(k.description)} |")
 
     lines += [
         "",
-        "## 4. Storage and retention",
+        "## " + _("4. Storage and retention"),
         "",
-        f"All data lives in the project folder on this machine and is retained {RETAIN_PROJECT}. "
-        "The application is fully offline: it makes no network connections of any kind.",
+        _(
+            "All data lives in the project folder on this machine and is retained "
+            "{retention}. The application is fully offline: it makes no network "
+            "connections of any kind."
+        ).format(retention=_(RETAIN_PROJECT)),
         "",
-        "## 5. What leaves your machine",
+        "## " + _("5. What leaves your machine"),
         "",
-        "Only when you explicitly export, and only the following values:",
+        _("Only when you explicitly export, and only the following values:"),
         "",
     ]
     for f in FIELDS:
         if f.exported:
-            lines.append(f"- `{f.table}.{f.column}` - {f.purpose}")
+            lines.append(f"- `{f.table}.{f.column}` - {_(f.purpose)}")
     lines += [
         "",
-        "Excluded theses, file paths and names, free-form notes and tags, raw text, "
-        "tokenisations, full PDF metadata, error tracebacks, and module diagnostics "
-        "never leave this machine.",
+        _(
+            "Excluded theses, file paths and names, free-form notes and tags, raw "
+            "text, tokenisations, full PDF metadata, error tracebacks, and module "
+            "diagnostics never leave this machine."
+        ),
     ]
     if rights_stub:
-        lines += ["", "## 6. Your rights under GDPR", "", rights_stub.strip()]
+        lines += ["", "## " + _("6. Your rights under GDPR"), "", rights_stub.strip()]
     if controller_stub:
-        lines += ["", "## 7. Controller contact", "", controller_stub.strip()]
+        lines += ["", "## " + _("7. Controller contact"), "", controller_stub.strip()]
     lines.append("")
     return "\n".join(lines)
 

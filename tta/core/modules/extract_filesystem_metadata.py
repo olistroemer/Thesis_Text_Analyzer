@@ -37,6 +37,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from tta.core.i18n import N_
 from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from tta.core.types import Thesis
 
@@ -61,7 +62,7 @@ class ExtractFilesystemMetadata(Module):
         # Only needs the Thesis row, so it belongs here rather than in run()
         # (base.py). The path is PII and never leaves the reason string.
         if not Path(thesis.pdf_path).exists():
-            return Applicability(ok=False, reason="file not found")
+            return Applicability(ok=False, reason=N_("file not found"))
         return Applicability(ok=True)
 
     def run(self, ctx: RunContext) -> RunResult:

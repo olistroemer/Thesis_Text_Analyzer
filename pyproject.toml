@@ -53,6 +53,7 @@ include = ["tta*"]
 [tool.setuptools.package-data]
 "tta.core.db" = ["migrations/*.sql"]
 "tta.core" = ["help/**/*.md"]
+"tta" = ["locale/*/LC_MESSAGES/*.mo", "locale/*.pot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -33,6 +33,7 @@ from typing import Any
 
 import tta
 from tta.core.config import CONFIG_FILENAME, load_config
+from tta.core.i18n import _
 from tta.core.modules.registry import default_registry
 
 DB_FILENAME = "tta.sqlite"  # duplicated from core.project to keep this import-light
@@ -146,8 +147,11 @@ def _probe_nltk() -> list[Check]:
                 Check(
                     name,
                     FAIL,
-                    f"punkt_tab model for {language} not found - release builds bundle "
-                    f"it (ADR-0014); from source run 'python -m nltk.downloader punkt_tab'",
+                    _(
+                        "punkt_tab model for {language} not found - release builds "
+                        "bundle it (ADR-0014); from source run "
+                        "'python -m nltk.downloader punkt_tab'"
+                    ).format(language=language),
                 )
             )
         except Exception as exc:  # pragma: no cover - defensive
@@ -200,8 +204,10 @@ def _inspect_database(db_path: Path) -> tuple[dict[str, Any], list[Check]]:
             Check(
                 "database",
                 WARN,
-                f"no project at {db_path.parent} ({DB_FILENAME} missing) - "
-                f"run 'tta db init' first",
+                _(
+                    "no project at {folder} ({filename} missing) - "
+                    "run 'tta db init' first"
+                ).format(folder=db_path.parent, filename=DB_FILENAME),
             )
         ]
     info["size_bytes"] = db_path.stat().st_size
@@ -221,7 +227,13 @@ def _inspect_database(db_path: Path) -> tuple[dict[str, Any], list[Check]]:
         pending = sorted(set(shipped) - set(applied))
         if pending:
             checks.append(
-                Check("schema_version", WARN, f"pending migrations {pending} - run 'tta db migrate'")
+                Check(
+                    "schema_version",
+                    WARN,
+                    _("pending migrations {versions} - run 'tta db migrate'").format(
+                        versions=pending
+                    ),
+                )
             )
         else:
             checks.append(Check("schema_version", OK, f"schema at {info['schema_version']}"))

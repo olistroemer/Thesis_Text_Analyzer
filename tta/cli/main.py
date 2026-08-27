@@ -26,10 +26,13 @@ from rich.table import Table
 
 import tta
 from tta.core import events
+from tta.core import i18n
 from tta.core import privacy_metadata
+from tta.core.config import load_config
 from tta.core.db import migrator
 from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database, export_profiling
+from tta.core.i18n import _
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
 from tta.core.project import DB_FILENAME, Project
@@ -48,18 +51,37 @@ class DataError(click.ClickException):
     exit_code = 65  # sysexits EX_DATAERR
 
 
-@click.group(name="tta")
+# ---- user-facing command help (ADR-0020) ---------------------------------
+# Every command carries an explicit `help=_(...)` (and `short_help=_(...)`
+# where the one-line form in the command list should differ). Click prefers
+# it over the function docstring, which is what makes this translatable at
+# all: a docstring is a bare literal, cannot be wrapped in `_()`, and ADR-0018
+# forbids the German from living in a *.py file anyway. It also separates the
+# two audiences - the docstrings below keep the issue and ADR cross-references
+# for developers, and the strings here are what a professor reads, with no
+# "#42" or "ADR-0007" in them.
+
+
+@click.group(name="tta", help=_(
+    "Thesis Text Analyzer: measure the text metrics of student theses and "
+    "compare them across a whole cohort."
+))
 @click.option(
     "--project",
     "-C",
     "project_dir",
     type=click.Path(file_okay=False, path_type=Path),
     default=".",
-    help="Project directory (default: current directory).",
+    help=_("Project directory (default: current directory)."),
 )
 @click.pass_context
 def cli(ctx: click.Context, project_dir: Path) -> None:
     """Thesis Text Analyzer."""
+    # SDD Sec. 9.6 / ADR-0020: [ui] locale in the project's tta.toml, else
+    # TTA_LOCALE, else German. load_config tolerates a missing file, so this
+    # also works before `tta db init`. Option --help text is the one thing
+    # this cannot reach: click resolved it when this module was imported.
+    i18n.install(config_locale=load_config(project_dir).ui_locale)
     ctx.obj = project_dir
 
 
@@ -73,7 +95,9 @@ def open_project(ctx: click.Context, create: bool = False) -> Project:
 # -- version -------------------------------------------------------------
 
 
-@cli.command()
+@cli.command(help=_(
+    "Show the application version and the version of every analysis module."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 def version(fmt: str) -> None:
     """App version + module versions (QA-REPRO)."""
@@ -92,7 +116,17 @@ def version(fmt: str) -> None:
 _STATUS_GLYPH = {"ok": "[ok]", "warn": "[!]", "fail": "[x]"}
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Collect diagnostics for a support request."),
+    help=_(
+        "Collect diagnostics for a support request: versions, the state of the "
+        "project, and an offline self-check of the analysis libraries.\n"
+        "\n"
+        "Nothing is changed - the database is opened read-only and no migration "
+        "is applied. The command exits with a non-zero status if any check "
+        "fails, so it can be used in a script."
+    ),
+)
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
 def doctor(ctx: click.Context, fmt: str) -> None:
@@ -136,58 +170,72 @@ def doctor(ctx: click.Context, fmt: str) -> None:
         line(f"  modules {len(diag.modules)} registered")
         for name, mod_version in diag.modules.items():
             line(f"    {name} {mod_version}")
-        line("checks:")
+        line(_("checks:"))
         for check in diag.checks:
             glyph = _STATUS_GLYPH.get(check.status, check.status)
             line(f"  {glyph} {check.name}: {check.detail}")
-        line(f"overall: {diag.status}")
+        line(_("overall: {status}").format(status=diag.status))
     if diag.failed:
         names = ", ".join(c.name for c in diag.failed)
-        stderr.print(f"failing checks: {names}")
+        stderr.print(_("failing checks: {names}").format(names=names))
         ctx.exit(EX_PARTIAL)
 
 
 # -- db ------------------------------------------------------------------
 
 
-@cli.group()
+@cli.group(help=_("Create, migrate or compact the project database."))
 def db() -> None:
     """Initialise / migrate / vacuum the project database."""
 
 
-@db.command("init")
+@db.command("init", help=_(
+    "Create the project in the --project directory, or migrate an existing one."
+))
 @click.pass_context
 def db_init(ctx: click.Context) -> None:
     """Create (or migrate) the project in --project."""
     with open_project(ctx, create=True) as project:
-        stdout.print(f"project ready at {project.dir.resolve() / DB_FILENAME}")
+        stdout.print(
+            _("project ready at {path}").format(path=project.dir.resolve() / DB_FILENAME)
+        )
 
 
-@db.command("migrate")
+@db.command("migrate", help=_(
+    "Apply any pending schema migrations, after taking a safety backup."
+))
 @click.pass_context
 def db_migrate(ctx: click.Context) -> None:
     """Apply pending schema migrations (with defensive backup)."""
     project_dir: Path = ctx.obj
     db_path = project_dir / DB_FILENAME
     if not db_path.exists():
-        raise DataError(f"no project at {project_dir} - run `tta db init` first")
+        raise DataError(
+            _("no project at {path} - run `tta db init` first").format(path=project_dir)
+        )
     applied = migrator.migrate(db_path)
-    stdout.print(f"applied migrations: {applied}" if applied else "schema is up to date")
+    stdout.print(
+        _("applied migrations: {versions}").format(versions=applied)
+        if applied
+        else _("schema is up to date")
+    )
 
 
-@db.command("vacuum")
+@db.command("vacuum", help=_("Compact the project database file."))
 @click.pass_context
 def db_vacuum(ctx: click.Context) -> None:
     """Compact the database file."""
     with open_project(ctx) as project:
         project.repo.conn.execute("VACUUM")
-    stdout.print("vacuumed")
+    stdout.print(_("vacuumed"))
 
 
 # -- list ------------------------------------------------------------------
 
 
-@cli.command("list")
+@cli.command("list", help=_(
+    "List the known theses with the status of their analysis."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json", "csv"]), default="human")
 @click.pass_context
 def list_theses(ctx: click.Context, fmt: str) -> None:
@@ -206,7 +254,7 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
         rows = []
         for thesis in theses:
             counts = {"ok": 0, "na": 0, "error": 0}
-            for (thesis_id, _), run in latest.items():
+            for (thesis_id, _module), run in latest.items():
                 if thesis_id == thesis.id:
                     counts[run["status"]] += 1
             rows.append(
@@ -228,14 +276,20 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
         writer.writeheader()
         writer.writerows(rows)
     else:
-        table = Table(title=f"{len(rows)} theses")
-        for column in ("id", "filename", "type", "status", "excluded"):
+        table = Table(title=_("{count} theses").format(count=len(rows)))
+        # Column headers are display text; the JSON/CSV field names above are
+        # the machine contract and stay English (ADR-0020).
+        for column in (
+            _("id"), _("filename"), _("type"), _("status"), _("excluded")
+        ):
             table.add_column(column)
         for row in rows:
-            status = f"{row['ok']} ok | {row['na']} na | {row['error']} err | {row['missing']} todo"
+            status = _("{ok} ok | {na} na | {error} err | {missing} todo").format(
+                ok=row["ok"], na=row["na"], error=row["error"], missing=row["missing"]
+            )
             table.add_row(
                 str(row["id"]), row["filename"], row["type"], status,
-                "yes" if row["excluded"] else "",
+                _("yes") if row["excluded"] else "",
             )
         stdout.print(table)
 
@@ -243,9 +297,24 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
 # -- exclude / include -------------------------------------------------------
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Exclude a thesis from analysis and exports."),
+    help=_(
+        "Exclude the thesis THESIS_ID from analysis and from exports.\n"
+        "\n"
+        "This is the command-line form of the Excluded checkbox in the window. "
+        "If the thesis has already been analysed, its cached analysis is "
+        "deleted from this machine: the extracted text, the tokens and the PDF "
+        "metadata, together with its metric values and its run history. That "
+        "cannot be undone. The source PDF is never touched. Excluding a thesis "
+        "before it is analysed simply prevents any analysis from being cached."
+    ),
+)
 @click.argument("thesis_id", type=int)
-@click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt (for scripts).")
+@click.option(
+    "--yes", "-y", is_flag=True,
+    help=_("Skip the confirmation prompt (for scripts)."),
+)
 @click.pass_context
 def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
     """Exclude thesis THESIS_ID from analysis and exports (US-PROF-EXCLUDE).
@@ -269,13 +338,15 @@ def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
         )
         if has_analysis and not yes:
             confirmed = click.confirm(
-                f"Exclude thesis {thesis_id} and permanently delete its cached "
-                "analysis from this machine (artefacts, metrics, run history)? "
-                "This is destructive and cannot be undone. The source PDF is "
-                "not touched.",
+                _(
+                    "Exclude thesis {thesis_id} and permanently delete its cached "
+                    "analysis from this machine (artefacts, metrics, run history)? "
+                    "This is destructive and cannot be undone. The source PDF is "
+                    "not touched."
+                ).format(thesis_id=thesis_id),
             )
             if not confirmed:
-                stdout.print("aborted; no changes made")
+                stdout.print(_("aborted; no changes made"))
                 return
         project.repo.set_excluded(thesis_id, True)
         scrub_error: OSError | None = None
@@ -286,22 +357,38 @@ def exclude(ctx: click.Context, thesis_id: int, yes: bool) -> None:
                 scrub_error = exc
         artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
     if not has_analysis:
-        stdout.print(f"excluded thesis {thesis_id}")
+        stdout.print(_("excluded thesis {thesis_id}").format(thesis_id=thesis_id))
     elif scrub_error is None:
-        stdout.print(f"excluded thesis {thesis_id}; cached analysis scrubbed")
+        stdout.print(
+            _("excluded thesis {thesis_id}; cached analysis scrubbed").format(
+                thesis_id=thesis_id
+            )
+        )
     else:
         # DB analysis removed, but the local files could not be fully deleted;
         # they never leave the machine (ADR-0007) - warn rather than claim a
         # clean scrub, and exit partial so scripts notice (#11 review).
         stderr.print(
-            f"excluded thesis {thesis_id}; analysis records removed, but some "
-            f"cached files could not be deleted: {artefacts_dir} ({scrub_error}). "
-            "They are never exported; delete that folder manually to remove them."
+            _(
+                "excluded thesis {thesis_id}; analysis records removed, but some "
+                "cached files could not be deleted: {folder} ({error}). "
+                "They are never exported; delete that folder manually to remove "
+                "them."
+            ).format(thesis_id=thesis_id, folder=artefacts_dir, error=scrub_error)
         )
         ctx.exit(EX_PARTIAL)
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Re-include a previously excluded thesis."),
+    help=_(
+        "Re-include a previously excluded thesis, clearing its excluded flag."
+        "\n\n"
+        "The thesis becomes eligible again and is analysed on the next run. "
+        "Analysis that was deleted when it was excluded is not restored; run "
+        "the analysis again to recompute it."
+    ),
+)
 @click.argument("thesis_id", type=int)
 @click.pass_context
 def include(ctx: click.Context, thesis_id: int) -> None:
@@ -317,12 +404,28 @@ def include(ctx: click.Context, thesis_id: int) -> None:
         except KeyError as exc:
             raise DataError(str(exc)) from exc
         project.repo.set_excluded(thesis_id, False)
-    stdout.print(f"included thesis {thesis_id}")
+    stdout.print(_("included thesis {thesis_id}").format(thesis_id=thesis_id))
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Remove a thesis from the project entirely."),
+    help=_(
+        "Remove the thesis THESIS_ID from the project entirely.\n"
+        "\n"
+        "The stronger form of `exclude`, for a PDF that was added by mistake. "
+        "Excluding keeps the thesis on record, so its identity is remembered "
+        "and it is never silently analysed again; removing deletes the record "
+        "as well, so the same PDF can afterwards be added again as a new "
+        "thesis. Its cached analysis goes with it. This cannot be undone: "
+        "nothing restores it, and there is no record left to re-include. The "
+        "source PDF is never touched."
+    ),
+)
 @click.argument("thesis_id", type=int)
-@click.option("--yes", "-y", is_flag=True, help="Skip the confirmation prompt (for scripts).")
+@click.option(
+    "--yes", "-y", is_flag=True,
+    help=_("Skip the confirmation prompt (for scripts)."),
+)
 @click.pass_context
 def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
     """Remove thesis THESIS_ID from the project entirely (#63).
@@ -342,14 +445,16 @@ def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
             raise DataError(str(exc)) from exc
         if not yes:
             confirmed = click.confirm(
-                f"Remove thesis {thesis_id} ({thesis.pdf_filename}) from the project "
-                "and permanently delete its cached analysis from this machine "
-                "(artefacts, metrics, run history)? The thesis is forgotten "
-                "entirely - this cannot be undone, and the source PDF is not "
-                "touched.",
+                _(
+                    "Remove thesis {thesis_id} ({filename}) from the project and "
+                    "permanently delete its cached analysis from this machine "
+                    "(artefacts, metrics, run history)? The thesis is forgotten "
+                    "entirely - this cannot be undone, and the source PDF is not "
+                    "touched."
+                ).format(thesis_id=thesis_id, filename=thesis.pdf_filename),
             )
             if not confirmed:
-                stdout.print("aborted; no changes made")
+                stdout.print(_("aborted; no changes made"))
                 return
         remove_error: OSError | None = None
         try:
@@ -358,15 +463,18 @@ def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
             remove_error = exc
         artefacts_dir = project.store.resolve(f"artefacts/{thesis_id}")
     if remove_error is None:
-        stdout.print(f"removed thesis {thesis_id}")
+        stdout.print(_("removed thesis {thesis_id}").format(thesis_id=thesis_id))
     else:
         # The rows are gone (DB-first ordering) but the local files are not;
         # they never leave the machine (ADR-0007) - warn rather than claim a
         # clean removal, and exit partial so scripts notice.
         stderr.print(
-            f"removed thesis {thesis_id}; database rows deleted, but some cached "
-            f"files could not be deleted: {artefacts_dir} ({remove_error}). "
-            "They are never exported; delete that folder manually to remove them."
+            _(
+                "removed thesis {thesis_id}; database rows deleted, but some cached "
+                "files could not be deleted: {folder} ({error}). "
+                "They are never exported; delete that folder manually to remove "
+                "them."
+            ).format(thesis_id=thesis_id, folder=artefacts_dir, error=remove_error)
         )
         ctx.exit(EX_PARTIAL)
 
@@ -374,12 +482,14 @@ def remove(ctx: click.Context, thesis_id: int, yes: bool) -> None:
 # -- module ----------------------------------------------------------------
 
 
-@cli.group()
+@cli.group(help=_("Inspect the catalogue of analysis modules."))
 def module() -> None:
     """List module details (the analysis catalogue)."""
 
 
-@module.command("list")
+@module.command("list", help=_(
+    "List every registered module, in the order in which it runs."
+))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 def module_list(fmt: str) -> None:
     """All registered modules in execution order."""
@@ -401,8 +511,8 @@ def module_list(fmt: str) -> None:
             )
         )
         return
-    table = Table(title="module catalogue")
-    for column in ("module", "version", "consumes", "produces"):
+    table = Table(title=_("module catalogue"))
+    for column in (_("module"), _("version"), _("consumes"), _("produces")):
         table.add_column(column)
     for s in specs:
         produces = list(s.produces_artefacts) + list(s.produces_metrics)
@@ -410,7 +520,9 @@ def module_list(fmt: str) -> None:
     stdout.print(table)
 
 
-@module.command("show")
+@module.command("show", help=_(
+    "Show what one module reads and what it produces."
+))
 @click.argument("name")
 def module_show(name: str) -> None:
     """Spec details for one module."""
@@ -423,9 +535,17 @@ def module_show(name: str) -> None:
     doc = (type(mod).__module__ and sys.modules[type(mod).__module__].__doc__) or ""
     if doc:
         stdout.print(doc.strip().split("\n\n")[0])
-    stdout.print(f"consumes:  {', '.join(s.consumes) or '- (reads the PDF directly)'}")
-    stdout.print(f"artefacts: {', '.join(s.produces_artefacts) or '-'}")
-    stdout.print(f"metrics:   {', '.join(s.produces_metrics) or '-'}")
+    stdout.print(
+        _("consumes:  {value}").format(
+            value=", ".join(s.consumes) or _("- (reads the PDF directly)")
+        )
+    )
+    stdout.print(
+        _("artefacts: {value}").format(value=", ".join(s.produces_artefacts) or "-")
+    )
+    stdout.print(
+        _("metrics:   {value}").format(value=", ".join(s.produces_metrics) or "-")
+    )
 
 
 # -- run ---------------------------------------------------------------------
@@ -441,16 +561,27 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
     return collect_pdfs(inputs)
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Add PDF files or folders and analyse them."),
+    help=_(
+        "Add INPUTS (PDF files or folders) and analyse them.\n"
+        "\n"
+        "Without INPUTS, every thesis already in the project is analysed. By "
+        "default only what is missing, out of date or previously failed is "
+        "computed; --rerun computes everything again. The type of a thesis is "
+        "detected during the analysis, not entered when the file is added."
+    ),
+)
 @click.argument("inputs", nargs=-1, type=click.Path(exists=True, path_type=Path))
 @click.option("--module", "-m", "modules", multiple=True,
-              help="Restrict to specific modules (repeatable; US-PROF-SELECT).")
-@click.option("--rerun", is_flag=True, help="Re-run everything regardless of state.")
-@click.option("--dry-run", is_flag=True, help="Print the plan without executing.")
-@click.option("--workers", type=int, default=None, help="Concurrent theses (default: cores - 1).")
+              help=_("Restrict to specific modules (repeatable; US-PROF-SELECT)."))
+@click.option("--rerun", is_flag=True, help=_("Re-run everything regardless of state."))
+@click.option("--dry-run", is_flag=True, help=_("Print the plan without executing."))
+@click.option("--workers", type=int, default=None,
+              help=_("Concurrent theses (default: cores - 1)."))
 @click.option("--open-report", is_flag=True,
-              help="Write the HTML report and open it in a browser when the run "
-                   "finishes (off by default; Sec. 9.8.3, #70).")
+              help=_("Write the HTML report and open it in a browser when the run "
+                     "finishes (off by default; Sec. 9.8.3, #70)."))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
 def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None:
@@ -466,7 +597,11 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
             # one batched transaction for the whole INPUTS set, and one summary
             # line instead of one per file (#61, SDD Sec. 8.1)
             added = project.repo.add_theses(pdfs)
-            stderr.print(f"added {len(added)} theses from {len(inputs)} input path(s)")
+            stderr.print(
+                _("added {count} theses from {paths} input path(s)").format(
+                    count=len(added), paths=len(inputs)
+                )
+            )
 
         bus = events.EventBus()
         bus.subscribe(
@@ -489,7 +624,11 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
         if dry_run:
             for line in plan.describe():
                 click.echo(line)
-            click.echo(f"{plan.pair_count} (thesis x module) pairs planned")
+            click.echo(
+                _("{count} (thesis x module) pairs planned").format(
+                    count=plan.pair_count
+                )
+            )
             return
 
         # Ctrl-C is skip-pending cancellation (ADR-0013): the handler tells
@@ -499,7 +638,9 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
         # the CLI executes (the GUI, running execute() off-thread, uses a
         # Cancel button instead).
         def _on_sigint(signum, frame) -> None:
-            stderr.print("cancelling - finishing in-flight theses (Ctrl-C again to force)...")
+            stderr.print(
+                _("cancelling - finishing in-flight theses (Ctrl-C again to force)...")
+            )
             runner.cancel()
 
         previous_handler = signal.getsignal(signal.SIGINT)
@@ -531,13 +672,22 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
     if fmt == "json":
         click.echo(json.dumps(payload, indent=2))
     else:
-        cancelled_note = " | cancelled" if summary.cancelled else ""
+        cancelled_note = _(" | cancelled") if summary.cancelled else ""
         stdout.print(
-            f"{summary.theses_completed} theses | {summary.ok} ok | "
-            f"{summary.na} na | {summary.error} errors | {payload['duration_s']} s{cancelled_note}"
+            _(
+                "{theses} theses | {ok} ok | {na} na | {error} errors | "
+                "{duration} s"
+            ).format(
+                theses=summary.theses_completed,
+                ok=summary.ok,
+                na=summary.na,
+                error=summary.error,
+                duration=payload["duration_s"],
+            )
+            + cancelled_note
         )
     if report_path is not None:
-        stderr.print(f"report written to {report_path}")
+        stderr.print(_("report written to {path}").format(path=report_path))
         webbrowser.open(report_path.as_uri())
     if summary.error or summary.cancelled:
         ctx.exit(EX_PARTIAL)
@@ -546,12 +696,24 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
 # -- export / import -----------------------------------------------------------
 
 
-@cli.command()
+@cli.command(
+    short_help=_("Write the researcher export, free of personal data."),
+    help=_(
+        "Write the researcher export: an SQLite file holding the metric values "
+        "and no personal data.\n"
+        "\n"
+        "With --profiling, the flat per-run timing dataset is written instead: "
+        "one CSV row per module run, with its duration and the size of the PDF "
+        "it was measured on. Both obey the same rules - only data produced on "
+        "this machine, and no identifying column."
+    ),
+)
 @click.argument("out", required=False, type=click.Path(path_type=Path))
 @click.option("--current-only", is_flag=True,
-              help="Trim history to the latest run per (thesis, module).")
+              help=_("Trim history to the latest run per (thesis, module)."))
 @click.option("--profiling", is_flag=True,
-              help="Dump per-run durations as CSV instead of the cohort export (QA-RES).")
+              help=_("Dump per-run durations as CSV instead of the cohort export "
+                     "(QA-RES)."))
 @click.pass_context
 def export(
     ctx: click.Context, out: Path | None, current_only: bool, profiling: bool
@@ -582,20 +744,37 @@ def export(
             raise DataError(str(exc)) from exc
     if profiling:
         stdout.print(
-            f"exported {profile_stats.rows} module runs across "
-            f"{profile_stats.modules} modules ({profile_stats.policy.value}) "
-            f"-> {profile_stats.path}"
+            _(
+                "exported {rows} module runs across {modules} modules "
+                "({policy}) -> {path}"
+            ).format(
+                rows=profile_stats.rows,
+                modules=profile_stats.modules,
+                policy=profile_stats.policy.value,
+                path=profile_stats.path,
+            )
         )
     else:
         stdout.print(
-            f"exported {stats.theses} theses, {stats.runs} runs, "
-            f"{stats.metrics} metric values ({stats.policy.value}) -> {stats.path}"
+            _(
+                "exported {theses} theses, {runs} runs, {metrics} metric values "
+                "({policy}) -> {path}"
+            ).format(
+                theses=stats.theses,
+                runs=stats.runs,
+                metrics=stats.metrics,
+                policy=stats.policy.value,
+                path=stats.path,
+            )
         )
 
 
-@cli.command("import")
+@cli.command("import", help=_(
+    "Import another installation's export as a new, read-only source."
+))
 @click.argument("export_file", type=click.Path(exists=True, path_type=Path))
-@click.option("--name", required=True, help='Source label, e.g. "FH Wedel CS 2026".')
+@click.option("--name", required=True,
+              help=_('Source label, e.g. "FH Wedel CS 2026".'))
 @click.pass_context
 def import_(ctx: click.Context, export_file: Path, name: str) -> None:
     """Import a professor's export as a new read-only source (Sec. 8.3.2)."""
@@ -605,8 +784,16 @@ def import_(ctx: click.Context, export_file: Path, name: str) -> None:
         except ImportError_ as exc:
             raise DataError(str(exc)) from exc
     stdout.print(
-        f"imported source {stats.source_id} ({stats.name!r}): "
-        f"{stats.theses} theses, {stats.runs} runs, {stats.metrics} metric values"
+        _(
+            "imported source {source_id} ({name}): {theses} theses, {runs} runs, "
+            "{metrics} metric values"
+        ).format(
+            source_id=stats.source_id,
+            name=repr(stats.name),
+            theses=stats.theses,
+            runs=stats.runs,
+            metrics=stats.metrics,
+        )
     )
 
 
@@ -621,12 +808,16 @@ def _load_stub(filename: str) -> str:
     return _HTML_COMMENT.sub("", text).strip()
 
 
-@cli.group()
+@cli.group(help=_("Render the data-protection statement."))
 def privacy() -> None:
     """Render the GDPR privacy statement (ADR-0009)."""
 
 
-@privacy.command("report")
+@privacy.command("report", help=_(
+    "Render the data-protection statement. It is generated from the privacy "
+    "registry in the code and is never hand-written, so it cannot fall behind "
+    "what the application actually stores."
+))
 @click.option("--format", "fmt", type=click.Choice(["md", "json"]), default="md")
 def privacy_report(fmt: str) -> None:
     """Generated from core/privacy_metadata.py - never hand-edited."""
@@ -652,9 +843,22 @@ def _write_report(out: Path, project: Project) -> Path:
     return out
 
 
-@cli.command("report")
+@cli.command(
+    "report",
+    short_help=_("Write the stand-alone HTML report for the cohort."),
+    help=_(
+        "Write the stand-alone HTML report over the whole cohort.\n"
+        "\n"
+        "One self-contained file: every style rule and every chart is inline, "
+        "it makes no request to the network, and it contains no file names, "
+        "paths, notes or document text. The file is written, not opened - a "
+        "command-line tool must not start a browser unasked. Use "
+        "`tta run --open-report` to have it opened."
+    ),
+)
 @click.option("--out", type=click.Path(path_type=Path), default=None,
-              help="Where to write it (default: <project>/reports/report-<date>.html).")
+              help=_("Where to write it (default: "
+                     "<project>/reports/report-<date>.html)."))
 @click.pass_context
 def write_report(ctx: click.Context, out: Path | None) -> None:
     """Write the stand-alone HTML cohort report (Sec. 9.8, ADR-0016 rev. 2).
@@ -667,13 +871,17 @@ def write_report(ctx: click.Context, out: Path | None) -> None:
     with open_project(ctx) as project:
         theses = report.collect(project.repo).theses
         written = _write_report(out or report.default_report_path(project.dir), project)
-    stdout.print(f"report over {theses} theses -> {written}")
+    stdout.print(
+        _("report over {theses} theses -> {path}").format(theses=theses, path=written)
+    )
 
 
 # -- help -------------------------------------------------------------------------
 
 
-@cli.command("help")
+@cli.command("help", help=_(
+    "Show a help topic - a module, a metric or a concept - in the terminal."
+))
 @click.argument("topic", required=False)
 def help_(topic: str | None) -> None:
     """Render a help topic (module, metric, or concept) in the terminal."""
@@ -685,7 +893,7 @@ def help_(topic: str | None) -> None:
             if candidate.is_file():
                 stdout.print(Markdown(candidate.read_text("utf-8")))
                 return
-        raise DataError(f"no help topic {topic!r}")
+        raise DataError(_("no help topic {topic}").format(topic=repr(topic)))
     available = [
         f"{section}/{entry.name[:-3]}"
         for section in sections
@@ -694,11 +902,11 @@ def help_(topic: str | None) -> None:
         if entry.name.endswith(".md")
     ]
     if available:
-        stdout.print("available topics:")
+        stdout.print(_("available topics:"))
         for slug in available:
             stdout.print(f"  {slug}")
     else:
-        stdout.print("no help topics installed yet")
+        stdout.print(_("no help topics installed yet"))
 
 
 def main() -> None:

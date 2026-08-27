@@ -15,13 +15,23 @@ os.environ.pop("FORCE_COLOR", None)
 os.environ["NO_COLOR"] = "1"
 os.environ["TERM"] = "dumb"
 
+# The suite runs under the ENGLISH catalog (ADR-0020), so every assertion can
+# quote the msgid that is right there in the source. The default locale is
+# German (SDD Sec. 9.6) and that default is asserted explicitly in
+# tests/core/test_i18n.py; asserting it implicitly, from 500 tests that had to
+# be written in German, would be unreadable and would make every string change
+# a translation change. Set at import time for the same reason as the rich
+# variables above: it has to be in place before pytest imports tta.cli.main,
+# whose click option help resolves at import.
+os.environ.setdefault("TTA_LOCALE", "en")
+
 import hashlib
 import json
 from types import SimpleNamespace
 
 import pytest
 
-from tta.core import artefact_kinds, db
+from tta.core import artefact_kinds, db, i18n
 from tta.core.modules.base import RunContext
 from tta.core.artefacts import ArtefactStore
 from tta.core.db import migrator
@@ -158,3 +168,16 @@ def project(tmp_path):
         store=ArtefactStore(project_dir),
     )
     conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _english_catalog():
+    """Every test starts with the English catalog installed (ADR-0020).
+
+    Autouse rather than session-scoped: a test that installs `de` to exercise
+    the German UI must not leak that into the next test, and `install()` writes
+    module-level state in `core.i18n`.
+    """
+    i18n.install("en")
+    yield
+    i18n.install("en")

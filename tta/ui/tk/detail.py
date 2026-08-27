@@ -14,15 +14,17 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-TITLE = "Cell details"
+from tta.core.i18n import N_, _
+
+TITLE = N_("Cell details")
 
 
-def show_details(parent, heading: str, body: str, title: str = TITLE) -> tk.Toplevel:
+def show_details(parent, heading: str, body: str, title: str | None = None) -> tk.Toplevel:
     """Open the details panel and return it (returned so callers and tests can
     inspect or close it). ``heading`` names the row/column and carries the
     column's one-line help; ``body`` is the state-specific text."""
     window = tk.Toplevel(parent)
-    window.title(title)
+    window.title(_(TITLE) if title is None else title)
     window.geometry("640x420")
     text = tk.Text(window, wrap="word")
     text.insert("1.0", f"{heading}\n\n{body}" if heading else body)

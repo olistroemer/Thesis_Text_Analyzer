@@ -10,7 +10,13 @@ import tkinter
 import pytest
 
 from tta.ui.tk import grid_model
-from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
+from tta.ui.tk.columns import (
+    ARTEFACT_COLUMNS,
+    LEAD_COLUMNS,
+    MetricColumn,
+    column_help,
+    column_label,
+)
 
 LEAD = len(LEAD_COLUMNS)
 EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
@@ -139,7 +145,11 @@ def test_error_cell_details_panel_carries_the_traceback_in_extended_mode(project
         window = _open_details(grid, 0, err_col)
         assert window is not None
         text = _panel_text(window)
-        assert "a.pdf - yules_k" in text  # heading names row and column
+        # #16: the heading names the row and the friendly column LABEL, and
+        # keeps the raw metric name discoverable on its own line
+        assert "a.pdf - %s" % column_label("yules_k") in text
+        assert column_label("yules_k") != "yules_k"  # a real label exists
+        assert "yules_k" in text
         assert column_help("yules_k") in text
         assert "Error: ValueError: boom" in text
         assert "Traceback" in text

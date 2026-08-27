@@ -296,3 +296,12 @@ def test_ci_downloads_both_nltk_corpora(workflow_source):
     assert downloads, "no nltk.downloader invocation in the workflow"
     for line in downloads:
         assert "punkt_tab" in line and "cmudict" in line, line
+
+
+def test_compiled_catalogs_are_bundled(spec_source):
+    """#28/#29: a binary that fell back to English msgids would break the
+    German-first posture (SDD 9.6) without failing anything, so the spec both
+    collects the .mo files and refuses to build when there are none."""
+    assert 'glob("*/LC_MESSAGES/*.mo")' in spec_source
+    assert '"tta", "locale"' in spec_source
+    assert "no compiled catalogs" in spec_source  # the build-time guard

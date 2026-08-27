@@ -10,18 +10,24 @@ import statistics
 from dataclasses import dataclass, field
 
 from tta.core.db.repository import Repository
+from tta.core.i18n import N_, _, format_number
 from tta.core.types import Thesis
 from tta.ui.tk.columns import ARTEFACT_COLUMNS, MetricColumn
 
 OK, NA, ERROR, MISSING = "ok", "na", "error", "missing"
 
-# Sec. 9.9 details-panel copy (ASCII only, ADR-0018). These used to be hover
+# Sec. 9.9 details-panel copy. English ASCII msgids (ADR-0018); the German
+# text lives in the catalogs (ADR-0020). Module-level, so they are marked with
+# N_() here and translated where they are displayed. These used to be hover
 # tooltips; the grid has no tooltips any more (#66).
-NOT_YET_RUN_DETAIL = "Not yet analysed - click Run to compute."
-GARBLED_DETAIL = (
+NOT_YET_RUN_DETAIL = N_("Not yet analysed - click Run to compute.")
+GARBLED_DETAIL = N_(
     "Text extraction was flagged as garbled for this thesis; every metric in "
     "this row may be unreliable (US-PROF-QUALITY)."
 )
+NA_FALLBACK_DETAIL = N_("Not applicable for this thesis.")
+ERROR_FALLBACK_DETAIL = N_("module raised an exception")
+ERROR_PREFIX = N_("Error: {reason}")
 
 
 @dataclass(frozen=True)
@@ -32,12 +38,16 @@ class Cell:
     detail: str | None = None  # error traceback / exception text (Sec. 9.9 error)
 
     def display(self) -> str:
+        """The cell's rendered text. Numbers go through the locale-aware
+        formatter (SDD Sec. 9.6), so a German UI shows a decimal comma.
+        Grouping is off: a grid column is narrow and the thousands separator
+        is the character a German reader would misread as the decimal one."""
         if self.status == ERROR:
-            return "err"
+            return _("err")
         if self.status in (NA, MISSING) or self.value is None:
             return ""
         if isinstance(self.value, float):
-            return f"{self.value:g}" if self.value == int(self.value) else f"{self.value:.2f}"
+            return format_number(self.value, grouping=False)
         return str(self.value)
 
 
@@ -129,7 +139,7 @@ def outlier_bounds(rows: list[ThesisRow], columns: list[MetricColumn]) -> dict[s
         if len(numbers) < 4:
             continue
         # method="inclusive" = linear interpolation, matplotlib's default
-        q1, _, q3 = statistics.quantiles(numbers, n=4, method="inclusive")
+        q1, _median, q3 = statistics.quantiles(numbers, n=4, method="inclusive")
         iqr = q3 - q1
         bounds[column.metric] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
     return bounds
@@ -193,12 +203,16 @@ def cell_details(cell: Cell, *, extended: bool) -> str | None:
     so the panel copy is unit-testable without Tk (ADR-0002).
     """
     if cell.status == NA:
-        return cell.reason or "Not applicable for this thesis."
+        # The stored reason is English and stays English in the database and in
+        # exports (ADR-0020); it is translated here, on the way to the screen.
+        # A parameterised reason has no catalog entry and falls through as-is.
+        return _(cell.reason) if cell.reason else _(NA_FALLBACK_DETAIL)
     if cell.status == ERROR:
-        text = "Error: " + (cell.reason or "module raised an exception")
+        reason = _(cell.reason) if cell.reason else _(ERROR_FALLBACK_DETAIL)
+        text = _(ERROR_PREFIX).format(reason=reason)
         if extended and cell.detail:
             text += "\n\n" + cell.detail
         return text
     if cell.status == MISSING:
-        return NOT_YET_RUN_DETAIL
+        return _(NOT_YET_RUN_DETAIL)
     return None

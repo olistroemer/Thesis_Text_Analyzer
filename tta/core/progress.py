@@ -35,6 +35,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
+from tta.core.i18n import _
+
 #: ``(intercept_ms, slope_ms_per_byte)`` - the affine cost of one module on one
 #: thesis. ``intercept`` is the size-independent part (worker spawn + imports,
 #: fixed setup); ``slope`` scales with the PDF's byte size.
@@ -303,9 +305,12 @@ def damp_eta(
 
 
 def format_eta(seconds: float | None) -> str:
-    """Compact human ETA for a progress label; ``None`` -> 'estimating...'."""
+    """Compact human ETA for a progress label; ``None`` -> 'estimating...'.
+
+    The unit letters stay ASCII and untranslated - "5m 03s" reads the same in
+    German - but the placeholder is prose and goes through the catalog."""
     if seconds is None:
-        return "estimating..."
+        return _("estimating...")
     seconds = int(round(seconds))
     if seconds < 60:
         return f"{seconds}s"
