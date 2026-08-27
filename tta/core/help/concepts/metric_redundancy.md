@@ -22,7 +22,7 @@ An einer Stichprobe von 80 Hochschularbeiten zeigte sich in **beiden** untersuch
 
 Ein weiteres Paar wurde vor der Umsetzung geprüft und deshalb gar nicht aufgenommen: Wortentropie lief mit [yules_k](metric:yules_k) bei einem Betrag der Korrelation um 0,92 mit und ist daher nie eine Metrik dieses Werkzeugs geworden (ADR-0011).
 
-Die Stichprobe war klein (80 Arbeiten, darunter 4 unbrauchbare Extraktionen). Dass diese Paare zusammenlaufen, ist aber nicht nur ein Befund der Stichprobe: In jedem Fall gibt es einen rechnerischen Grund dafür, wie die rechte Spalte zeigt. Deshalb ist der Zusammenhang zu erwarten und nicht als Zufall abzutun.
+Die Stichprobe war klein (80 Arbeiten, darunter 4 unbrauchbare Extraktionen), und gemessen wurde damals **ein** Einmalwort-Anteil, bevor er in die beiden heutigen Varianten geteilt wurde – die Beobachtung überträgt sich auf die am Text gemessene Variante, weil nur dort der gemeinsame Nenner steht. Dass diese Paare zusammenlaufen, ist aber nicht nur ein Befund der Stichprobe: In jedem Fall gibt es einen rechnerischen Grund dafür, wie die rechte Spalte zeigt. Deshalb ist der Zusammenhang zu erwarten und nicht als Zufall abzutun.
 
 ## Warum dann alle mitgeliefert werden
 

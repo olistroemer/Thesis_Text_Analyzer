@@ -20,6 +20,8 @@ An einer Stichprobe von je 40 deutschen und 40 englischen Hochschularbeiten dess
 | [ttr](metric:ttr) | 0,20 | 0,12 |
 | [hapax_token_ratio](metric:hapax_token_ratio) | 0,11 | 0,05 |
 
+Für den Einmalwort-Anteil wurde damals eine einzige Kennzahl erhoben, bevor sie in die beiden heutigen Varianten geteilt wurde; die Zeile ist der am Text gemessenen Variante zugeordnet.
+
 Deutsch liegt auf **jeder** dieser Metriken höher, und zwar um 20 bis über 100 Prozent. Das ist um Größenordnungen mehr, als irgendein Effekt, den man in einem Bestand messen möchte, jemals ausmachen wird. Eine Auswertung, die deutsche und englische Arbeiten mischt, misst in erster Linie den Sprachanteil ihres Bestands.
 
 ## Woran es liegt
