@@ -61,18 +61,18 @@ def test_year_is_utc_not_local(build_ctx, tmp_path, monkeypatch):
         time.tzset()
 
 
-def test_atime_and_ctime_stay_in_local_notes_only(build_ctx, tmp_path):
+def test_atime_and_ctime_stay_in_local_diagnostics_only(build_ctx, tmp_path):
     """#18: atime is clobbered by the analysis run itself and ctime means
     different things on Windows and POSIX, so neither becomes a metric -
-    but both stay inspectable in the local-only notes."""
+    but both stay inspectable in the local-only diagnostics."""
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-1.7\n")
     result = run(build_ctx, pdf)
 
     assert set(result.metrics) == {"file_size_bytes", "fs_modified_year"}
-    assert "st_atime" in result.notes and "st_ctime" in result.notes
-    assert result.notes["st_mtime"] == os.stat(pdf).st_mtime
-    assert "caveat" in result.notes
+    assert "st_atime" in result.diagnostics and "st_ctime" in result.diagnostics
+    assert result.diagnostics["st_mtime"] == os.stat(pdf).st_mtime
+    assert "caveat" in result.diagnostics
 
 
 def test_missing_file_is_not_applicable(tmp_path):

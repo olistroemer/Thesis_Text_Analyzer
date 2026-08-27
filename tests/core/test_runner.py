@@ -152,7 +152,7 @@ class ChattyExtract(Module):
         out.write_text("x" * 10, encoding="utf-8")
         return RunResult(
             metrics={"text_chars": 10},
-            notes={"own_key": 1},
+            diagnostics={"own_key": 1},
             artefacts={artefact_kinds.RAW_TEXT: out},
         )
 
@@ -400,10 +400,10 @@ def test_full_default_pipeline_end_to_end(project, english_pdf):
     assert project.repo.get_thesis(thesis.id).pdf_sha256 is not None
 
     # module diagnostics travel from worker to DB, local-only (Sec. 8.3.1)
-    quality_notes = project.conn.execute(
-        "SELECT notes FROM module_runs WHERE module_name = 'mod_check_extraction_quality'"
-    ).fetchone()["notes"]
-    assert json.loads(quality_notes)["stop_word_ratio"] > 0.149
+    quality_diagnostics = project.conn.execute(
+        "SELECT diagnostics FROM module_runs WHERE module_name = 'mod_check_extraction_quality'"
+    ).fetchone()["diagnostics"]
+    assert json.loads(quality_diagnostics)["stop_word_ratio"] > 0.149
     assert values["word_count"][0] > 300
     assert values["producer_category"][1] == "latex"
     assert 0 < values["flesch_reading_ease"][0] < 121
@@ -740,11 +740,11 @@ def test_up_to_date_plan_stats_no_artefacts(project, tmp_path):
     assert runner2.plan().pair_count == 3  # stale quality on 3 theses
 
 
-def _notes_of(project, module_name: str) -> dict:
+def _diagnostics_of(project, module_name: str) -> dict:
     row = project.conn.execute(
-        "SELECT notes FROM module_runs WHERE module_name = ?", (module_name,)
+        "SELECT diagnostics FROM module_runs WHERE module_name = ?", (module_name,)
     ).fetchone()
-    return json.loads(row["notes"])
+    return json.loads(row["diagnostics"])
 
 
 def test_module_output_is_captured_into_the_run_record(project, tmp_path):
@@ -755,13 +755,13 @@ def test_module_output_is_captured_into_the_run_record(project, tmp_path):
     runner, _ = make_runner(project, [ChattyExtract()])
     assert runner.execute(runner.plan()).ok == 1
 
-    notes = _notes_of(project, "mod_fake_extract")
-    captured = notes["_stdout"]
+    diagnostics = _diagnostics_of(project, "mod_fake_extract")
+    captured = diagnostics["_stdout"]
     assert "hello from stdout" in captured
     assert "hello from stderr" in captured
     assert "hello from the log" in captured  # root logger has no handler otherwise
     assert "INFO tta.core.modules.fake" in captured  # attributed, not bare text
-    assert notes["own_key"] == 1  # the module's own diagnostics are untouched
+    assert diagnostics["own_key"] == 1  # the module's own diagnostics are untouched
 
 
 def test_captured_output_is_tail_truncated(project, tmp_path):
@@ -773,7 +773,7 @@ def test_captured_output_is_tail_truncated(project, tmp_path):
     runner, _ = make_runner(project, [LoudExtract()])
     runner.execute(runner.plan())
 
-    captured = _notes_of(project, "mod_fake_extract")["_stdout"]
+    captured = _diagnostics_of(project, "mod_fake_extract")["_stdout"]
     assert "characters truncated" in captured
     assert len(captured) < STDOUT_CAPTURE_CHARS + 200
     assert captured.rstrip().endswith("LAST LINE")
@@ -781,14 +781,14 @@ def test_captured_output_is_tail_truncated(project, tmp_path):
 
 
 def test_silent_modules_add_no_stdout_key(project, tmp_path):
-    """No capture, no key: existing notes payloads are unchanged (#68)."""
+    """No capture, no key: existing diagnostics payloads are unchanged (#68)."""
     add_fake_pdf(project, tmp_path)
     runner, _ = make_runner(project, [FakeExtract()])
     runner.execute(runner.plan())
     row = project.conn.execute(
-        "SELECT notes FROM module_runs WHERE module_name = 'mod_fake_extract'"
+        "SELECT diagnostics FROM module_runs WHERE module_name = 'mod_fake_extract'"
     ).fetchone()
-    assert row["notes"] is None
+    assert row["diagnostics"] is None
 
 
 def test_stale_only_skips_never_run_pairs(project, tmp_path):
@@ -885,7 +885,7 @@ def test_hashing_folds_into_a_sibling_hashed_by_an_earlier_run(project, tmp_path
 def test_captured_output_never_reaches_an_export(project, tmp_path):
     """#68's third acceptance criterion, asserted end to end rather than by
     inspection: captured output is content-derived free text that can quote a
-    thesis, and it rides home on ``module_runs.notes`` - a column ADR-0007 /
+    thesis, and it rides home on ``module_runs.diagnostics`` - a column ADR-0007 /
     SDD Sec. 8.3.1 drop from every export. The bytes must not be in the file.
 
     Doubles as a regression guard on the WAL switch (#59): ``export_database``
@@ -897,7 +897,7 @@ def test_captured_output_never_reaches_an_export(project, tmp_path):
     add_fake_pdf(project, tmp_path)
     runner, _ = make_runner(project, [ChattyExtract()])
     assert runner.execute(runner.plan()).ok == 1
-    assert "hello from stdout" in _notes_of(project, "mod_fake_extract")["_stdout"]
+    assert "hello from stdout" in _diagnostics_of(project, "mod_fake_extract")["_stdout"]
 
     out = tmp_path / "out" / "export.sqlite"
     export_database(project.conn, out)
@@ -908,5 +908,5 @@ def test_captured_output_never_reaches_an_export(project, tmp_path):
     assert b"_stdout" not in blob
     exported = sqlite3.connect(out)
     run_cols = {r[1] for r in exported.execute("PRAGMA table_info(module_runs)")}
-    assert "notes" not in run_cols
+    assert "diagnostics" not in run_cols
     exported.close()

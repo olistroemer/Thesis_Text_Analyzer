@@ -32,7 +32,7 @@ def populate(project, tmp_path):
             reason="boom",
             error_traceback="Traceback ... /home/prof/secret_name_a.pdf",
             metrics={"m": 1},
-            notes={"debug": "content-derived"},
+            diagnostics={"debug": "content-derived"},
         )
         project.repo.record_run(a.id, "mod_x", "1.1.0", "ok", metrics={"m": 2})
         project.repo.record_run(b.id, "mod_x", "1.1.0", "ok", metrics={"m": 99})
@@ -54,7 +54,7 @@ def test_pii_columns_do_not_exist_in_export(project, tmp_path):
     theses_cols = {r["name"] for r in conn.execute("PRAGMA table_info(theses)")}
     assert {"pdf_path", "pdf_filename", "notes", "tags"}.isdisjoint(theses_cols)
     run_cols = {r["name"] for r in conn.execute("PRAGMA table_info(module_runs)")}
-    assert {"error_traceback", "notes"}.isdisjoint(run_cols)
+    assert {"error_traceback", "diagnostics"}.isdisjoint(run_cols)
 
     tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert "artefact_files" not in tables

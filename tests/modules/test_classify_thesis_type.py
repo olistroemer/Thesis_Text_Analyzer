@@ -76,7 +76,7 @@ def run(build_ctx, raw_text):
 def test_detects_german_master(build_ctx):
     result = run(build_ctx, GERMAN_MASTER)
     assert result.metrics["thesis_type"] == "master"
-    assert "masterarbeit" in result.notes["master_markers"]
+    assert "masterarbeit" in result.diagnostics["master_markers"]
 
 
 def test_detects_german_bachelor(build_ctx):
@@ -124,7 +124,7 @@ def test_detects_german_diploma(build_ctx):
     """#67: pre-Bologna German theses name neither Bachelor nor Master."""
     result = run(build_ctx, GERMAN_DIPLOMA)
     assert result.metrics["thesis_type"] == "diploma"
-    assert "diplomarbeit" in result.notes["diploma_markers"]
+    assert "diplomarbeit" in result.diagnostics["diploma_markers"]
 
 
 def test_detects_english_diploma(build_ctx):
@@ -137,7 +137,7 @@ def test_dipl_supervisor_titles_are_not_a_diploma(build_ctx):
     from the keyword set. This must stay a `master`."""
     result = run(build_ctx, GERMAN_MASTER_WITH_DIPL_SUPERVISORS)
     assert result.metrics["thesis_type"] == "master"
-    assert result.notes["diploma_markers"] == []
+    assert result.diagnostics["diploma_markers"] == []
 
 
 def test_diploma_keywords_exclude_the_ambiguous_short_forms(build_ctx):

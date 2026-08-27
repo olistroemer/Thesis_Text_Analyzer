@@ -67,8 +67,8 @@ def test_implausible_future_year_is_ignored(build_ctx):
     assert result.metrics["publication_year_source"] == "pdf_creation"
 
 
-def test_notes_record_the_fusion_detail(build_ctx):
-    notes = run(build_ctx, TITLE_WITH_YEAR, creation=2019).notes
-    assert notes["in_text_year"] == 2021
-    assert notes["pdf_creation_year"] == 2019
-    assert notes["source"] == "title_page"
+def test_diagnostics_record_the_fusion_detail(build_ctx):
+    diagnostics = run(build_ctx, TITLE_WITH_YEAR, creation=2019).diagnostics
+    assert diagnostics["in_text_year"] == 2021
+    assert diagnostics["pdf_creation_year"] == 2019
+    assert diagnostics["source"] == "title_page"

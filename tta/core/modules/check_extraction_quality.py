@@ -50,5 +50,5 @@ class CheckExtractionQuality(Module):
             quality = "garbled" if score < GARBLED_THRESHOLD else "ok"
         return RunResult(
             metrics={"extraction_quality": quality},
-            notes={"stop_word_ratio": score, "tokens_checked": len(tokens)},
+            diagnostics={"stop_word_ratio": score, "tokens_checked": len(tokens)},
         )

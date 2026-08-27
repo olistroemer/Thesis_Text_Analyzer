@@ -13,16 +13,16 @@ def run_on(build_ctx, text):
 def test_clean_text_is_ok(build_ctx):
     result = run_on(build_ctx, CLEAN_SENTENCE * 30)  # ~390 tokens, stop-word heavy
     assert result.metrics == {"extraction_quality": "ok"}
-    assert result.notes["stop_word_ratio"] > 0.149  # clean cluster per GARBLED_EXTRACTIONS.md
+    assert result.diagnostics["stop_word_ratio"] > 0.149  # clean cluster per GARBLED_EXTRACTIONS.md
 
 
 def test_garbled_text_is_flagged(build_ctx):
     result = run_on(build_ctx, GIBBERISH * 50)  # ~300 tokens, no function words
     assert result.metrics == {"extraction_quality": "garbled"}
-    assert result.notes["stop_word_ratio"] < 0.10
+    assert result.diagnostics["stop_word_ratio"] < 0.10
 
 
 def test_sparse_text_is_not_judged(build_ctx):
     result = run_on(build_ctx, "drawing label one two")  # poster-style, < 200 tokens
     assert result.metrics == {"extraction_quality": "sparse"}
-    assert result.notes["stop_word_ratio"] is None
+    assert result.diagnostics["stop_word_ratio"] is None

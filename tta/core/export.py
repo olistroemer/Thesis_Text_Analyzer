@@ -7,7 +7,7 @@ are someone else's data and never re-travel.
 
 What never ships (Sec. 8.3.1): `theses.pdf_path/pdf_filename/notes/tags`,
 rows with `excluded=1` **and the `excluded` column itself** (constant-zero
-once those rows are filtered out, #64), `module_runs.error_traceback/notes`,
+once those rows are filtered out, #64), `module_runs.error_traceback/diagnostics`,
 the whole `artefact_files` table; `theses.added_at` is rounded to day.
 
 `export_profiling` is the second, flat output (#47, ADR-0007 rev. 4): a

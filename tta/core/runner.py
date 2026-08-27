@@ -62,9 +62,9 @@ DEFAULT_CANCEL_GRACE_S = 2.0
 #: loop cannot bloat the database.
 STDOUT_CAPTURE_CHARS = 16 * 1024
 
-#: Reserved key under ``module_runs.notes`` carrying that capture. Keys
+#: Reserved key under ``module_runs.diagnostics`` carrying that capture. Keys
 #: beginning with ``_`` belong to the runner; a module's own keys are untouched.
-STDOUT_NOTES_KEY = "_stdout"
+STDOUT_DIAGNOSTICS_KEY = "_stdout"
 
 #: How long a worker must be observed dead (``is_alive()`` false) with no
 #: ``thesis_done`` before its thesis is failed. A process can exit a few
@@ -148,7 +148,7 @@ class _ModuleOutcome:
     started_at: str = ""
     duration_ms: int = 0
     metrics: dict = field(default_factory=dict)
-    notes: dict = field(default_factory=dict)
+    diagnostics: dict = field(default_factory=dict)
     artefacts: dict[str, str] = field(default_factory=dict)  # kind -> tmp path
     workdir: str | None = None
     #: captured stdout/stderr/log records, tail-truncated (#68)
@@ -226,7 +226,7 @@ def _run_one_module(pm: PlannedModule, thesis: Thesis, available: dict[str, str]
             )
             result: RunResult = pm.module.run(ctx)
             outcome.metrics = result.metrics
-            outcome.notes = result.notes
+            outcome.diagnostics = result.diagnostics
             outcome.artefacts = {k: str(p) for k, p in result.artefacts.items()}
     except NotApplicable as exc:
         outcome.status = "na"
@@ -809,13 +809,13 @@ class Runner:
         status_counts = {"ok": 0, "na": 0, "error": 0}
         with self.repo.transaction():
             for outcome in worker.outcomes:
-                notes = outcome.notes
+                diagnostics = outcome.diagnostics
                 if outcome.stdout:
-                    # local-only: notes is registered CONTENT and stripped from
+                    # local-only: diagnostics is registered CONTENT and stripped from
                     # every export (SDD Sec. 8.3.1, ADR-0007), which is what
                     # captured output needs - it can quote thesis text (#68)
-                    notes = dict(notes)
-                    notes[STDOUT_NOTES_KEY] = outcome.stdout
+                    diagnostics = dict(diagnostics)
+                    diagnostics[STDOUT_DIAGNOSTICS_KEY] = outcome.stdout
                 run_id = self.repo.record_run(
                     thesis_id,
                     outcome.module_name,
@@ -826,7 +826,7 @@ class Runner:
                     started_at=outcome.started_at,
                     duration_ms=outcome.duration_ms,
                     metrics=outcome.metrics,
-                    notes=notes,
+                    diagnostics=diagnostics,
                 )
                 for kind, tmp_path in outcome.artefacts.items():
                     relative = self.store.store(thesis_id, run_id, kind, Path(tmp_path))

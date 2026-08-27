@@ -57,7 +57,7 @@ def test_run_result_defaults_are_independent():
     a, b = RunResult(), RunResult()
     a.metrics["x"] = 1
     assert b.metrics == {}
-    assert a.artefacts == {} and a.notes == {}
+    assert a.artefacts == {} and a.diagnostics == {}
 
 
 def test_run_context_is_plain_data(tmp_path):

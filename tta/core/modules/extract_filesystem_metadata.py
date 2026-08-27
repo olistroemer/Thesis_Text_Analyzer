@@ -26,7 +26,7 @@ atime and ctime are deliberately NOT promoted:
   one metric name would carry incomparable meanings across the platforms
   the app ships on (ADR-0014).
 
-Both are kept at full precision in the run's local-only ``notes`` so the
+Both are kept at full precision in the run's local-only ``diagnostics`` so the
 discarded signals stay inspectable on the machine that produced them
 without becoming exportable metrics.
 """
@@ -72,7 +72,7 @@ class ExtractFilesystemMetadata(Module):
                 "file_size_bytes": stat.st_size,
                 "fs_modified_year": _year_of(stat.st_mtime),
             },
-            notes={
+            diagnostics={
                 # Local-only, full precision: the signals not promoted to
                 # metrics stay inspectable here (SDD Sec. 7.4).
                 "st_size": stat.st_size,

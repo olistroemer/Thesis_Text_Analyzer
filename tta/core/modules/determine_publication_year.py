@@ -6,7 +6,7 @@ precedence: (1) the in-text title-page year parsed from `raw_text` (most
 reliable - the submission year printed on the page), then (2) the PDF-metadata
 `creation_year`, then (3) `modification_year` (both re-parsed from the
 `pdf_metadata` artefact). The winning signal is recorded in the
-`publication_year_source` metric; fusion detail goes in `notes`.
+`publication_year_source` metric; fusion detail goes in `diagnostics`.
 
 When no signal is available the run is still `ok` with `publication_year` NULL
 and source `none` - the report simply skips such theses on the time axis.
@@ -72,7 +72,7 @@ class DeterminePublicationYear(Module):
 
         return RunResult(
             metrics={"publication_year": year, "publication_year_source": source},
-            notes={
+            diagnostics={
                 "publication_year": year,
                 "source": source,
                 "in_text_year": in_text_year,

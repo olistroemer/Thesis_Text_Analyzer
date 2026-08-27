@@ -553,21 +553,21 @@ def test_record_run_metric_typing(project, tmp_path):
     assert rows["missing"] == (None, None)
 
 
-def test_record_run_persists_notes_as_json(project, tmp_path):
+def test_record_run_persists_diagnostics_as_json(project, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"x")
     thesis = project.repo.add_thesis(pdf)
     with project.repo.transaction():
-        with_notes = project.repo.record_run(
-            thesis.id, "mod_x", "1.0.0", "ok", notes={"stop_word_ratio": 0.21}
+        with_diagnostics = project.repo.record_run(
+            thesis.id, "mod_x", "1.0.0", "ok", diagnostics={"stop_word_ratio": 0.21}
         )
-        without_notes = project.repo.record_run(thesis.id, "mod_y", "1.0.0", "ok")
+        without_diagnostics = project.repo.record_run(thesis.id, "mod_y", "1.0.0", "ok")
     rows = {
-        r["id"]: r["notes"]
-        for r in project.conn.execute("SELECT id, notes FROM module_runs")
+        r["id"]: r["diagnostics"]
+        for r in project.conn.execute("SELECT id, diagnostics FROM module_runs")
     }
-    assert json.loads(rows[with_notes]) == {"stop_word_ratio": 0.21}
-    assert rows[without_notes] is None  # empty notes stay NULL, not "{}"
+    assert json.loads(rows[with_diagnostics]) == {"stop_word_ratio": 0.21}
+    assert rows[without_diagnostics] is None  # empty diagnostics stay NULL, not "{}"
 
 
 def test_record_run_rejects_unsupported_metric_type(project, tmp_path):

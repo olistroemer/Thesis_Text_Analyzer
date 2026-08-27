@@ -96,7 +96,7 @@ FIELDS: tuple[Field, ...] = (
     _f("module_runs", "status", Category.TECHNICAL, N_("ok / not-applicable / error"), True),
     _f("module_runs", "reason", Category.TECHNICAL, N_("why a run was na or errored (one line, no content)"), True),
     _f("module_runs", "error_traceback", Category.IDENTIFYING, N_("debugging; may embed filesystem paths"), False),
-    _f("module_runs", "notes", Category.CONTENT, N_("module diagnostics; may contain content-derived values"), False),
+    _f("module_runs", "diagnostics", Category.CONTENT, N_("module diagnostics; may contain content-derived values"), False),
     _f("module_runs", "started_at", Category.TECHNICAL, N_("audit trail, profiling"), True),
     _f("module_runs", "duration_ms", Category.TECHNICAL, N_("profiling (QA-RES budgets)"), True),
     # metric_values

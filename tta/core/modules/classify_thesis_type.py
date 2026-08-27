@@ -3,7 +3,7 @@
 Detects the degree from the title page of `raw_text` with a lightweight,
 case-insensitive, accent/umlaut-tolerant keyword heuristic (German + English) -
 NOT ML. Produces the single `thesis_type` metric in {bachelor, master, diploma,
-unspecified}; matched markers go into `notes` (no separate confidence metric).
+unspecified}; matched markers go into `diagnostics` (no separate confidence metric).
 `diploma` covers pre-Bologna German theses (#67, ADR-0019 rev. 2).
 
 Mirrors `mod_classify_language`. Unlike it, garbled/sparse or keyword-free text
@@ -89,15 +89,15 @@ class ClassifyThesisType(Module):
         window = _titlepage.normalise(_titlepage.leading_window(text))
 
         hits: list[tuple[int, str]] = []
-        notes: dict[str, object] = {"window_chars": len(window)}
+        diagnostics: dict[str, object] = {"window_chars": len(window)}
         for name, keywords in TYPE_KEYWORDS:
-            notes[f"{name}_markers"] = _titlepage.matched_keywords(window, keywords)
+            diagnostics[f"{name}_markers"] = _titlepage.matched_keywords(window, keywords)
             at = _titlepage.first_index_of_any(window, keywords)
             if at is not None:
                 hits.append((at, name))
         # several degrees named on the title page: the marker appearing first
         # wins (ADR-0019 rev. 2 - generalises the old pairwise comparison)
         decision = min(hits, key=lambda hit: hit[0])[1] if hits else UNSPECIFIED
-        notes["thesis_type"] = decision
+        diagnostics["thesis_type"] = decision
 
-        return RunResult(metrics={"thesis_type": decision}, notes=notes)
+        return RunResult(metrics={"thesis_type": decision}, diagnostics=diagnostics)

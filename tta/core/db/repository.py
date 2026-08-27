@@ -560,18 +560,18 @@ class Repository:
         started_at: str | None = None,
         duration_ms: int | None = None,
         metrics: dict[str, Any] | None = None,
-        notes: dict[str, Any] | None = None,
+        diagnostics: dict[str, Any] | None = None,
     ) -> int:
         """Append one module run with its metric values; returns run_id.
 
         Metric typing per Sec. 8.1: numbers (incl. bools) land in value_num,
-        strings in value_text, None in neither. ``notes`` is stored as
+        strings in value_text, None in neither. ``diagnostics`` is stored as
         JSON; it may contain content-derived values and is therefore
         stripped from exports (Sec. 8.3.1).
         """
         cur = self.conn.execute(
             "INSERT INTO module_runs (thesis_id, module_name, module_version, status,"
-            " reason, error_traceback, notes, started_at, duration_ms)"
+            " reason, error_traceback, diagnostics, started_at, duration_ms)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 thesis_id,
@@ -580,7 +580,7 @@ class Repository:
                 status,
                 reason,
                 error_traceback,
-                json.dumps(notes, ensure_ascii=False) if notes else None,
+                json.dumps(diagnostics, ensure_ascii=False) if diagnostics else None,
                 started_at or _now(),
                 duration_ms,
             ),

@@ -45,7 +45,7 @@ class RunContext:
 class RunResult:
     metrics: dict[str, Any] = field(default_factory=dict)
     artefacts: dict[str, Path] = field(default_factory=dict)
-    notes: dict[str, Any] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
