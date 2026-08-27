@@ -263,12 +263,11 @@ other language is `na` (SDD §7.2). The coefficients textstat actually uses, rea
 `ASL` = average sentence length in words, `ASW` = average syllables per word. Both inputs are
 estimated, and both estimates are wrong in specific, non-cancelling ways.
 
-### 4.1 English syllables need CMUdict, which is not bundled
+### 4.1 English syllables need CMUdict, which is now bundled (was a live defect)
 
 `textstat.backend.counts.count_syllables` looks each word up in the **CMU Pronouncing Dictionary**
 (127,069 entries; it counts stressed vowel phonemes) and falls back to Pyphen hyphenation only for
-words CMUdict does not know. But `packaging/tta.spec` bundles only `punkt_tab`, and textstat's
-loader is:
+words CMUdict does not know. textstat's loader is:
 
 ```python
 try:
@@ -277,20 +276,24 @@ except LookupError:
     nltk.download('cmudict', quiet=True)
 ```
 
-Verified against an `NLTK_DATA` directory containing only `punkt_tab` — exactly what the frozen
-binary ships:
+That auto-download was a live defect until **#75**: `packaging/tta.spec` bundled only
+`punkt_tab`, so the app reached out to `raw.githubusercontent.com` on the first English thesis
+(contradicting US-ALL-OFFLINE and QA-PRIV), and with the network blocked `mod_readability` errored
+on **every** English thesis. This audit found it independently as finding **F7** in
+[`dependencies.md`](dependencies.md) §8; CI found it the same week, because the `tta doctor`
+offline self-check refuses to let a probe open a socket.
 
-- **With network:** the app silently downloads CMUdict from the internet on the first English
-  thesis. This contradicts US-ALL-OFFLINE and QA-PRIV.
-- **Without network:** `mod_readability` raises `LookupError: Resource 'cmudict' not found` and
-  **errors on every English thesis**. German is unaffected — it never touches CMUdict.
+**Fixed, and the fix does not rely on the corpus being present.** `cmudict` is now bundled beside
+`punkt_tab`, and both CI jobs fetch both. Independently of that, `mod_readability` neuters
+`nltk.download` for the duration of the textstat call, so **no outbound attempt is possible** even
+on a from-source machine that lacks the corpus; the resulting `LookupError` is converted into an
+error naming `cmudict` and how to obtain it. German never touches CMUdict and computes either way.
 
-So today English `flesch_reading_ease` is either unavailable or arrives via an undeclared network
-fetch, and — worse for research validity — **English scores are not comparable between a machine
-that has CMUdict and one that does not**, because the fallback path counts syllables differently
-(§4.3). This is a packaging defect, recorded as finding **F7** in
-[`dependencies.md`](dependencies.md) §8 and belonging to issue #4. Until it is fixed, treat English
-`flesch_reading_ease` as provisional and record whether CMUdict was present.
+What that leaves for research validity is *better* than the old comparability worry, not merely
+different: a run either has CMUdict — every frozen binary does — or it fails loudly. There is no
+longer a silent path where English syllables are counted by a different method (§4.3) without the
+operator knowing. The remaining caveat is the ordinary one: English and German syllable counts come
+from different machinery, so cross-language readability comparison stays invalid (§4.3, §5).
 
 ### 4.2 The dialect nobody chose
 

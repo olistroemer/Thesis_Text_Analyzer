@@ -104,7 +104,7 @@ artefact*. This is the part a naive `pip`-metadata scraper misses entirely.
 | Component | Origin | Licence | Bundled? | Notes |
 |---|---|---|---|---|
 | NLTK **`punkt_tab`** models (19 languages, ~4.3 MB) | `nltk_data`, pretrained by Jan Strunk / Tibor Kiss | **No licence statement in the package** (see F6) | Yes — `packaging/tta.spec` `datas`, resolved at build time by `nltk.data.find`, exposed by `packaging/rthook_nltk.py` | Only `english` and `german` are ever loaded (`mod_tokenize.NLTK_LANGUAGES`); the other 17 ride along. Provenance and bias: [`model-limitations.md`](model-limitations.md) §2. |
-| **CMUdict** 0.7a (127,069 entries) | Carnegie Mellon University, via the NLTK `cmudict` corpus | BSD-2-Clause (CMU 1993–2008) | **No — and it should be** (see F7) | textstat's primary English syllable source. Absent from `packaging/tta.spec`; `textstat` silently calls `nltk.download('cmudict')` when missing. This is both a licensing gap and an offline-promise bug. |
+| **CMUdict** 0.7a (127,069 entries) | Carnegie Mellon University, via the NLTK `cmudict` corpus | BSD-2-Clause (CMU 1993–2008) | **Yes** — `nltk_data/corpora/cmudict` (since #75) | textstat's primary English syllable source. Was absent from `packaging/tta.spec`, which let `textstat` call `nltk.download('cmudict')` itself — both a licensing gap and an offline-promise bug (F7). Now bundled, and `mod_readability` blocks the download path outright. |
 | **Pyphen** hyphenation dictionaries (~84 files, 6.1 MB) | LibreOffice / OpenOffice.org dictionaries, from TeX pattern files | GPL / LGPL-2-or-later / MPL, per dictionary. `hyph_de_AT/CH/DE.dic`: LGPL-2-or-later over LPPL `dehyphn.tex`. `hyph_en_GB/US.dic`: BSD-style over `ukhyphen.tex`/`hyph_en_US`. | Yes — inside the `pyphen` wheel | Only `de_AT` and `en_GB` are actually consulted, by accident of pyphen's short-code resolution ([`model-limitations.md`](model-limitations.md) §4.2). |
 | SQL migrations, help markdown | This project | GPL-3.0-or-later | Yes | First-party, listed for completeness. |
 
@@ -225,7 +225,7 @@ practice rather than on an explicit grant. Cheap hardening available if desired:
 `english` and `german` (the only two `mod_tokenize` can load) instead of all 19 — smaller binary,
 narrower claim.
 
-**F7 — CMUdict is a real, unbundled, network-reaching dependency (bug; #4 / `mod_readability`).**
+**F7 — CMUdict was a real, unbundled, network-reaching dependency. RESOLVED by #75.**
 `textstat.backend.utils._get_cmudict` does, for any English text:
 
 ```python
@@ -246,8 +246,10 @@ verified by running the frozen code path against an `NLTK_DATA` directory contai
 - **Without network:** `mod_readability` raises `LookupError: Resource 'cmudict' not found` and
   errors for every English thesis. German is unaffected (it takes the pyphen path).
 
-CI does not catch it because the runner has network access, so the download succeeds and the smoke
-test passes. **Fix belongs in packaging:** add `cmudict` to `packaging/tta.spec` `datas` and to the
+CI did not catch it at first because the runner had network access, so the download succeeded and
+the smoke test passed. It surfaced when `tta doctor`'s offline self-check ran on CI and refused to
+let the probe open a socket. **Fixed in #75** exactly as this finding prescribed - `cmudict` added to
+`packaging/tta.spec` `datas` and to the
 `nltk.downloader` line, and add its BSD-2-Clause notice to `THIRD_PARTY_LICENSES.txt`. Behavioural
 consequences for the metric are in [`model-limitations.md`](model-limitations.md) §4.1.
 
@@ -256,7 +258,7 @@ consequences for the metric are in [`model-limitations.md`](model-limitations.md
 **Every component in the distributed set is compatible with GPL-3.0-or-later.** No component needs
 to be removed or replaced on licence grounds. Two elections are recorded (pyphen → GPL-2.0-or-later,
 freetype → FTL), one obligation is highlighted (Apache-2.0 NOTICE files must travel), and three
-defects are handed to their owning issues (F5, F7 → #4; F1 → #4).
+defects are handed to their owning issues (F5 → #4; F7 → #75, fixed; F1 → #4).
 
 ---
 
