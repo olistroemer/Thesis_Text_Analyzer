@@ -94,3 +94,32 @@ def test_to_dict_is_json_serialisable(tmp_path):
     payload = json.loads(json.dumps(doctor.collect(tmp_path).to_dict()))
     assert payload["status"] in ("ok", "warn", "fail")
     assert all({"name", "status", "detail"} == set(c) for c in payload["checks"])
+
+
+def test_the_block_message_names_the_host_not_the_timeout():
+    """#75: the guard reported '<object object at 0x...>' for a real blocked
+    download, because it read args[1] unconditionally - right for the bound
+    method socket.socket.connect(self, address), wrong for the function
+    socket.create_connection(address, timeout, ...), where args[1] is the
+    timeout sentinel. A diagnostic that cannot name what reached out is no
+    diagnostic."""
+    with doctor.no_network():
+        # the create_connection shape, called positionally as http.client does
+        with pytest.raises(doctor.NetworkBlocked) as excinfo:
+            socket.create_connection(("nltk.example", 443), socket._GLOBAL_DEFAULT_TIMEOUT)
+        assert "nltk.example" in str(excinfo.value)
+        assert "object object" not in str(excinfo.value)
+
+        # ...and the bound-method shape still reports its address
+        with pytest.raises(doctor.NetworkBlocked) as excinfo:
+            socket.socket().connect(("other.example", 80))
+        assert "other.example" in str(excinfo.value)
+
+
+def test_no_network_restores_both_entry_points():
+    real_connect, real_create = socket.socket.connect, socket.create_connection
+    with pytest.raises(doctor.NetworkBlocked):
+        with doctor.no_network():
+            socket.create_connection(("x.example", 1))
+    assert socket.socket.connect is real_connect
+    assert socket.create_connection is real_create

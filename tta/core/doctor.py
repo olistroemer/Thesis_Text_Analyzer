@@ -96,7 +96,17 @@ def no_network() -> Iterator[None]:
     real_create = socket.create_connection
 
     def _blocked(*args, **kwargs):
-        target = args[1] if len(args) > 1 else (args[0] if args else None)
+        # Two different shapes funnel in here: the bound method
+        # socket.socket.connect(self, address) puts the address second, and the
+        # function socket.create_connection(address, timeout, ...) puts it
+        # first. Reading args[1] unconditionally reported the *timeout* for the
+        # create_connection path - which is how a real blocked download once
+        # reported "<object object at 0x...>", i.e. _GLOBAL_DEFAULT_TIMEOUT,
+        # instead of naming the host (#75).
+        if args and isinstance(args[0], socket.socket):
+            target = args[1] if len(args) > 1 else None
+        else:
+            target = args[0] if args else kwargs.get("address")
         raise NetworkBlocked(f"outbound connection attempted to {target!r}")
 
     socket.socket.connect = _blocked  # type: ignore[method-assign]
@@ -164,9 +174,15 @@ def offline_self_check() -> list[Check]:
         return f"detected {detect_langs('This is a short English sentence.')[0]}"
 
     def _textstat() -> str:
+        # Through mod_readability's own helper, not textstat raw: the module
+        # forbids the cmudict auto-download (#75), so probing raw textstat
+        # would report a network attempt the application would never make.
         import textstat
 
-        score = textstat.flesch_reading_ease("The cat sat on the mat.")
+        from tta.core.modules.readability import flesch_reading_ease
+
+        textstat.set_lang("en")
+        score = flesch_reading_ease("The cat sat on the mat.")
         return f"flesch_reading_ease sample = {score}"
 
     with no_network():

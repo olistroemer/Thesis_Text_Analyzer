@@ -8,7 +8,9 @@ Builds TWO --onefile executables from one analysis-shared base:
 
 Bundled data (must survive freezing - verified by the CLI smoke test):
   * NLTK ``punkt_tab`` tokenizer model -> ``nltk_data/tokenizers/punkt_tab``
-    (mod_tokenize); a runtime hook prepends it to ``nltk.data.path``.
+    (mod_tokenize) and ``cmudict`` corpus -> ``nltk_data/corpora/cmudict``
+    (mod_readability, via textstat); a runtime hook prepends the parent to
+    ``nltk.data.path``.
   * SQL migrations ``tta/core/db/migrations/*.sql`` (schema bootstrap).
   * Help markdown ``tta/core/help/**/*.md`` (CLI ``help`` / ``privacy``).
   * ``THIRD_PARTY_LICENSES.txt`` (ADR-0014, #4) - generated BEFORE this spec
@@ -68,10 +70,16 @@ ROOT = os.path.dirname(SPECPATH)
 def _root(*parts):
     return os.path.join(ROOT, *parts)
 
-# ---- locate the punkt_tab model on the build machine ----------------------
+# ---- locate the NLTK corpora on the build machine -------------------------
 # nltk.data.find returns the resolved directory; we ship its *parent chain*
-# (tokenizers/punkt_tab) so the frozen path matches what NLTK looks up.
+# (tokenizers/punkt_tab, corpora/cmudict) so the frozen paths match what NLTK
+# looks up. BOTH are required: punkt_tab is mod_tokenize's sentence model, and
+# cmudict is the English syllable dictionary textstat needs for Flesch.
+# Shipping only punkt_tab was a live QA-PRIV defect (#75) - textstat downloads
+# cmudict itself when it is missing, so the binary reached out AND failed
+# English readability outright.
 _punkt_tab = str(nltk.data.find("tokenizers/punkt_tab"))
+_cmudict = str(nltk.data.find("corpora/cmudict"))
 
 # ---- third-party licence manifest (ADR-0014, #4) --------------------------
 # A --onefile executable is a redistribution of every library inside it, and
@@ -98,6 +106,7 @@ if not os.path.isfile(_licenses):
 # ---- package data files (datas: (src, dest_dir_inside_bundle)) ------------
 datas = [
     (_punkt_tab, os.path.join("nltk_data", "tokenizers", "punkt_tab")),
+    (_cmudict, os.path.join("nltk_data", "corpora", "cmudict")),
     (_root("tta", "core", "db", "migrations"),
      os.path.join("tta", "core", "db", "migrations")),
     (_root("tta", "core", "help"),

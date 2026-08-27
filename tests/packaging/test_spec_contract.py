@@ -277,3 +277,22 @@ def test_boundary_and_ascii_invariants_are_still_enforced(workflow_source):
     assert re.search(r"grep -rn 'tta\\\.ui' tta/core tta/cli", workflow_source)
     assert re.search(r"grep -rn 'tta\\\.cli' tta/core tta/ui", workflow_source)
     assert "ADR-0018" in workflow_source
+
+
+def test_both_nltk_corpora_are_bundled(spec_source):
+    """#75: shipping punkt_tab alone was a live QA-PRIV defect - textstat
+    downloads cmudict itself when it is missing, so the binary both reached out
+    and failed English readability outright."""
+    assert 'nltk.data.find("tokenizers/punkt_tab")' in spec_source
+    assert 'nltk.data.find("corpora/cmudict")' in spec_source
+    assert '"nltk_data", "tokenizers", "punkt_tab"' in spec_source
+    assert '"nltk_data", "corpora", "cmudict"' in spec_source
+
+
+def test_ci_downloads_both_nltk_corpora(workflow_source):
+    """Both jobs need both corpora: the test job runs mod_readability, the
+    build job has to have them on disk for the spec to collect (#75)."""
+    downloads = re.findall(r"nltk\.downloader ([^\n]+)", workflow_source)
+    assert downloads, "no nltk.downloader invocation in the workflow"
+    for line in downloads:
+        assert "punkt_tab" in line and "cmudict" in line, line

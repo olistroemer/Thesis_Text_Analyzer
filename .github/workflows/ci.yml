@@ -40,7 +40,7 @@ jobs:
       - name: Install package (dev extras + coverage)
         run: |
           pip install -e '.[dev,build]' 'pytest-cov>=5'
-          python -m nltk.downloader punkt_tab
+          python -m nltk.downloader punkt_tab cmudict
 
       # SDD §5.2 — hexagonal boundary invariant.
       # core/cli must not import the UI layer; core/ui must not import the CLI
@@ -202,7 +202,7 @@ jobs:
         run: pip install -e '.[build,pymupdf]'
 
       - name: Download NLTK punkt_tab (bundled into the binary)
-        run: python -m nltk.downloader punkt_tab
+        run: python -m nltk.downloader punkt_tab cmudict
 
       # ADR-0014 licence manifest (#4). Must run BEFORE PyInstaller and in
       # this same clean environment: it inventories the installed
