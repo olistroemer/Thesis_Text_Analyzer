@@ -1,9 +1,16 @@
 """Grid column model (SDD Sec. 9.2/Sec. 9.3): lead columns + metric columns
 derived from the module catalogue; basic mode shows a curated subset.
 
-The column help text is English ASCII msgids (ADR-0018) resolved through
-``_()`` (ADR-0020), so the German UI is a catalog entry rather than a second
-table here.
+Also the interim source of the **human-friendly column labels** (#16,
+US-PROF-EXPLAIN): the grid headers, the details panel and the help viewer all
+show "Readability (Flesch)" rather than ``flesch_reading_ease``. Labels and
+help text are English ASCII msgids (ADR-0018) resolved through ``_()``
+(ADR-0020), so the German UI is a catalog entry, not a second table here.
+
+Per ADR-0012 the *durable* label source is each help page's front-matter
+``title:``; the shipped corpus already carries German titles. Collapsing
+``COLUMN_LABELS`` into the front matter waits for #2, which authors the full
+corpus - 45 columns against 8 existing pages is not a migration yet.
 """
 
 from __future__ import annotations
@@ -37,6 +44,58 @@ BASIC_METRICS = (
     "yules_k",
     "extraction_quality",
 )
+
+#: Human-friendly column headers (#16, US-PROF-EXPLAIN). Keyed by the raw
+#: column name; the raw name stays the column *identity* (sort keys, the DB,
+#: the export) and stays visible in the details panel, so nothing about the
+#: label is load-bearing. Marked with N_() because this dict is built at import
+#: time, before any locale is resolved.
+COLUMN_LABELS: dict[str, str] = {
+    # lead columns
+    "excluded": N_("Excluded"),
+    "state": N_("State"),
+    "file": N_("File"),
+    "type": N_("Type"),
+    # artefact presence columns (extended mode). Named "Cached ..." so they do
+    # not collide with the metric on the same subject - the `language`
+    # artefact column and the `language_code` metric sit side by side.
+    "raw_text": N_("Cached text"),
+    "language": N_("Cached language"),
+    "tokens": N_("Cached tokens"),
+    "pdf_metadata": N_("Cached PDF metadata"),
+    # metrics
+    "text_chars": N_("Characters (extracted)"),
+    "n_pages": N_("Pages"),
+    "n_images": N_("Images"),
+    "page_count_meta": N_("Pages (PDF metadata)"),
+    "producer_category": N_("Producer tool"),
+    "creator_category": N_("Creator tool"),
+    "creation_year": N_("Created (year)"),
+    "modification_year": N_("Modified (year)"),
+    "publication_year": N_("Publication year"),
+    "publication_year_source": N_("Publication year source"),
+    "has_outline": N_("Bookmarks"),
+    "extraction_quality": N_("Extraction quality"),
+    "thesis_type": N_("Thesis type"),
+    "language_code": N_("Language"),
+    "language_confidence": N_("Language confidence"),
+    "flesch_reading_ease": N_("Readability (Flesch)"),
+    "word_count": N_("Words"),
+    "char_count_alpha": N_("Letters"),
+    "sentence_count": N_("Sentences"),
+    "avg_word_len": N_("Avg. word length"),
+    "avg_sentence_len": N_("Avg. sentence length"),
+    "std_sentence_len": N_("Sentence length variation"),
+    "ttr": N_("Vocabulary richness (TTR)"),
+    "root_ttr": N_("Vocabulary richness (Guiraud)"),
+    "hapax_token_ratio": N_("Once-only words (of tokens)"),
+    "hapax_type_ratio": N_("Once-only words (of types)"),
+    "yules_k": N_("Vocabulary richness (Yule's K)"),
+    "bigram_repetition_rate": N_("Repeated word pairs"),
+    "trigram_repetition_rate": N_("Repeated word triples"),
+    "file_size_bytes": N_("File size (bytes)"),
+    "fs_modified_year": N_("File modified (year)"),
+}
 
 #: One-line column-header explanations, shown in the details panel (Sec. 9.9).
 #: The grid has no hover tooltips any more (#66) but the text outlived them.
@@ -104,6 +163,14 @@ COLUMN_HELP: dict[str, str] = {
     "trigram_repetition_rate": N_(
         "Fraction of repeated word trigrams (three-word runs)."
     ),
+    # #18's two filesystem metrics shipped without help entries; the details
+    # panel had nothing to say about them (found while adding the #16 labels).
+    "file_size_bytes": N_("Size of the PDF file on disk, in bytes."),
+    "fs_modified_year": N_(
+        "Year the file was last modified on disk. A weak signal: copying or "
+        "downloading a file resets it, so it is not used for the publication "
+        "year."
+    ),
 }
 
 
@@ -111,6 +178,17 @@ def column_help(name: str) -> str | None:
     """Details-panel help for a column by its raw name, or None if unknown."""
     text = COLUMN_HELP.get(name)
     return _(text) if text else None
+
+
+def column_label(name: str) -> str:
+    """Human-friendly header for a column by its raw name (#16).
+
+    Falls back to the raw name, which is the honest thing to show for a metric
+    a contributed module added without a label - and keeps the grid readable
+    rather than blank.
+    """
+    label = COLUMN_LABELS.get(name)
+    return _(label) if label else name
 
 
 @dataclass(frozen=True)

@@ -12,7 +12,13 @@ from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
 from tta.core.i18n import N_, _, format_integer
 from tta.ui.tk import detail, grid_model
-from tta.ui.tk.columns import ARTEFACT_COLUMNS, LEAD_COLUMNS, MetricColumn, column_help
+from tta.ui.tk.columns import (
+    ARTEFACT_COLUMNS,
+    LEAD_COLUMNS,
+    MetricColumn,
+    column_help,
+    column_label,
+)
 
 # Sec. 9.9 render states / Sec. 9.5 outlier overlay
 COLOR_NA = "#e8e8e8"
@@ -34,7 +40,8 @@ STATE_GARBLED = "[!]"
 # Sec. 9.2 header sort indicator (#40) and the details-panel heading (#16).
 SORT_ASC = N_("{header} (asc)")
 SORT_DESC = N_("{header} (desc)")
-DETAIL_HEADING = N_("{filename} - {column}")
+DETAIL_HEADING = N_("{filename} - {label}")
+DETAIL_METRIC_NAME = N_("Column name: {name}")
 STATUS_THESES = N_("{count} theses")
 
 
@@ -109,7 +116,13 @@ class GridView(ttk.Frame):
         return list(LEAD_COLUMNS) + self.artefact_kinds + [c.metric for c in self.columns]
 
     def _header(self) -> list[str]:
-        headers = self._column_names()
+        """Displayed headers: human-friendly labels (#16), with the ASCII sort
+        indicator on the sorted one (#40).
+
+        The *identity* model stays ``_column_names()`` - sort keys, the DB and
+        the export all speak raw names. Only what the professor reads is
+        translated (US-PROF-EXPLAIN, SDD Sec. 9.6)."""
+        headers = [column_label(name) for name in self._column_names()]
         if self._sorted:
             index = self._sorted_header_index()
             if index is not None:
@@ -324,8 +337,11 @@ class GridView(ttk.Frame):
         row and column and carries that column's one-line help, which is why
         COLUMN_HELP outlived the tooltips (#66, and #16 reuses it)."""
         heading = _(DETAIL_HEADING).format(
-            filename=row.thesis.pdf_filename, column=column_name
+            filename=row.thesis.pdf_filename, label=column_label(column_name)
         )
+        # The raw name stays discoverable here - it is what `tta list`, the
+        # export and every help page key on (#16 acceptance criterion).
+        heading += "\n" + _(DETAIL_METRIC_NAME).format(name=column_name)
         help_text = column_help(column_name)
         if help_text:
             heading += "\n" + help_text

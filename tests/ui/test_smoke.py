@@ -14,7 +14,7 @@ import pytest
 
 from tta.core import events
 from tta.core.project import Project
-from tta.ui.tk.columns import LEAD_COLUMNS
+from tta.ui.tk.columns import LEAD_COLUMNS, column_label
 
 # The filename lives in the "file" lead column, no longer column 0 (the
 # Excluded checkbox is now the first lead column, #11).
@@ -142,15 +142,20 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             # #12: a real header click on the word_count column sorts rows.
             # default order is by filename (english_thesis, shorter_thesis);
             # ascending word_count puts the smaller (shorter_thesis) first.
+            #
+            # #16: headers now show the human-friendly LABEL, so columns are
+            # addressed through the identity model (`_column_names`) and the
+            # label is what gets asserted on screen.
             grid = window.grid_view
             window.root.update_idletasks()
-            headers = grid.sheet.headers()
-            col = headers.index("word_count")
+            names = grid._column_names()
+            col = names.index("word_count")
+            assert grid.sheet.headers()[col] == column_label("word_count")
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
             _sort_by_column(window, grid, col)
             assert grid._sort_key == "word_count"
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
-            assert grid.sheet.headers()[col] == "word_count (asc)"
+            assert grid.sheet.headers()[col] == "%s (asc)" % column_label("word_count")
 
             # #40: a repeat click on the same column flips ASC->DESC, so the
             # larger word_count (english_thesis) returns to the top and the
@@ -158,30 +163,33 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             _sort_by_column(window, grid, col)
             assert grid._sort_reverse is True
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "english_thesis.pdf"
-            assert grid.sheet.headers()[col] == "word_count (desc)"
+            assert grid.sheet.headers()[col] == "%s (desc)" % column_label("word_count")
 
             # #60: a real click on the Type *lead* column header sorts by the
             # detected type (blank last) and stamps the indicator on that
             # header - it used to silently sort by file name and mark the file
             # header instead.
-            type_col = headers.index("type")
+            type_col = names.index("type")
             _sort_by_column(window, grid, type_col)
             assert grid._sort_key == "type"
             assert grid._sort_reverse is False
             assert grid.sheet.get_sheet_data()[0][FILE_COL] == "shorter_thesis.pdf"
-            assert grid.sheet.headers()[type_col] == "type (asc)"
-            assert grid.sheet.headers()[FILE_COL] == "file"  # indicator moved off
-            assert grid.sheet.headers()[col] == "word_count"
+            assert grid.sheet.headers()[type_col] == "%s (asc)" % column_label("type")
+            # indicator moved off
+            assert grid.sheet.headers()[FILE_COL] == column_label("file")
+            assert grid.sheet.headers()[col] == column_label("word_count")
 
             # #60: the Excluded lead column sorts too (nothing is excluded here,
             # so the file-name tie-break decides), and a repeat click reverses.
-            excluded_col = headers.index("excluded")
+            excluded_col = names.index("excluded")
             _assert_header_binding_installed(grid)  # the #12 wiring
             for _ in range(2):  # second click reverses (#40)
                 _sort_by_column(window, grid, excluded_col)
             assert grid._sort_key == "excluded"
             assert grid._sort_reverse is True
-            assert grid.sheet.headers()[excluded_col] == "excluded (desc)"
+            assert grid.sheet.headers()[excluded_col] == (
+                "%s (desc)" % column_label("excluded")
+            )
 
             # #33: while a run is in progress the run buttons are replaced by a
             # single Cancel control; cancelling with no active runner is a
@@ -247,6 +255,9 @@ def test_toolbar_add_is_recursive_and_remove_is_wired(tmp_path, english_pdf, mon
             assert "Add files" in labels
             assert "Add folder" not in labels  # collapsed into "Add files"
             assert "Remove" in labels
+            # #16/#29: the toolbar dict is keyed by button IDENTITY, and the
+            # widget carries the translated label
+            assert str(window._toolbar_buttons["Add files"]["text"]) == "Add files"
 
             # "Add files" must take the recursive folder path, not the file dialog
             window._toolbar_buttons["Add files"].invoke()

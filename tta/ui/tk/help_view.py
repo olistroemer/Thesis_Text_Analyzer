@@ -31,6 +31,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 from tta.core.i18n import N_, _
+from tta.ui.tk.columns import column_label
 
 WINDOW_TITLE = N_("Help")
 EMPTY_MESSAGE = N_("no help topics installed yet")
@@ -146,7 +147,11 @@ def load_topics(root=None) -> list[Topic]:
                 Topic(
                     kind=fields.get("kind") or SECTION_KINDS[section],
                     slug=slug,
-                    title=fields.get("title") or slug,
+                    # ADR-0012 makes the front-matter title the durable label
+                    # source; until #2 authors every page, a page without one
+                    # falls back to the friendly column label (#16) and only
+                    # then to the bare slug.
+                    title=fields.get("title") or column_label(slug),
                     body=body,
                     see_also=parse_uri_list(fields.get("see_also", "")),
                 )
