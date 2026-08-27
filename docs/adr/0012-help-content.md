@@ -85,16 +85,15 @@ an HTML review comment, and the viewer's topic tree deliberately excludes them.
 - ⚠️ Adding a module is now a two-step PR (code + help); CI enforces.
 - ⚠️ **Rev. 2 (2026-08-26, #72):** the GUI target renders a documented markdown *subset* (SDD [§9.4.1](../SDD.md#941-gui-help-viewer)) instead of the full CommonMark + GFM surface: tables, footnotes and math fall back to their plain source lines, and `references.bib` citations stay as `[@key]`. Reason: pulling the `markdown` library into the frozen single-file bundle for a handful of read-only pages is not defensible against QA-RES, and a Tk renderer has to be hand-written either way. The **authoring** rules in this ADR (front matter, subset, cross-ref URIs, BibTeX) are unchanged — only the GUI renderer's implementation and its citation fidelity are.
 - ⚠️ Math in the GUI is plain text until a v2 with KaTeX or similar.
-- ⚠️ **The front-matter `title:` cannot yet replace `COLUMN_LABELS`** (#2, against
-  [ADR-020](0020-i18n-mechanism.md) Sec. 8). The MVP corpus is authored
-  **German-only** (SDD [Sec. 9.6](../SDD.md#96-i18n-posture)), so a page has exactly
-  one title and it is German -- while the gettext catalogue holds *both* the
-  English msgid and the German translation for every column. Migrating the labels
-  into the front matter would therefore give the English UI German column
-  headers. The two sources are not interchangeable until either a second-language
-  corpus exists (this ADR's first "Revisit when") or front matter grows
-  per-locale title fields. Until then `COLUMN_LABELS` stays the label source and
-  the corpus titles are worded to match the `de` catalogue.
+- ⚠️ **The front-matter `title:` does not replace `COLUMN_LABELS`** (#2, #79, against
+  this ADR's original intent). The MVP corpus is authored German-only
+  ([SDD §9.6](../SDD.md#96-i18n-posture)), so a page carries exactly one title and it is
+  German -- while the gettext catalogue holds *both* the English msgid and the German
+  translation for every column. Migrating the labels into the front matter would hand
+  the English UI German headers: a broken locale traded for a removed duplicate. **The
+  catalogue is canonical**; the page title is a second copy of the German string, and
+  `tests/core/test_help_corpus.py` asserts the two agree so they cannot drift. Revisit
+  if a second-language corpus or per-locale title fields arrive.
 
 ## Revisit when
 
