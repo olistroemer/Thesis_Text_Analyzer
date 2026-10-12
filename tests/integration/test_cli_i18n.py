@@ -75,11 +75,16 @@ def german():
 
 def run_cli(*args, locale="de"):
     """`python -m tta.cli.main ...` in a subprocess under one locale."""
-    env = dict(os.environ, TTA_LOCALE=locale, PYTHONPATH=str(REPO_ROOT))
+    # The pipe's encoding is pinned on both ends. Left alone, the child picks
+    # the locale's codec (cp1252 on Windows) or whatever PYTHONIOENCODING the
+    # developer exports, and text=True decodes with the locale's - two
+    # independent choices that disagree as soon as one of them is UTF-8.
+    env = dict(os.environ, TTA_LOCALE=locale, PYTHONPATH=str(REPO_ROOT),
+               PYTHONIOENCODING="utf-8")
     completed = subprocess.run(
         [sys.executable, "-m", "tta.cli.main", *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         check=True,
         cwd=str(REPO_ROOT),
         env=env,
