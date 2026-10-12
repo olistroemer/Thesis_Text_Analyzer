@@ -15,6 +15,7 @@ import tkinter
 import pytest
 
 from tta.core.project import Project
+from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk import help_view
 from tta.ui.tk.help_view import (
     Block,
@@ -160,6 +161,7 @@ def test_shipped_body_cross_references_all_resolve():
         for block in render_blocks(topic.body)
         for run in block.runs
         if run.target and run.target not in index
+        and run.target != LICENSES_URI  # the in-app target, not a page (#36)
     ]
     assert dangling == []
 
@@ -352,3 +354,12 @@ def test_toolbar_help_button_opens_help_not_the_privacy_statement(tmp_path):
             opened.destroy()
         finally:
             window.root.destroy()
+
+
+def test_the_in_app_licence_link_is_clickable_and_no_other_app_target_is():
+    """ADR-0012 rev. 4 (#36): `app:third_party_licenses` is a live target,
+    any other non-page target stays inert."""
+    (run,) = parse_inline(f"[Lizenzen]({LICENSES_URI})")
+    assert run.target == LICENSES_URI
+    (other,) = parse_inline("[x](app:something_else)")
+    assert other.target == ""

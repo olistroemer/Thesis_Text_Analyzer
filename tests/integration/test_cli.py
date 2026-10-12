@@ -102,7 +102,8 @@ def test_module_list_and_show():
 def test_privacy_report_renders(project_dir):
     md = invoke("privacy", "report").stdout
     assert "## 5. What leaves your machine" in md
-    assert "Your rights under GDPR" in md
+    assert "## 6. Responsibility and your rights under GDPR" in md
+    assert "## 7. Publisher and contact" in md
     payload = json.loads(invoke("privacy", "report", "--format", "json").stdout)
     assert len(payload["modules"]) == 13  # ADR-0011 rev. 4 (#18)
 

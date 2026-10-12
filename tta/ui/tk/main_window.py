@@ -18,7 +18,7 @@ from tta.core import events, progress, report
 from tta.core.config import save_config
 from tta.core.i18n import N_, _, format_integer
 from tta.core.modules.registry import default_registry
-from tta.core.privacy_metadata import render_report_md
+from tta.core.privacy_metadata import render_statement_md
 from tta.core.project import Project
 from tta.ui.tk import dialogs
 from tta.ui.tk.columns import metric_columns
@@ -117,6 +117,9 @@ class MainWindow:
         help_menu = tk.Menu(menubar, tearoff=False)
         help_menu.add_command(label=_("Help topics"), command=self._show_help)
         help_menu.add_command(label=_("Privacy statement"), command=self._show_privacy)
+        help_menu.add_command(
+            label=_("Third-party licences"), command=self._show_third_party_licenses
+        )
         help_menu.add_command(label=_("About"), command=self._show_about)
         menubar.add_cascade(label=_("Help"), menu=help_menu)
         self.root.config(menu=menubar)
@@ -637,7 +640,7 @@ class MainWindow:
         window.title(_("Privacy statement"))
         window.geometry("800x600")
         text = tk.Text(window, wrap="word")
-        text.insert("1.0", render_report_md())
+        text.insert("1.0", render_statement_md())
         text.configure(state="disabled")
         scrollbar = ttk.Scrollbar(window, command=text.yview)
         text.configure(yscrollcommand=scrollbar.set)
@@ -659,6 +662,13 @@ class MainWindow:
         from tta.ui.tk.about_view import show_about
 
         self._about_window = show_about(self.root)
+
+    def _show_third_party_licenses(self) -> None:
+        """The bundled THIRD_PARTY_LICENSES.txt, or why there is none
+        (Sec. 9.2, ADR-0014, #36)."""
+        from tta.ui.tk.licenses_view import show_third_party_licenses
+
+        self._licenses_window = show_third_party_licenses(self.root)
 
     def run(self) -> None:
         self.root.mainloop()

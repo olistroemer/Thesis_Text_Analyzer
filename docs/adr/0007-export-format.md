@@ -28,7 +28,7 @@ Power users can still use `tta export --current-only` from the CLI to produce a 
 - `module_runs.diagnostics` (free-form module diagnostics; may contain content-derived values).
 - `theses.added_at` is rounded to day to reduce timing fingerprints.
 - `theses.id` is preserved as-is (it's just an integer, no PII).
-- `pdf_sha256` is preserved (PII-free, used as portable cross-export identifier).
+- `pdf_sha256` is preserved (PII-free, used as portable cross-export identifier). **Deduplication only** (ADR-0009 rev. 2026-10-12): it recognises the same PDF contributed twice and is never used to identify an author. Without the PDF it identifies no one, which is what lets the research team treat an export as anonymous; anyone holding the PDF can recompute it, and the privacy statement says so.
 
 ## Pre-export confirmation UI
 

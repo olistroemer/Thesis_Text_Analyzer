@@ -9,7 +9,6 @@ contract); logs and progress go to stderr; exit codes follow sysexits
 from __future__ import annotations
 
 import json
-import re
 import signal
 import sys
 import traceback
@@ -800,14 +799,6 @@ def import_(ctx: click.Context, export_file: Path, name: str) -> None:
 # -- privacy --------------------------------------------------------------------
 
 
-_HTML_COMMENT = re.compile(r"<!--.*?-->\s*", re.DOTALL)
-
-
-def _load_stub(filename: str) -> str:
-    text = (resources.files("tta.core") / "help" / "privacy" / filename).read_text("utf-8")
-    return _HTML_COMMENT.sub("", text).strip()
-
-
 @cli.group(help=_("Render the data-protection statement."))
 def privacy() -> None:
     """Render the GDPR privacy statement (ADR-0009)."""
@@ -824,12 +815,7 @@ def privacy_report(fmt: str) -> None:
     if fmt == "json":
         click.echo(privacy_metadata.render_report_json())
         return
-    click.echo(
-        privacy_metadata.render_report_md(
-            rights_stub=_load_stub("rights_stub.md"),
-            controller_stub=_load_stub("controller_stub.md"),
-        )
-    )
+    click.echo(privacy_metadata.render_statement_md())
 
 
 # -- report -----------------------------------------------------------------------

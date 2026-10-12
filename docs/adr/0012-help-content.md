@@ -65,11 +65,21 @@ adapter.
   packaged corpus as `help/**/*.md`, so a `.bib` placed there would not ship
   anyway. Repository-time bibliography, repository-time gate.
 
+**Rev. 4 (2026-10-12, #36): one in-app link target.** Besides the three
+page schemes, a body link may target `app:third_party_licenses`, which the GUI
+viewer resolves to the *Third-party licences* window (SDD §9.2) instead of a
+page. It is not a slug, so check 3 does not apply to it; instead the gate
+fails on any `app:` target other than that one, so a typo cannot render as
+an inert link. Other render targets show the link label as text. No front
+matter field may carry it (`see_also` stays pages only).
+
 **The scope of checks 5-7 is `modules/`, `metrics/`, `concepts/`.**
-`core/help/privacy/` holds the two reviewed legal stubs of
-[ADR-009](0009-privacy-as-code.md) Sec. 6-7: they are fragments appended to a
-generated statement, not help pages, they carry no front matter, they do carry
-an HTML review comment, and the viewer's topic tree deliberately excludes them.
+`core/help/privacy/` holds the legal stubs of
+[ADR-009](0009-privacy-as-code.md) Sec. 6-7, one pair per locale
+(`privacy/de/`, `privacy/en/`; ADR-009 rev. 2026-10-12): they are fragments
+appended to a generated statement, not help pages, they carry no front matter,
+they do carry an HTML status comment, and the viewer's topic tree deliberately
+excludes them.
 
 ## Alternatives considered
 

@@ -11,7 +11,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 
-#: tta/cli/main.py:675
+#: tta/cli/main.py:674
 msgid " | cancelled"
 msgstr ""
 
@@ -24,59 +24,59 @@ msgid ""
 "They remain on this machine only and are never exported. Delete that folder manually to remove them."
 msgstr ""
 
-#: tta/cli/main.py:540
+#: tta/cli/main.py:539
 msgid "- (reads the PDF directly)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:185
+#: tta/core/privacy_metadata.py:251
 msgid "1. What we process"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:211
+#: tta/core/privacy_metadata.py:277
 msgid "2. Module-level processing"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:224
+#: tta/core/privacy_metadata.py:290
 msgid "3. Cached files (never exported)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:234
+#: tta/core/privacy_metadata.py:300
 msgid "4. Storage and retention"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:242
+#: tta/core/privacy_metadata.py:308
 msgid "5. What leaves your machine"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:259
-msgid "6. Your rights under GDPR"
+#: tta/core/privacy_metadata.py:327
+msgid "6. Responsibility and your rights under GDPR"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:261
-msgid "7. Controller contact"
+#: tta/core/privacy_metadata.py:332
+msgid "7. Publisher and contact"
 msgstr ""
 
 #: tta/ui/tk/main_window.py:59
 msgid "? Help"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "A run is already in progress."
 msgstr ""
 
 #: tta/ui/tk/about_view.py:31
-#: tta/ui/tk/main_window.py:120
+#: tta/ui/tk/main_window.py:123
 msgid "About"
 msgstr ""
 
-#: tta/cli/main.py:566
+#: tta/cli/main.py:565
 msgid ""
 "Add INPUTS (PDF files or folders) and analyse them.\n"
 "\n"
 "Without INPUTS, every thesis already in the project is analysed. By default only what is missing, out of date or previously failed is computed; --rerun computes everything again. The type of a thesis is detected during the analysis, not entered when the file is added."
 msgstr ""
 
-#: tta/cli/main.py:565
+#: tta/cli/main.py:564
 msgid "Add PDF files or folders and analyse them."
 msgstr ""
 
@@ -106,7 +106,7 @@ msgid ""
 "Subfolders are included. Nothing is read yet - the documents are only analysed when you click Run."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:239
+#: tta/ui/tk/main_window.py:242
 msgid "Added {count} theses - click Run all"
 msgstr ""
 
@@ -114,15 +114,23 @@ msgstr ""
 msgid "Address copied to the clipboard."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:236
+#: tta/core/privacy_metadata.py:302
 msgid "All data lives in the project folder on this machine and is retained {retention}. The application is fully offline: it makes no network connections of any kind."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:158
+#: tta/core/privacy_metadata.py:176
+msgid "An export contains only analysis results and technical values ({count} values, listed in section 5): no personal names, no file names or paths, no notes or tags, and no text from the theses."
+msgstr ""
+
+#: tta/core/privacy_metadata.py:181
+msgid "An export contains the {count} values listed in section 5."
+msgstr ""
+
+#: tta/core/privacy_metadata.py:220
 msgid "Analysis results (aggregated text statistics)"
 msgstr ""
 
-#: tta/cli/main.py:204
+#: tta/cli/main.py:203
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr ""
 
@@ -198,11 +206,11 @@ msgstr ""
 msgid "Cancel run"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:286
+#: tta/ui/tk/main_window.py:289
 msgid "Cancelling - finishing in-flight theses..."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:226
+#: tta/core/privacy_metadata.py:292
 msgid "Category"
 msgstr ""
 
@@ -230,11 +238,11 @@ msgstr ""
 msgid "Cohort report"
 msgstr ""
 
-#: tta/cli/main.py:120
+#: tta/cli/main.py:119
 msgid "Collect diagnostics for a support request."
 msgstr ""
 
-#: tta/cli/main.py:121
+#: tta/cli/main.py:120
 msgid ""
 "Collect diagnostics for a support request: versions, the state of the project, and an offline self-check of the analysis libraries.\n"
 "\n"
@@ -245,15 +253,15 @@ msgstr ""
 msgid "Column name: {name}"
 msgstr ""
 
-#: tta/cli/main.py:224
+#: tta/cli/main.py:223
 msgid "Compact the project database file."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:49
 msgid "Concepts"
 msgstr ""
 
-#: tta/cli/main.py:581
+#: tta/cli/main.py:580
 msgid "Concurrent theses (default: cores - 1)."
 msgstr ""
 
@@ -261,7 +269,7 @@ msgstr ""
 msgid "Confidence of the language detection, from 0 to 1."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:157
+#: tta/core/privacy_metadata.py:219
 msgid "Content fingerprints (no personal data recoverable)"
 msgstr ""
 
@@ -269,23 +277,23 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:616
+#: tta/ui/tk/main_window.py:619
 msgid ""
 "Could not remember {path}:\n"
 "{error}"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:532
+#: tta/ui/tk/main_window.py:535
 msgid ""
 "Could not write the report:\n"
 "{error}"
 msgstr ""
 
-#: tta/cli/main.py:192
+#: tta/cli/main.py:191
 msgid "Create the project in the --project directory, or migrate an existing one."
 msgstr ""
 
-#: tta/cli/main.py:187
+#: tta/cli/main.py:186
 msgid "Create, migrate or compact the project database."
 msgstr ""
 
@@ -305,7 +313,7 @@ msgstr ""
 msgid "Data table"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:226
+#: tta/core/privacy_metadata.py:292
 msgid "Description"
 msgstr ""
 
@@ -321,7 +329,7 @@ msgstr ""
 msgid "Detected thesis type (bachelor / master / unspecified); blank until analysed."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:160
+#: tta/core/privacy_metadata.py:222
 msgid "Directly identifying values (kept on this machine only)"
 msgstr ""
 
@@ -329,15 +337,15 @@ msgstr ""
 msgid "Distributions"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:159
+#: tta/core/privacy_metadata.py:221
 msgid "Document content (kept on this machine only)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:573
+#: tta/ui/tk/main_window.py:576
 msgid "Don't ask again"
 msgstr ""
 
-#: tta/cli/main.py:715
+#: tta/cli/main.py:714
 msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
 msgstr ""
 
@@ -352,11 +360,11 @@ msgid ""
 "This is destructive and cannot be undone. The source PDF file is not touched."
 msgstr ""
 
-#: tta/cli/main.py:301
+#: tta/cli/main.py:300
 msgid "Exclude a thesis from analysis and exports."
 msgstr ""
 
-#: tta/cli/main.py:302
+#: tta/cli/main.py:301
 msgid ""
 "Exclude the thesis THESIS_ID from analysis and from exports.\n"
 "\n"
@@ -367,7 +375,7 @@ msgstr ""
 msgid "Exclude thesis"
 msgstr ""
 
-#: tta/cli/main.py:341
+#: tta/cli/main.py:340
 msgid "Exclude thesis {thesis_id} and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? This is destructive and cannot be undone. The source PDF is not touched."
 msgstr ""
 
@@ -380,7 +388,7 @@ msgstr ""
 msgid "Excluded"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:252
+#: tta/core/privacy_metadata.py:318
 msgid "Excluded theses, file paths and names, free-form notes and tags, raw text, tokenisations, full PDF metadata, error tracebacks, and module diagnostics never leave this machine."
 msgstr ""
 
@@ -441,7 +449,7 @@ msgstr ""
 msgid "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses are named by id - no file name leaves the database (Sec. 9.8.3); <code>tta list</code> resolves an id."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:131
+#: tta/core/privacy_metadata.py:133
 msgid "Flesch (en) / Amstad (de) reading-ease score"
 msgstr ""
 
@@ -469,12 +477,12 @@ msgstr ""
 msgid "Generated locally by tta {version}. This file is self-contained: it loads nothing from the network and contains no file names, paths, notes or document text. Regenerate it any time from the Report button or `tta report`."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:180
+#: tta/core/privacy_metadata.py:242
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:36
-#: tta/ui/tk/main_window.py:121
+#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr ""
 
@@ -490,15 +498,23 @@ msgstr ""
 msgid "Images"
 msgstr ""
 
-#: tta/cli/main.py:772
+#: tta/cli/main.py:771
 msgid "Import another installation's export as a new, read-only source."
 msgstr ""
 
-#: tta/cli/main.py:485
+#: tta/core/privacy_metadata.py:182
+msgid "In an export, a thesis is identified only by a fingerprint of its PDF file ({columns}). It serves only to recognise duplicates; anyone who holds the PDF itself can recompute it (section 6)."
+msgstr ""
+
+#: tta/core/privacy_metadata.py:166
+msgid "In brief"
+msgstr ""
+
+#: tta/cli/main.py:484
 msgid "Inspect the catalogue of analysis modules."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:226
+#: tta/core/privacy_metadata.py:292
 msgid "Kind"
 msgstr ""
 
@@ -518,7 +534,7 @@ msgstr ""
 msgid "Languages"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:199
+#: tta/core/privacy_metadata.py:265
 msgid "Leaves your machine on export"
 msgstr ""
 
@@ -534,11 +550,11 @@ msgstr ""
 msgid "Letters"
 msgstr ""
 
-#: tta/cli/main.py:490
+#: tta/cli/main.py:489
 msgid "List every registered module, in the order in which it runs."
 msgstr ""
 
-#: tta/cli/main.py:236
+#: tta/cli/main.py:235
 msgid "List the known theses with the status of their analysis."
 msgstr ""
 
@@ -546,7 +562,7 @@ msgstr ""
 msgid "Median length"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:46
+#: tta/ui/tk/help_view.py:48
 msgid "Metrics"
 msgstr ""
 
@@ -554,11 +570,11 @@ msgstr ""
 msgid "Modified (year)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:214
+#: tta/core/privacy_metadata.py:280
 msgid "Module"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:45
+#: tta/ui/tk/help_view.py:47
 msgid "Modules"
 msgstr ""
 
@@ -566,6 +582,10 @@ msgstr ""
 msgid ""
 "No PDFs found in or below:\n"
 "{folder}"
+msgstr ""
+
+#: tta/core/privacy_metadata.py:171
+msgid "No data leaves this machine unless you create an export and pass it on yourself. An export is a file you save in a folder of your choice; the application never transmits it."
 msgstr ""
 
 #: tta/core/report.py:678
@@ -592,7 +612,7 @@ msgstr ""
 msgid "Not applicable for this thesis."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:588
+#: tta/ui/tk/main_window.py:591
 msgid "Not now"
 msgstr ""
 
@@ -628,12 +648,12 @@ msgstr ""
 msgid "Once-only words (of types)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:244
+#: tta/core/privacy_metadata.py:310
 msgid "Only when you explicitly export, and only the following values:"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:615
-#: tta/ui/tk/main_window.py:632
+#: tta/ui/tk/main_window.py:618
+#: tta/ui/tk/main_window.py:635
 msgid "Open Project"
 msgstr ""
 
@@ -641,11 +661,11 @@ msgstr ""
 msgid "Open Project..."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:606
+#: tta/ui/tk/main_window.py:609
 msgid "Open project folder"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:591
+#: tta/ui/tk/main_window.py:594
 msgid "Open report"
 msgstr ""
 
@@ -677,21 +697,21 @@ msgstr ""
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:250
-#: tta/ui/tk/main_window.py:274
+#: tta/ui/tk/main_window.py:253
+#: tta/ui/tk/main_window.py:277
 msgid "Planning..."
 msgstr ""
 
-#: tta/cli/main.py:579
+#: tta/cli/main.py:578
 msgid "Print the plan without executing."
 msgstr ""
 
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:637
+#: tta/ui/tk/main_window.py:640
 msgid "Privacy statement"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:177
+#: tta/core/privacy_metadata.py:239
 msgid "Privacy statement - Thesis Text Analyzer"
 msgstr ""
 
@@ -699,11 +719,11 @@ msgstr ""
 msgid "Producer tool"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:214
+#: tta/core/privacy_metadata.py:280
 msgid "Produces"
 msgstr ""
 
-#: tta/cli/main.py:75
+#: tta/cli/main.py:74
 msgid "Project directory (default: current directory)."
 msgstr ""
 
@@ -719,8 +739,8 @@ msgstr ""
 msgid "Publication years"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:198
-#: tta/core/privacy_metadata.py:214
+#: tta/core/privacy_metadata.py:264
+#: tta/core/privacy_metadata.py:280
 msgid "Purpose"
 msgstr ""
 
@@ -736,14 +756,14 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: tta/cli/main.py:384
+#: tta/cli/main.py:383
 msgid ""
 "Re-include a previously excluded thesis, clearing its excluded flag.\n"
 "\n"
 "The thesis becomes eligible again and is analysed on the next run. Analysis that was deleted when it was excluded is not restored; run the analysis again to recompute it."
 msgstr ""
 
-#: tta/cli/main.py:383
+#: tta/cli/main.py:382
 msgid "Re-include a previously excluded thesis."
 msgstr ""
 
@@ -751,7 +771,7 @@ msgstr ""
 msgid "Re-run all"
 msgstr ""
 
-#: tta/cli/main.py:578
+#: tta/cli/main.py:577
 msgid "Re-run everything regardless of state."
 msgstr ""
 
@@ -763,19 +783,19 @@ msgstr ""
 msgid "Reading ease distribution"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:214
+#: tta/core/privacy_metadata.py:280
 msgid "Reads"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:186
+#: tta/ui/tk/main_window.py:189
 msgid "Ready"
 msgstr ""
 
-#: tta/cli/main.py:411
+#: tta/cli/main.py:410
 msgid "Remove a thesis from the project entirely."
 msgstr ""
 
-#: tta/cli/main.py:412
+#: tta/cli/main.py:411
 msgid ""
 "Remove the thesis THESIS_ID from the project entirely.\n"
 "\n"
@@ -788,7 +808,7 @@ msgstr ""
 msgid "Remove thesis"
 msgstr ""
 
-#: tta/cli/main.py:448
+#: tta/cli/main.py:447
 msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
 msgstr ""
 
@@ -805,11 +825,11 @@ msgid ""
 "The PDF itself is not touched. This cannot be undone."
 msgstr ""
 
-#: tta/cli/main.py:811
+#: tta/cli/main.py:802
 msgid "Render the data-protection statement."
 msgstr ""
 
-#: tta/cli/main.py:816
+#: tta/cli/main.py:807
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr ""
 
@@ -821,17 +841,17 @@ msgstr ""
 msgid "Repeated word triples"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:531
-#: tta/ui/tk/main_window.py:562
+#: tta/ui/tk/main_window.py:534
+#: tta/ui/tk/main_window.py:565
 #: tta/ui/tk/main_window.py:57
 msgid "Report"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:518
+#: tta/ui/tk/main_window.py:521
 msgid "Report written to {path}"
 msgstr ""
 
-#: tta/cli/main.py:577
+#: tta/cli/main.py:576
 msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
 msgstr ""
 
@@ -839,7 +859,7 @@ msgstr ""
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "Run"
 msgstr ""
 
@@ -847,15 +867,15 @@ msgstr ""
 msgid "Run all"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run cancelled"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run finished"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:317
+#: tta/ui/tk/main_window.py:320
 msgid "Running... thesis {ordinal}: {module} {status}"
 msgstr ""
 
@@ -871,7 +891,7 @@ msgstr ""
 msgid "Scrub incomplete"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/help_view.py:40
 msgid "See also"
 msgstr ""
 
@@ -891,15 +911,15 @@ msgstr ""
 msgid "Share of word types that occur exactly once."
 msgstr ""
 
-#: tta/cli/main.py:882
+#: tta/cli/main.py:868
 msgid "Show a help topic - a module, a metric or a concept - in the terminal."
 msgstr ""
 
-#: tta/cli/main.py:98
+#: tta/cli/main.py:97
 msgid "Show the application version and the version of every analysis module."
 msgstr ""
 
-#: tta/cli/main.py:523
+#: tta/cli/main.py:522
 msgid "Show what one module reads and what it produces."
 msgstr ""
 
@@ -907,8 +927,8 @@ msgstr ""
 msgid "Size of the PDF file on disk, in bytes."
 msgstr ""
 
-#: tta/cli/main.py:316
-#: tta/cli/main.py:427
+#: tta/cli/main.py:315
+#: tta/cli/main.py:426
 msgid "Skip the confirmation prompt (for scripts)."
 msgstr ""
 
@@ -916,7 +936,7 @@ msgstr ""
 msgid "Source code (GPL Sec. 6), copy the address to visit it:"
 msgstr ""
 
-#: tta/cli/main.py:777
+#: tta/cli/main.py:776
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr ""
 
@@ -928,11 +948,11 @@ msgstr ""
 msgid "State"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:197
+#: tta/core/privacy_metadata.py:263
 msgid "Stored value"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:156
+#: tta/core/privacy_metadata.py:218
 msgid "Technical bookkeeping (no personal data)"
 msgstr ""
 
@@ -940,15 +960,19 @@ msgstr ""
 msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:628
+#: tta/ui/tk/main_window.py:631
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:626
+#: tta/core/privacy_metadata.py:187
+msgid "The person using this application and their institution are responsible for what happens on this machine; the publisher of the application receives no personal data from it (sections 6 and 7)."
+msgstr ""
+
+#: tta/ui/tk/main_window.py:629
 msgid "The project opens on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:568
+#: tta/ui/tk/main_window.py:571
 msgid "The run finished. Open the report for this project now?"
 msgstr ""
 
@@ -972,7 +996,7 @@ msgstr ""
 msgid "Thesis Text Analyzer - {path}"
 msgstr ""
 
-#: tta/cli/main.py:65
+#: tta/cli/main.py:64
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr ""
 
@@ -982,6 +1006,26 @@ msgstr ""
 
 #: tta/ui/tk/dialogs.py:99
 msgid "Thesis {thesis_id} is no longer in this project."
+msgstr ""
+
+#: tta/ui/tk/licenses_view.py:22
+#: tta/ui/tk/main_window.py:121
+msgid "Third-party licences"
+msgstr ""
+
+#: tta/core/privacy_metadata.py:167
+msgid "This application works entirely on this machine. It makes no network connections and sends nothing anywhere by itself."
+msgstr ""
+
+#: tta/ui/tk/licenses_view.py:23
+msgid ""
+"This copy of the program contains no third-party licence file. The file is generated when a release binary is built and is packed into it, so a run from the source code does not have one.\n"
+"\n"
+"To generate it, run this in the build environment, from the repository root:\n"
+"\n"
+"    python packaging/gen_third_party_licenses.py\n"
+"\n"
+"The repository's docs/dependencies.md lists every component with its purpose and licence."
 msgstr ""
 
 #: tta/ui/tk/columns.py:153
@@ -1000,7 +1044,7 @@ msgstr ""
 msgid "Trends"
 msgstr ""
 
-#: tta/cli/main.py:713
+#: tta/cli/main.py:712
 msgid "Trim history to the latest run per (thesis, module)."
 msgstr ""
 
@@ -1036,7 +1080,7 @@ msgstr ""
 msgid "Vocabulary richness (Yule's K)"
 msgstr ""
 
-#: tta/cli/main.py:860
+#: tta/cli/main.py:846
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr ""
 
@@ -1052,26 +1096,26 @@ msgstr ""
 msgid "Words"
 msgstr ""
 
-#: tta/cli/main.py:583
+#: tta/cli/main.py:582
 msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
 msgstr ""
 
-#: tta/cli/main.py:700
+#: tta/cli/main.py:699
 msgid "Write the researcher export, free of personal data."
 msgstr ""
 
-#: tta/cli/main.py:701
+#: tta/cli/main.py:700
 msgid ""
 "Write the researcher export: an SQLite file holding the metric values and no personal data.\n"
 "\n"
 "With --profiling, the flat per-run timing dataset is written instead: one CSV row per module run, with its duration and the size of the PDF it was measured on. Both obey the same rules - only data produced on this machine, and no identifying column."
 msgstr ""
 
-#: tta/cli/main.py:848
+#: tta/cli/main.py:834
 msgid "Write the stand-alone HTML report for the cohort."
 msgstr ""
 
-#: tta/cli/main.py:849
+#: tta/cli/main.py:835
 msgid ""
 "Write the stand-alone HTML report over the whole cohort.\n"
 "\n"
@@ -1098,104 +1142,104 @@ msgstr ""
 msgid "Yule's K: vocabulary richness, robust to text length."
 msgstr ""
 
-#: tta/cli/main.py:349
-#: tta/cli/main.py:457
+#: tta/cli/main.py:348
+#: tta/cli/main.py:456
 msgid "aborted; no changes made"
 msgstr ""
 
-#: tta/cli/main.py:601
+#: tta/cli/main.py:600
 msgid "added {count} theses from {paths} input path(s)"
 msgstr ""
 
-#: tta/cli/main.py:218
+#: tta/cli/main.py:217
 msgid "applied migrations: {versions}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:109
+#: tta/core/privacy_metadata.py:111
 msgid "artefact kind of the cached file"
 msgstr ""
 
-#: tta/cli/main.py:544
+#: tta/cli/main.py:543
 msgid "artefacts: {value}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:79
+#: tta/core/privacy_metadata.py:81
 msgid "audit trail"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:90
+#: tta/core/privacy_metadata.py:92
 msgid "audit trail (exported at day precision only)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:100
+#: tta/core/privacy_metadata.py:102
 msgid "audit trail, profiling"
 msgstr ""
 
-#: tta/cli/main.py:905
+#: tta/cli/main.py:891
 msgid "available topics:"
 msgstr ""
 
-#: tta/cli/main.py:642
+#: tta/cli/main.py:641
 msgid "cancelling - finishing in-flight theses (Ctrl-C again to force)..."
 msgstr ""
 
-#: tta/cli/main.py:173
+#: tta/cli/main.py:172
 msgid "checks:"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:84
+#: tta/core/privacy_metadata.py:86
 msgid "coarse size statistics"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:149
+#: tta/core/privacy_metadata.py:151
 msgid "complete PDF Info dict + XMP, incl. Author/Title (JSON)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:87
+#: tta/core/privacy_metadata.py:89
 msgid "confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)"
 msgstr ""
 
-#: tta/cli/main.py:515
+#: tta/cli/main.py:514
 msgid "consumes"
 msgstr ""
 
-#: tta/cli/main.py:539
+#: tta/cli/main.py:538
 msgid "consumes:  {value}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:83
-msgid "content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier"
+#: tta/core/privacy_metadata.py:85
+msgid "content fingerprint of the PDF, used only to recognise duplicate copies of the same file (within a project and across exports), never to identify authors; computed at first run (NULL until then); survives renames"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:135
+#: tta/core/privacy_metadata.py:137
 msgid "count embedded images in the PDF"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:75
+#: tta/core/privacy_metadata.py:77
 msgid "cross-cohort grouping in the merged research DB"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:98
+#: tta/core/privacy_metadata.py:100
 msgid "debugging; may embed filesystem paths"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:123
+#: tta/core/privacy_metadata.py:125
 msgid "detect the degree (bachelor/master/diploma) from title-page keywords for grouping"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:121
+#: tta/core/privacy_metadata.py:123
 msgid "detect the thesis language to select language-aware analyses"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:147
+#: tta/core/privacy_metadata.py:149
 msgid "detected language code + confidence (JSON)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:86
+#: tta/core/privacy_metadata.py:88
 msgid "display label in the grid (may contain student names)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:74
+#: tta/core/privacy_metadata.py:76
 msgid "distinguish own data from imported cohorts"
 msgstr ""
 
@@ -1204,39 +1248,39 @@ msgid "err"
 msgstr ""
 
 #: tta/core/progress.py:313
-#: tta/ui/tk/main_window.py:496
+#: tta/ui/tk/main_window.py:499
 msgid "estimating..."
 msgstr ""
 
-#: tta/cli/main.py:283
+#: tta/cli/main.py:282
 msgid "excluded"
 msgstr ""
 
-#: tta/cli/main.py:360
+#: tta/cli/main.py:359
 msgid "excluded thesis {thesis_id}"
 msgstr ""
 
-#: tta/cli/main.py:372
+#: tta/cli/main.py:371
 msgid "excluded thesis {thesis_id}; analysis records removed, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
 msgstr ""
 
-#: tta/cli/main.py:363
+#: tta/cli/main.py:362
 msgid "excluded thesis {thesis_id}; cached analysis scrubbed"
 msgstr ""
 
-#: tta/cli/main.py:747
+#: tta/cli/main.py:746
 msgid "exported {rows} module runs across {modules} modules ({policy}) -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:759
+#: tta/cli/main.py:758
 msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy}) -> {path}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:117
+#: tta/core/privacy_metadata.py:119
 msgid "extract the plain text from the PDF; count pages and characters"
 msgstr ""
 
-#: tta/cli/main.py:180
+#: tta/cli/main.py:179
 msgid "failing checks: {names}"
 msgstr ""
 
@@ -1244,27 +1288,27 @@ msgstr ""
 msgid "file not found"
 msgstr ""
 
-#: tta/cli/main.py:283
+#: tta/cli/main.py:282
 msgid "filename"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:119
+#: tta/core/privacy_metadata.py:121
 msgid "flag garbled or sparse text extractions so bad data is visible"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:88
+#: tta/core/privacy_metadata.py:90
 msgid "free-form user notes"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:89
+#: tta/core/privacy_metadata.py:91
 msgid "free-form user tags"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:146
+#: tta/core/privacy_metadata.py:148
 msgid "full extracted thesis text (UTF-8 file)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:139
+#: tta/core/privacy_metadata.py:141
 msgid "fuse the title-page year and PDF metadata dates into a best-estimate publication year"
 msgstr ""
 
@@ -1272,34 +1316,34 @@ msgstr ""
 msgid "high whisker"
 msgstr ""
 
-#: tta/cli/main.py:283
+#: tta/cli/main.py:282
 msgid "id"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:77
+#: tta/core/privacy_metadata.py:79
 msgid "import compatibility check"
 msgstr ""
 
-#: tta/cli/main.py:787
+#: tta/cli/main.py:786
 msgid "imported source {source_id} ({name}): {theses} theses, {runs} runs, {metrics} metric values"
 msgstr ""
 
-#: tta/cli/main.py:407
+#: tta/cli/main.py:406
 msgid "included thesis {thesis_id}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:103
-#: tta/core/privacy_metadata.py:108
-#: tta/core/privacy_metadata.py:81
-#: tta/core/privacy_metadata.py:92
+#: tta/core/privacy_metadata.py:105
+#: tta/core/privacy_metadata.py:110
+#: tta/core/privacy_metadata.py:83
+#: tta/core/privacy_metadata.py:94
 msgid "internal key"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:72
+#: tta/core/privacy_metadata.py:74
 msgid "key for grouping data by origin"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:73
+#: tta/core/privacy_metadata.py:75
 msgid "label of the data origin (institution-level, not personal)"
 msgstr ""
 
@@ -1315,7 +1359,7 @@ msgstr ""
 msgid "linear trend"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:110
+#: tta/core/privacy_metadata.py:112
 msgid "locate the cached file in the project folder"
 msgstr ""
 
@@ -1327,19 +1371,19 @@ msgstr ""
 msgid "median"
 msgstr ""
 
-#: tta/cli/main.py:547
+#: tta/cli/main.py:546
 msgid "metrics:   {value}"
 msgstr ""
 
-#: tta/cli/main.py:515
+#: tta/cli/main.py:514
 msgid "module"
 msgstr ""
 
-#: tta/cli/main.py:514
+#: tta/cli/main.py:513
 msgid "module catalogue"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:99
+#: tta/core/privacy_metadata.py:101
 msgid "module diagnostics; may contain content-derived values"
 msgstr ""
 
@@ -1351,16 +1395,16 @@ msgstr ""
 msgid "n"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:203
+#: tta/core/privacy_metadata.py:269
 msgid "no"
 msgstr ""
 
-#: tta/cli/main.py:896
+#: tta/cli/main.py:882
 msgid "no help topic {topic}"
 msgstr ""
 
-#: tta/cli/main.py:909
-#: tta/ui/tk/help_view.py:37
+#: tta/cli/main.py:895
+#: tta/ui/tk/help_view.py:39
 msgid "no help topics installed yet"
 msgstr ""
 
@@ -1368,7 +1412,7 @@ msgstr ""
 msgid "no project at {folder} ({filename} missing) - run 'tta db init' first"
 msgstr ""
 
-#: tta/cli/main.py:214
+#: tta/cli/main.py:213
 msgid "no project at {path} - run `tta db init` first"
 msgstr ""
 
@@ -1394,11 +1438,11 @@ msgstr ""
 msgid "not a PDF"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:96
+#: tta/core/privacy_metadata.py:98
 msgid "ok / not-applicable / error"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:82
+#: tta/core/privacy_metadata.py:84
 msgid "origin of the thesis row"
 msgstr ""
 
@@ -1410,7 +1454,7 @@ msgstr ""
 msgid "outliers"
 msgstr ""
 
-#: tta/cli/main.py:177
+#: tta/cli/main.py:176
 msgid "overall: {status}"
 msgstr ""
 
@@ -1418,15 +1462,15 @@ msgstr ""
 msgid "pending migrations {versions} - run 'tta db migrate'"
 msgstr ""
 
-#: tta/cli/main.py:515
+#: tta/cli/main.py:514
 msgid "produces"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:101
+#: tta/core/privacy_metadata.py:103
 msgid "profiling (QA-RES budgets)"
 msgstr ""
 
-#: tta/cli/main.py:200
+#: tta/cli/main.py:199
 msgid "project ready at {path}"
 msgstr ""
 
@@ -1439,15 +1483,15 @@ msgstr ""
 msgid "punkt_tab model for {language} not found - release builds bundle it (ADR-0014); from source run 'python -m nltk.downloader punkt_tab'"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:85
+#: tta/core/privacy_metadata.py:87
 msgid "re-open the file locally (may contain user/student names)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:137
+#: tta/core/privacy_metadata.py:139
 msgid "read PDF tool metadata; only categorised, year-precision values become metrics"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:141
+#: tta/core/privacy_metadata.py:143
 msgid "read the file's size and modification year from the filesystem; only the year is kept"
 msgstr ""
 
@@ -1455,51 +1499,51 @@ msgstr ""
 msgid "reading ease"
 msgstr ""
 
-#: tta/cli/main.py:466
+#: tta/cli/main.py:465
 msgid "removed thesis {thesis_id}"
 msgstr ""
 
-#: tta/cli/main.py:472
+#: tta/cli/main.py:471
 msgid "removed thesis {thesis_id}; database rows deleted, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
 msgstr ""
 
-#: tta/core/privacy_metadata.py:133
+#: tta/core/privacy_metadata.py:135
 msgid "repeated word-pair/triple rates"
 msgstr ""
 
-#: tta/cli/main.py:875
+#: tta/cli/main.py:861
 msgid "report over {theses} theses -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:690
+#: tta/cli/main.py:689
 msgid "report written to {path}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:76
+#: tta/core/privacy_metadata.py:78
 msgid "reproducibility: which app produced the data"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:78
+#: tta/core/privacy_metadata.py:80
 msgid "reproducibility: which modules ran"
 msgstr ""
 
-#: tta/cli/main.py:220
+#: tta/cli/main.py:219
 msgid "schema is up to date"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:148
+#: tta/core/privacy_metadata.py:150
 msgid "sentence/word tokenisation of the full text (JSON)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:125
+#: tta/core/privacy_metadata.py:127
 msgid "split the text into sentences and words for counting modules"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:95
+#: tta/core/privacy_metadata.py:97
 msgid "staleness detection, reproducibility"
 msgstr ""
 
-#: tta/cli/main.py:283
+#: tta/cli/main.py:282
 msgid "status"
 msgstr ""
 
@@ -1507,11 +1551,11 @@ msgstr ""
 msgid "text too short for confident detection"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:106
+#: tta/core/privacy_metadata.py:108
 msgid "the research signal: categorical metric value"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:105
+#: tta/core/privacy_metadata.py:107
 msgid "the research signal: numeric metric value"
 msgstr ""
 
@@ -1521,58 +1565,58 @@ msgstr ""
 msgid "theses"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:490
+#: tta/ui/tk/main_window.py:493
 msgid "thesis {done}/{total}"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:69
-#: tta/core/privacy_metadata.py:70
+#: tta/core/privacy_metadata.py:71
+#: tta/core/privacy_metadata.py:72
 msgid "track applied DB migrations"
 msgstr ""
 
-#: tta/cli/main.py:283
+#: tta/cli/main.py:282
 #: tta/core/report.py:520
 #: tta/core/report.py:603
 msgid "type"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:34
+#: tta/core/privacy_metadata.py:36
 msgid "until the user deletes the project folder"
 msgstr ""
 
-#: tta/cli/main.py:230
+#: tta/cli/main.py:229
 msgid "vacuumed"
 msgstr ""
 
-#: tta/cli/main.py:515
+#: tta/cli/main.py:514
 msgid "version"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:129
+#: tta/core/privacy_metadata.py:131
 msgid "vocabulary richness measures (TTR, hapax ratios, Yule's K)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:94
+#: tta/core/privacy_metadata.py:96
 msgid "which analysis ran (QA-REPRO)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:104
+#: tta/core/privacy_metadata.py:106
 msgid "which metric"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:111
+#: tta/core/privacy_metadata.py:113
 msgid "which run produced the cached file"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:93
+#: tta/core/privacy_metadata.py:95
 msgid "which thesis was analysed"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:97
+#: tta/core/privacy_metadata.py:99
 msgid "why a run was na or errored (one line, no content)"
 msgstr ""
 
-#: tta/core/privacy_metadata.py:127
+#: tta/core/privacy_metadata.py:129
 msgid "word/sentence/character counts and length statistics"
 msgstr ""
 
@@ -1583,8 +1627,8 @@ msgstr ""
 msgid "words"
 msgstr ""
 
-#: tta/cli/main.py:292
-#: tta/core/privacy_metadata.py:203
+#: tta/cli/main.py:291
+#: tta/core/privacy_metadata.py:269
 msgid "yes"
 msgstr ""
 
@@ -1592,11 +1636,11 @@ msgstr ""
 msgid "{bins} equal-width bins; series are overlaid, not stacked."
 msgstr ""
 
-#: tta/cli/main.py:628
+#: tta/cli/main.py:627
 msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
-#: tta/cli/main.py:279
+#: tta/cli/main.py:278
 #: tta/ui/tk/grid.py:46
 msgid "{count} theses"
 msgstr ""
@@ -1605,8 +1649,8 @@ msgstr ""
 msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:494
-#: tta/ui/tk/main_window.py:502
+#: tta/ui/tk/main_window.py:497
+#: tta/ui/tk/main_window.py:505
 msgid "{done}/{total} pairs"
 msgstr ""
 
@@ -1631,7 +1675,7 @@ msgstr ""
 msgid "{header} (desc)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:500
+#: tta/ui/tk/main_window.py:503
 msgid "{head} - {tail}"
 msgstr ""
 
@@ -1659,14 +1703,14 @@ msgstr ""
 msgid "{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}"
 msgstr ""
 
-#: tta/cli/main.py:287
+#: tta/cli/main.py:286
 msgid "{ok} ok | {na} na | {error} err | {missing} todo"
 msgstr ""
 
-#: tta/cli/main.py:677
+#: tta/cli/main.py:676
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:498
+#: tta/ui/tk/main_window.py:501
 msgid "~{eta} left"
 msgstr ""

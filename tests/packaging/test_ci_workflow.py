@@ -280,7 +280,7 @@ def test_the_release_job_only_runs_for_v_tags(workflow_source):
 
 
 def test_the_release_collects_every_target_and_stays_a_draft(workflow_source):
-    """Publishing needs the #8 licence sign-off and #6 GDPR statement."""
+    """Publishing needs the #8 licence sign-off (#6 is finalised)."""
     release = job(workflow_source, "release")
     assert "download-artifact" in release
     assert "--draft" in release

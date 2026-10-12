@@ -10,12 +10,14 @@ missing - schema evolution and statement evolution cannot drift.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from importlib import resources
 
 import tta
-from tta.core.i18n import N_, _
+from tta.core.i18n import DEFAULT_LOCALE, N_, _, active_locale, normalise_locale
 
 
 class Category(str, Enum):
@@ -80,7 +82,7 @@ FIELDS: tuple[Field, ...] = (
     # theses
     _f("theses", "id", Category.TECHNICAL, N_("internal key"), True),
     _f("theses", "source_id", Category.TECHNICAL, N_("origin of the thesis row"), True),
-    _f("theses", "pdf_sha256", Category.CONTENT_HASH, N_("content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier"), True),
+    _f("theses", "pdf_sha256", Category.CONTENT_HASH, N_("content fingerprint of the PDF, used only to recognise duplicate copies of the same file (within a project and across exports), never to identify authors; computed at first run (NULL until then); survives renames"), True),
     _f("theses", "pdf_size_bytes", Category.TECHNICAL, N_("coarse size statistics"), True),
     _f("theses", "pdf_path", Category.IDENTIFYING, N_("re-open the file locally (may contain user/student names)"), False),
     _f("theses", "pdf_filename", Category.IDENTIFYING, N_("display label in the grid (may contain student names)"), False),
@@ -152,6 +154,66 @@ ARTEFACT_KINDS: tuple[ArtefactKindEntry, ...] = (
 
 # -- report rendering ---------------------------------------------------------
 
+#: Categories whose values must never be exported for the summary's
+#: "no personal names, no file names, no text" sentence to be true
+#: (ADR-0009). ``sources.name`` is an institution-level label, hence
+#: "personal" names.
+NEVER_EXPORTED = (Category.IDENTIFYING, Category.CONTENT)
+
+# The plain-language summary above section 1 (ADR-0009 rev. 2026-10-12).
+# The export sentences are emitted conditionally on the registry by
+# `summary_lines`, so they cannot outlive the facts they state.
+SUMMARY_HEADING = N_("In brief")
+SUMMARY_OFFLINE = N_(
+    "This application works entirely on this machine. It makes no network "
+    "connections and sends nothing anywhere by itself."
+)
+SUMMARY_EXPORT_ONLY = N_(
+    "No data leaves this machine unless you create an export and pass it on "
+    "yourself. An export is a file you save in a folder of your choice; the "
+    "application never transmits it."
+)
+SUMMARY_EXPORT_CLEAN = N_(
+    "An export contains only analysis results and technical values ({count} "
+    "values, listed in section 5): no personal names, no file names or paths, "
+    "no notes or tags, and no text from the theses."
+)
+SUMMARY_EXPORT_PLAIN = N_("An export contains the {count} values listed in section 5.")
+SUMMARY_FINGERPRINT = N_(
+    "In an export, a thesis is identified only by a fingerprint of its PDF "
+    "file ({columns}). It serves only to recognise duplicates; anyone who "
+    "holds the PDF itself can recompute it (section 6)."
+)
+SUMMARY_ROLES = N_(
+    "The person using this application and their institution are responsible "
+    "for what happens on this machine; the publisher of the application "
+    "receives no personal data from it (sections 6 and 7)."
+)
+
+
+def export_is_free_of_identifying_values() -> bool:
+    """True while no identifying/content field and no artefact kind is
+    exported - the precondition of the summary's strongest sentence."""
+    return not any(
+        f.exported for f in FIELDS if f.category in NEVER_EXPORTED
+    ) and not any(k.exported for k in ARTEFACT_KINDS)
+
+
+def summary_lines() -> list[str]:
+    """The summary bullets, translated, derived from the registry."""
+    exported = [f for f in FIELDS if f.exported]
+    lines = [_(SUMMARY_OFFLINE), _(SUMMARY_EXPORT_ONLY)]
+    if export_is_free_of_identifying_values():
+        lines.append(_(SUMMARY_EXPORT_CLEAN).format(count=len(exported)))
+    else:
+        lines.append(_(SUMMARY_EXPORT_PLAIN).format(count=len(exported)))
+    hashes = [f for f in exported if f.category is Category.CONTENT_HASH]
+    if hashes:
+        columns = ", ".join(f"`{f.table}.{f.column}`" for f in hashes)
+        lines.append(_(SUMMARY_FINGERPRINT).format(columns=columns))
+    lines.append(_(SUMMARY_ROLES))
+    return lines
+
 _CATEGORY_LABELS = {
     Category.TECHNICAL: N_("Technical bookkeeping (no personal data)"),
     Category.CONTENT_HASH: N_("Content fingerprints (no personal data recoverable)"),
@@ -163,8 +225,8 @@ _CATEGORY_LABELS = {
 }
 
 
-def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
-    """Sections 1-5 are generated from the registry; 6-7 are reviewed stubs.
+def render_report_md(rights_stub: str = "", contact_stub: str = "") -> str:
+    """The summary and sections 1-5 come from the registry; 6-7 are stubs.
 
     Rendered in the active locale, German by default (SDD Sec. 9.6). The
     registry itself stays English - it is also the source of
@@ -181,6 +243,10 @@ def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
             now=now, version=tta.__version__
         )
         + "*",
+        "",
+        "## " + _(SUMMARY_HEADING),
+        "",
+        *("- " + line for line in summary_lines()),
         "",
         "## " + _("1. What we process"),
         "",
@@ -256,11 +322,63 @@ def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
         ),
     ]
     if rights_stub:
-        lines += ["", "## " + _("6. Your rights under GDPR"), "", rights_stub.strip()]
-    if controller_stub:
-        lines += ["", "## " + _("7. Controller contact"), "", controller_stub.strip()]
+        lines += [
+            "",
+            "## " + _("6. Responsibility and your rights under GDPR"),
+            "",
+            rights_stub.strip(),
+        ]
+    if contact_stub:
+        lines += ["", "## " + _("7. Publisher and contact"), "", contact_stub.strip()]
     lines.append("")
     return "\n".join(lines)
+
+
+# -- legal stubs (sections 6-7) ----------------------------------------------
+
+#: Section 6 (responsibility and data-subject rights) and section 7
+#: (publisher and contact). One pair per locale under
+#: core/help/privacy/<locale>/ (ADR-0009 "Legal stubs"); the German pair is
+#: the primary version and the fallback.
+RIGHTS_STUB = "rights_stub.md"
+CONTACT_STUB = "contact_stub.md"
+
+_HTML_COMMENT = re.compile(r"<!--.*?-->\s*", re.DOTALL)
+
+
+def legal_stub_root():
+    """The installed stub root (a Traversable, so a frozen build works)."""
+    return resources.files("tta.core") / "help" / "privacy"
+
+
+def load_legal_stub(filename: str, locale: str | None = None) -> str:
+    """One legal stub in ``locale`` (default: the active one), comments stripped.
+
+    A locale without its own stub falls back to the German one: a statement
+    in the default language is better than one with a missing legal section.
+    Returns "" only if not even the German stub is installed, which
+    tests/core/test_privacy.py rules out for the shipped tree.
+    """
+    tag = normalise_locale(locale) or active_locale()
+    root = legal_stub_root()
+    for candidate in (tag, DEFAULT_LOCALE):
+        stub = root / candidate / filename
+        if stub.is_file():
+            return _HTML_COMMENT.sub("", stub.read_text("utf-8")).strip()
+    return ""
+
+
+def render_statement_md() -> str:
+    """The complete statement, sections 1-7, in the active locale.
+
+    The one entry point both adapters use (``tta privacy report`` and the
+    GUI's Help -> Privacy statement), so neither can render the generated
+    sections without the legal ones.
+    """
+    return render_report_md(
+        rights_stub=load_legal_stub(RIGHTS_STUB),
+        contact_stub=load_legal_stub(CONTACT_STUB),
+    )
 
 
 def render_report_json() -> str:

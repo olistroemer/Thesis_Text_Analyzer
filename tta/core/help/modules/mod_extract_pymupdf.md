@@ -7,7 +7,7 @@ produces_artefacts: [raw_text]
 produces_metrics: [text_chars, n_pages]
 applicability: Läuft für jede Datei mit der Endung `.pdf`; bei jeder anderen Endung lautet das Ergebnis „nicht anwendbar" („not a PDF").
 references: [pymupdf, pdfminer_six]
-see_also: [metric:text_chars, metric:n_pages, module:mod_check_extraction_quality, module:mod_tokenize]
+see_also: [metric:text_chars, metric:n_pages, module:mod_check_extraction_quality, module:mod_tokenize, concept:bundled_components]
 ---
 
 # Text aus dem PDF extrahieren
