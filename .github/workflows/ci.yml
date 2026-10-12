@@ -143,10 +143,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # ADR-0014 size gate, per target, in bytes. Linux is measured
-          # (69.3 MiB CLI / 70.7 MiB GUI); the other three are PROVISIONAL
-          # placeholders that the first green run must replace with a
-          # measurement - see the ADR's ceiling table.
+          # ADR-0014 size gate, per target, in bytes (n MiB). All four are
+          # measured (larger of CLI/GUI) plus ~41 % headroom - see the ADR's
+          # ceiling table; raise one there, with a measurement, never here.
           - target: linux-x86_64
             os: ubuntu-latest
             exe_suffix: ""
@@ -154,17 +153,17 @@ jobs:
           - target: windows-x86_64
             os: windows-latest
             exe_suffix: ".exe"
-            max_exe_bytes: "209715200"    # 200 MB, provisional
+            max_exe_bytes: "73400320"     # 70 MB, measured 49.5 MiB
           - target: macos-arm64
             os: macos-14
             exe_suffix: ""
-            max_exe_bytes: "209715200"    # 200 MB, provisional
+            max_exe_bytes: "78643200"     # 75 MB, measured 52.3 MiB
           # macos-13 is retired - its jobs queued until the run was
           # cancelled. macos-15-intel is the remaining Intel image (ADR-0014).
           - target: macos-x86_64
             os: macos-15-intel
             exe_suffix: ""
-            max_exe_bytes: "209715200"    # 200 MB, provisional
+            max_exe_bytes: "80740352"     # 77 MB, measured 54.1 MiB
 
     env:
       PYTHONNOUSERSITE: "1"
