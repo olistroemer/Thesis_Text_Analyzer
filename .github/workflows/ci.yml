@@ -156,8 +156,10 @@ jobs:
             os: macos-14
             exe_suffix: ""
             max_exe_bytes: "209715200"    # 200 MB, provisional
+          # macos-13 is retired - its jobs queued until the run was
+          # cancelled. macos-15-intel is the remaining Intel image (ADR-0014).
           - target: macos-x86_64
-            os: macos-13
+            os: macos-15-intel
             exe_suffix: ""
             max_exe_bytes: "209715200"    # 200 MB, provisional
 
@@ -265,7 +267,11 @@ jobs:
                           str(sample)], check=True)
 
           # A real run: bundled punkt_tab + migrations + fitz all have to work.
-          if "0 errors" not in run("-C", str(work), "run", str(sample)):
+          # JSON, not the summary line: that one is localised (German by
+          # default, ADR-0020), so an English text match never succeeds.
+          summary = json.loads(run("-C", str(work), "run", "--format", "json",
+                                   str(sample)))
+          if summary["error"] != 0 or summary["ok"] < 1:
               sys.exit("FAILED: the frozen binary reported module errors")
 
           rows = json.loads(run("-C", str(work), "list", "--format", "json"))
@@ -300,8 +306,10 @@ jobs:
           export HOME="$RUNNER_TEMP/guihome"
           mkdir -p "$HOME"
           log="$RUNNER_TEMP/gui.log"
-          xvfb-run -a timeout -s TERM 30 "./$GUI_EXE" > "$log" 2>&1
-          rc=$?
+          # `|| rc=$?`, not a bare `rc=$?`: the job shell is `bash -e`, so the
+          # 124 that means "stayed up" would otherwise abort the step.
+          rc=0
+          xvfb-run -a timeout -s TERM 30 "./$GUI_EXE" > "$log" 2>&1 || rc=$?
           cat "$log"
           if [ "$rc" -ne 124 ]; then
             echo "::error::$GUI_EXE exited with $rc instead of staying up - the frozen Tk/tksheet/matplotlib stack did not survive freezing"

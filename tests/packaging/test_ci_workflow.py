@@ -138,7 +138,8 @@ def test_every_target_os_in_adr_0014_has_a_matrix_entry(workflow_source):
     for target in ("linux-x86_64", "windows-x86_64", "macos-arm64",
                    "macos-x86_64"):
         assert "target: %s" % target in matrix, "no %s matrix entry" % target
-    for runner in ("ubuntu-latest", "windows-latest", "macos-14", "macos-13"):
+    for runner in ("ubuntu-latest", "windows-latest", "macos-14",
+                   "macos-15-intel"):
         assert runner in matrix, "no %s runner" % runner
 
 
@@ -210,7 +211,13 @@ def test_the_frozen_cli_is_driven_end_to_end(workflow_source):
     assert "metric_values" in smoke, (
         "the smoke never inspects the export, so an empty file would pass"
     )
-    assert "0 errors" in smoke, "the smoke tolerates module errors"
+    assert '"run", "--format", "json"' in smoke, (
+        "the smoke reads the localised summary line instead of the JSON"
+    )
+    assert 'summary["error"] != 0' in smoke, "the smoke tolerates module errors"
+    # The human summary is German by default (ADR-0020): a text match on it
+    # failed every target against binaries that had run cleanly.
+    assert "0 errors" not in smoke
 
 
 def test_the_frozen_gui_is_actually_launched(workflow_source):
@@ -221,6 +228,9 @@ def test_the_frozen_gui_is_actually_launched(workflow_source):
     launch = launch[1]
     assert "xvfb-run" in launch
     assert "124" in launch, "no timeout check, so a crash could read as a pass"
+    # Actions runs `bash -e`: a bare `rc=$?` on the next line is never
+    # reached, because the expected 124 has already aborted the step.
+    assert "|| rc=$?" in launch, "bash -e aborts the step on the passing 124"
     assert "tta.sqlite" in launch, "no proof the app got as far as its project"
     assert "runner.os == 'Linux'" in launch
 
