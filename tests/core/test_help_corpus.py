@@ -42,6 +42,7 @@ from importlib import resources
 import pytest
 
 from tta.core.modules.registry import default_registry
+from tta.core.third_party_licenses import LICENSES_URI
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BIBLIOGRAPHY = REPO_ROOT / "docs" / "references.bib"
@@ -66,6 +67,8 @@ LIST_FIELDS = frozenset(
 CROSS_REF = re.compile(r"\A(module|metric|concept):([A-Za-z0-9_.-]+)\Z")
 #: A markdown link whose target is a cross-reference URI.
 BODY_REF = re.compile(r"\]\(((?:module|metric|concept):[^)\s]*)\)")
+#: A markdown link to an in-app target (ADR-0012 rev. 4) - not a page.
+APP_REF = re.compile(r"\]\((app:[^)\s]*)\)")
 #: A pandoc citation, `[@key]` or `[@a; @b]`.
 CITATION = re.compile(r"\[@([A-Za-z0-9_:.#$%&+?<>~/-]+)(?:[^\]]*)\]")
 #: An HTML tag or comment. Deliberately tag-shaped so prose may write
@@ -182,6 +185,24 @@ def test_every_cross_reference_resolves(pages, slugs):
         if target not in slugs
     ]
     assert dangling == [], "cross-references with no installed target"
+
+
+def test_every_in_app_link_is_one_the_viewer_handles(pages):
+    """ADR-0012 rev. 4: `app:third_party_licenses` is the only in-app
+    target. It is no slug, so check 3 cannot see a typo in it - this does."""
+    unknown = [
+        (repr(page), target)
+        for page in pages
+        for target in APP_REF.findall(page.body)
+        if target != LICENSES_URI
+    ]
+    assert unknown == []
+
+
+def test_the_licence_page_links_to_the_licence_window(pages):
+    """#36: the plain-language page and the legal text are one click apart."""
+    page = next(page for page in pages if page.uri == "concept:bundled_components")
+    assert LICENSES_URI in APP_REF.findall(page.body)
 
 
 def test_every_see_also_entry_is_a_well_formed_uri(pages):
@@ -386,11 +407,11 @@ def test_the_privacy_stubs_are_not_part_of_the_corpus(pages):
 
 
 def test_the_corpus_is_the_size_the_sdd_claims(pages):
-    """SDD Sec. 9.4: 13 module + 31 metric + 4 concept pages."""
+    """SDD Sec. 9.4: 13 module + 31 metric + 5 concept pages."""
     counts = {section: 0 for section in SECTIONS}
     for page in pages:
         counts[page.section] += 1
-    assert counts == {"modules": 13, "metrics": 31, "concepts": 4}
+    assert counts == {"modules": 13, "metrics": 31, "concepts": 5}
 
 
 # --- the label/title gate (#79) ---------------------------------------------

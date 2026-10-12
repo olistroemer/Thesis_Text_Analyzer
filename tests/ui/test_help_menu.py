@@ -68,3 +68,93 @@ def test_the_privacy_window_shows_the_legal_sections_too(tmp_path):
             assert "Fachhochschule Wedel gGmbH" in statement
         finally:
             window.root.destroy()
+
+
+# -- Help -> Third-party licences (#36) ----------------------------------------
+
+
+def test_the_licence_window_explains_when_there_is_no_manifest(monkeypatch):
+    """Headless: the from-source case yields the explanation, not an error."""
+    import sys
+
+    from tta.ui.tk import licenses_view
+
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    text, found = licenses_view.licenses_text()
+    assert found is False
+    assert "packaging/gen_third_party_licenses.py" in text
+
+
+def test_the_licence_window_shows_the_bundled_manifest(tmp_path, monkeypatch):
+    import sys
+
+    from tta.core.third_party_licenses import FILENAME
+    from tta.ui.tk import licenses_view
+
+    (tmp_path / FILENAME).write_text("THIRD-PARTY NOTICES", encoding="utf-8")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert licenses_view.licenses_text() == ("THIRD-PARTY NOTICES", True)
+
+
+def test_the_absent_message_is_translated():
+    """The explanation is user-facing, so it must be in the catalogue."""
+    from tta.core import i18n
+    from tta.ui.tk import licenses_view
+
+    i18n.install("de")
+    try:
+        german = i18n._(licenses_view.ABSENT_MESSAGE)
+        title = i18n._(licenses_view.WINDOW_TITLE)
+    finally:
+        i18n.install("en")
+    assert german != licenses_view.ABSENT_MESSAGE
+    assert "packaging/gen_third_party_licenses.py" in german
+    assert title == "Lizenzen Dritter"
+
+
+@display_only
+def test_the_help_menu_has_a_third_party_licences_entry(tmp_path, monkeypatch):
+    import sys
+
+    from tta.ui.tk.licenses_view import LicensesWindow
+    from tta.ui.tk.main_window import MainWindow
+
+    monkeypatch.delattr(sys, "_MEIPASS", raising=False)
+    with Project.open(tmp_path / "proj", create=True) as project:
+        window = MainWindow(project)
+        try:
+            menu = _help_menu(window)
+            labels = _labels(menu)
+            assert labels == ["Help topics", "Privacy statement", "Third-party licences", "About"]
+            menu.invoke(labels.index("Third-party licences"))
+            window.root.update_idletasks()
+            opened = window._licenses_window
+            assert isinstance(opened, LicensesWindow)
+            assert opened.title() == "Third-party licences"
+            assert opened.found is False  # from source: the explanation
+            assert "gen_third_party_licenses" in opened.text.get("1.0", "end")
+            assert opened.text.cget("state") == "disabled"
+        finally:
+            window.root.destroy()
+
+
+@display_only
+def test_the_help_page_link_opens_the_licence_window(tmp_path, monkeypatch):
+    import sys
+
+    from tta.core.third_party_licenses import FILENAME, LICENSES_URI
+    from tta.ui.tk import help_view
+    from tta.ui.tk.licenses_view import LicensesWindow
+
+    (tmp_path / FILENAME).write_text("NOTICES", encoding="utf-8")
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    root = tkinter.Tk()
+    try:
+        viewer = help_view.HelpWindow(root)
+        viewer.show_topic("concept:bundled_components")
+        assert LICENSES_URI in viewer._link_targets.values()
+        viewer._follow(LICENSES_URI)
+        assert isinstance(viewer._licenses_window, LicensesWindow)
+        assert viewer._licenses_window.text.get("1.0", "end").strip() == "NOTICES"
+    finally:
+        root.destroy()

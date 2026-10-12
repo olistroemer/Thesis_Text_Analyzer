@@ -60,12 +60,12 @@ msgstr ""
 msgid "? Help"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "A run is already in progress."
 msgstr ""
 
 #: tta/ui/tk/about_view.py:31
-#: tta/ui/tk/main_window.py:120
+#: tta/ui/tk/main_window.py:123
 msgid "About"
 msgstr ""
 
@@ -106,7 +106,7 @@ msgid ""
 "Subfolders are included. Nothing is read yet - the documents are only analysed when you click Run."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:239
+#: tta/ui/tk/main_window.py:242
 msgid "Added {count} theses - click Run all"
 msgstr ""
 
@@ -198,7 +198,7 @@ msgstr ""
 msgid "Cancel run"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:286
+#: tta/ui/tk/main_window.py:289
 msgid "Cancelling - finishing in-flight theses..."
 msgstr ""
 
@@ -249,7 +249,7 @@ msgstr ""
 msgid "Compact the project database file."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:49
 msgid "Concepts"
 msgstr ""
 
@@ -269,13 +269,13 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:616
+#: tta/ui/tk/main_window.py:619
 msgid ""
 "Could not remember {path}:\n"
 "{error}"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:532
+#: tta/ui/tk/main_window.py:535
 msgid ""
 "Could not write the report:\n"
 "{error}"
@@ -333,7 +333,7 @@ msgstr ""
 msgid "Document content (kept on this machine only)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:573
+#: tta/ui/tk/main_window.py:576
 msgid "Don't ask again"
 msgstr ""
 
@@ -473,8 +473,8 @@ msgstr ""
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:36
-#: tta/ui/tk/main_window.py:121
+#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr ""
 
@@ -546,7 +546,7 @@ msgstr ""
 msgid "Median length"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:46
+#: tta/ui/tk/help_view.py:48
 msgid "Metrics"
 msgstr ""
 
@@ -558,7 +558,7 @@ msgstr ""
 msgid "Module"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:45
+#: tta/ui/tk/help_view.py:47
 msgid "Modules"
 msgstr ""
 
@@ -592,7 +592,7 @@ msgstr ""
 msgid "Not applicable for this thesis."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:588
+#: tta/ui/tk/main_window.py:591
 msgid "Not now"
 msgstr ""
 
@@ -632,8 +632,8 @@ msgstr ""
 msgid "Only when you explicitly export, and only the following values:"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:615
-#: tta/ui/tk/main_window.py:632
+#: tta/ui/tk/main_window.py:618
+#: tta/ui/tk/main_window.py:635
 msgid "Open Project"
 msgstr ""
 
@@ -641,11 +641,11 @@ msgstr ""
 msgid "Open Project..."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:606
+#: tta/ui/tk/main_window.py:609
 msgid "Open project folder"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:591
+#: tta/ui/tk/main_window.py:594
 msgid "Open report"
 msgstr ""
 
@@ -677,8 +677,8 @@ msgstr ""
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:250
-#: tta/ui/tk/main_window.py:274
+#: tta/ui/tk/main_window.py:253
+#: tta/ui/tk/main_window.py:277
 msgid "Planning..."
 msgstr ""
 
@@ -687,7 +687,7 @@ msgid "Print the plan without executing."
 msgstr ""
 
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:637
+#: tta/ui/tk/main_window.py:640
 msgid "Privacy statement"
 msgstr ""
 
@@ -767,7 +767,7 @@ msgstr ""
 msgid "Reads"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:186
+#: tta/ui/tk/main_window.py:189
 msgid "Ready"
 msgstr ""
 
@@ -821,13 +821,13 @@ msgstr ""
 msgid "Repeated word triples"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:531
-#: tta/ui/tk/main_window.py:562
+#: tta/ui/tk/main_window.py:534
+#: tta/ui/tk/main_window.py:565
 #: tta/ui/tk/main_window.py:57
 msgid "Report"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:518
+#: tta/ui/tk/main_window.py:521
 msgid "Report written to {path}"
 msgstr ""
 
@@ -839,7 +839,7 @@ msgstr ""
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "Run"
 msgstr ""
 
@@ -847,15 +847,15 @@ msgstr ""
 msgid "Run all"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run cancelled"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run finished"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:317
+#: tta/ui/tk/main_window.py:320
 msgid "Running... thesis {ordinal}: {module} {status}"
 msgstr ""
 
@@ -871,7 +871,7 @@ msgstr ""
 msgid "Scrub incomplete"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/help_view.py:40
 msgid "See also"
 msgstr ""
 
@@ -940,15 +940,15 @@ msgstr ""
 msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:628
+#: tta/ui/tk/main_window.py:631
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:626
+#: tta/ui/tk/main_window.py:629
 msgid "The project opens on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:568
+#: tta/ui/tk/main_window.py:571
 msgid "The run finished. Open the report for this project now?"
 msgstr ""
 
@@ -982,6 +982,22 @@ msgstr ""
 
 #: tta/ui/tk/dialogs.py:99
 msgid "Thesis {thesis_id} is no longer in this project."
+msgstr ""
+
+#: tta/ui/tk/licenses_view.py:22
+#: tta/ui/tk/main_window.py:121
+msgid "Third-party licences"
+msgstr ""
+
+#: tta/ui/tk/licenses_view.py:23
+msgid ""
+"This copy of the program contains no third-party licence file. The file is generated when a release binary is built and is packed into it, so a run from the source code does not have one.\n"
+"\n"
+"To generate it, run this in the build environment, from the repository root:\n"
+"\n"
+"    python packaging/gen_third_party_licenses.py\n"
+"\n"
+"The repository's docs/dependencies.md lists every component with its purpose and licence."
 msgstr ""
 
 #: tta/ui/tk/columns.py:153
@@ -1204,7 +1220,7 @@ msgid "err"
 msgstr ""
 
 #: tta/core/progress.py:313
-#: tta/ui/tk/main_window.py:496
+#: tta/ui/tk/main_window.py:499
 msgid "estimating..."
 msgstr ""
 
@@ -1360,7 +1376,7 @@ msgid "no help topic {topic}"
 msgstr ""
 
 #: tta/cli/main.py:895
-#: tta/ui/tk/help_view.py:37
+#: tta/ui/tk/help_view.py:39
 msgid "no help topics installed yet"
 msgstr ""
 
@@ -1521,7 +1537,7 @@ msgstr ""
 msgid "theses"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:490
+#: tta/ui/tk/main_window.py:493
 msgid "thesis {done}/{total}"
 msgstr ""
 
@@ -1605,8 +1621,8 @@ msgstr ""
 msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:494
-#: tta/ui/tk/main_window.py:502
+#: tta/ui/tk/main_window.py:497
+#: tta/ui/tk/main_window.py:505
 msgid "{done}/{total} pairs"
 msgstr ""
 
@@ -1631,7 +1647,7 @@ msgstr ""
 msgid "{header} (desc)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:500
+#: tta/ui/tk/main_window.py:503
 msgid "{head} - {tail}"
 msgstr ""
 
@@ -1667,6 +1683,6 @@ msgstr ""
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:498
+#: tta/ui/tk/main_window.py:501
 msgid "~{eta} left"
 msgstr ""

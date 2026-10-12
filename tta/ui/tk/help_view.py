@@ -18,7 +18,8 @@ Cross-references (``module:`` / ``metric:`` / ``concept:`` + slug) are
 clickable and navigate in place; a target with no installed page renders as
 inert text, so a contributed module's page may point at a page this
 installation does not have without raising. ``http`` links render as text and are never handed to a
-browser (QA-PRIV).
+browser (QA-PRIV). The one non-page target, ``app:third_party_licenses``
+(ADR-0012 rev. 4), opens the third-party licence window (#36).
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 from tta.core.i18n import N_, _
+from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk.columns import column_label
 
 WINDOW_TITLE = N_("Help")
@@ -203,7 +205,7 @@ def _link_run(label: str, target: str) -> Run:
     Handing a URL to the user's browser is a hand-off QA-PRIV does not need
     the help viewer to make, so an http link renders as "label (url)".
     """
-    if CROSS_REF.match(target):
+    if CROSS_REF.match(target) or target == LICENSES_URI:
         return Run(label, target=target)
     if target.startswith(("http://", "https://")):
         return Run(f"{label} ({target})")
@@ -392,8 +394,13 @@ class HelpWindow(tk.Toplevel):
             self.show_topic(self.index[selection[0]])
 
     def _follow(self, target: str) -> None:
-        """Cross-reference click: navigate, or do nothing if unresolvable."""
-        if target in self.index:
+        """Cross-reference click: navigate, or do nothing if unresolvable.
+        The in-app licence target opens its own window instead (#36)."""
+        if target == LICENSES_URI:
+            from tta.ui.tk.licenses_view import show_third_party_licenses
+
+            self._licenses_window = show_third_party_licenses(self)
+        elif target in self.index:
             self.show_topic(self.index[target])
 
     # -- rendering -----------------------------------------------------------

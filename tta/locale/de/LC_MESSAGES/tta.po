@@ -75,12 +75,12 @@ msgstr "7. Kontakt des Verantwortlichen"
 msgid "? Help"
 msgstr "? Hilfe"
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "A run is already in progress."
 msgstr "Es läuft bereits eine Analyse."
 
 #: tta/ui/tk/about_view.py:31
-#: tta/ui/tk/main_window.py:120
+#: tta/ui/tk/main_window.py:123
 msgid "About"
 msgstr "Über"
 
@@ -128,7 +128,7 @@ msgstr ""
 "\n"
 "Unterordner werden eingeschlossen. Es wird noch nichts gelesen - die Dokumente werden erst analysiert, wenn Sie die Analyse starten."
 
-#: tta/ui/tk/main_window.py:239
+#: tta/ui/tk/main_window.py:242
 msgid "Added {count} theses - click Run all"
 msgstr "{count} Arbeiten hinzugefügt - jetzt \"Alle analysieren\" klicken"
 
@@ -220,7 +220,7 @@ msgstr "Tokens (Cache)"
 msgid "Cancel run"
 msgstr "Analyse abbrechen"
 
-#: tta/ui/tk/main_window.py:286
+#: tta/ui/tk/main_window.py:289
 msgid "Cancelling - finishing in-flight theses..."
 msgstr "Wird abgebrochen - laufende Arbeiten werden noch beendet..."
 
@@ -274,7 +274,7 @@ msgstr "Spaltenname: {name}"
 msgid "Compact the project database file."
 msgstr "Die Datei der Projektdatenbank verdichten."
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:49
 msgid "Concepts"
 msgstr "Konzepte"
 
@@ -294,7 +294,7 @@ msgstr "Inhaltsfingerabdrücke (keine personenbezogenen Daten rekonstruierbar)"
 msgid "Copy"
 msgstr "Kopieren"
 
-#: tta/ui/tk/main_window.py:616
+#: tta/ui/tk/main_window.py:619
 msgid ""
 "Could not remember {path}:\n"
 "{error}"
@@ -302,7 +302,7 @@ msgstr ""
 "{path} konnte nicht gemerkt werden:\n"
 "{error}"
 
-#: tta/ui/tk/main_window.py:532
+#: tta/ui/tk/main_window.py:535
 msgid ""
 "Could not write the report:\n"
 "{error}"
@@ -362,7 +362,7 @@ msgstr "Verteilungen"
 msgid "Document content (kept on this machine only)"
 msgstr "Dokumentinhalte (bleiben ausschließlich auf diesem Rechner)"
 
-#: tta/ui/tk/main_window.py:573
+#: tta/ui/tk/main_window.py:576
 msgid "Don't ask again"
 msgstr "Nicht mehr fragen"
 
@@ -514,8 +514,8 @@ msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: s
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
 
-#: tta/ui/tk/help_view.py:36
-#: tta/ui/tk/main_window.py:121
+#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr "Hilfe"
 
@@ -587,7 +587,7 @@ msgstr "Die bekannten Arbeiten mit dem Stand ihrer Analyse auflisten."
 msgid "Median length"
 msgstr "Medianlänge"
 
-#: tta/ui/tk/help_view.py:46
+#: tta/ui/tk/help_view.py:48
 msgid "Metrics"
 msgstr "Metriken"
 
@@ -599,7 +599,7 @@ msgstr "Geändert (Jahr)"
 msgid "Module"
 msgstr "Modul"
 
-#: tta/ui/tk/help_view.py:45
+#: tta/ui/tk/help_view.py:47
 msgid "Modules"
 msgstr "Module"
 
@@ -635,7 +635,7 @@ msgstr "Noch keine Wortzahlen erfasst."
 msgid "Not applicable for this thesis."
 msgstr "Für diese Arbeit nicht anwendbar."
 
-#: tta/ui/tk/main_window.py:588
+#: tta/ui/tk/main_window.py:591
 msgid "Not now"
 msgstr "Jetzt nicht"
 
@@ -675,8 +675,8 @@ msgstr "Einmalwörter (an Typen)"
 msgid "Only when you explicitly export, and only the following values:"
 msgstr "Nur wenn Sie ausdrücklich exportieren, und nur die folgenden Werte:"
 
-#: tta/ui/tk/main_window.py:615
-#: tta/ui/tk/main_window.py:632
+#: tta/ui/tk/main_window.py:618
+#: tta/ui/tk/main_window.py:635
 msgid "Open Project"
 msgstr "Projekt öffnen"
 
@@ -684,11 +684,11 @@ msgstr "Projekt öffnen"
 msgid "Open Project..."
 msgstr "Projekt öffnen..."
 
-#: tta/ui/tk/main_window.py:606
+#: tta/ui/tk/main_window.py:609
 msgid "Open project folder"
 msgstr "Projektordner öffnen"
 
-#: tta/ui/tk/main_window.py:591
+#: tta/ui/tk/main_window.py:594
 msgid "Open report"
 msgstr "Bericht öffnen"
 
@@ -720,8 +720,8 @@ msgstr "Seiten (PDF-Metadaten)"
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr "Zustand der Zeile. '[!]' bedeutet, dass die Textextraktion für diese Arbeit als unlesbar markiert wurde und daher jede Metrik dieser Zeile unzuverlässig sein kann (US-PROF-QUALITY); leer heißt, es wurde kein Problem erkannt."
 
-#: tta/ui/tk/main_window.py:250
-#: tta/ui/tk/main_window.py:274
+#: tta/ui/tk/main_window.py:253
+#: tta/ui/tk/main_window.py:277
 msgid "Planning..."
 msgstr "Planung..."
 
@@ -730,7 +730,7 @@ msgid "Print the plan without executing."
 msgstr "Den Plan ausgeben, ohne ihn auszuführen."
 
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:637
+#: tta/ui/tk/main_window.py:640
 msgid "Privacy statement"
 msgstr "Datenschutzerklärung"
 
@@ -813,7 +813,7 @@ msgstr "Verteilung der Lesbarkeit"
 msgid "Reads"
 msgstr "Liest"
 
-#: tta/ui/tk/main_window.py:186
+#: tta/ui/tk/main_window.py:189
 msgid "Ready"
 msgstr "Bereit"
 
@@ -875,13 +875,13 @@ msgstr "Wiederholte Wortpaare"
 msgid "Repeated word triples"
 msgstr "Wiederholte Wortdrillinge"
 
-#: tta/ui/tk/main_window.py:531
-#: tta/ui/tk/main_window.py:562
+#: tta/ui/tk/main_window.py:534
+#: tta/ui/tk/main_window.py:565
 #: tta/ui/tk/main_window.py:57
 msgid "Report"
 msgstr "Bericht"
 
-#: tta/ui/tk/main_window.py:518
+#: tta/ui/tk/main_window.py:521
 msgid "Report written to {path}"
 msgstr "Bericht geschrieben nach {path}"
 
@@ -893,7 +893,7 @@ msgstr "Auf bestimmte Module beschränken (mehrfach angebbar; US-PROF-SELECT)."
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr "Wurzel-Type-Token-Verhältnis (Guiraud-Index); längenrobustes Maß für Wortschatzreichtum."
 
-#: tta/ui/tk/main_window.py:247
+#: tta/ui/tk/main_window.py:250
 msgid "Run"
 msgstr "Analyse"
 
@@ -901,15 +901,15 @@ msgstr "Analyse"
 msgid "Run all"
 msgstr "Alle analysieren"
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run cancelled"
 msgstr "Analyse abgebrochen"
 
-#: tta/ui/tk/main_window.py:335
+#: tta/ui/tk/main_window.py:338
 msgid "Run finished"
 msgstr "Analyse abgeschlossen"
 
-#: tta/ui/tk/main_window.py:317
+#: tta/ui/tk/main_window.py:320
 msgid "Running... thesis {ordinal}: {module} {status}"
 msgstr "Analyse läuft... Arbeit {ordinal}: {module} {status}"
 
@@ -925,7 +925,7 @@ msgstr "Streudiagramm der Wortzahl über dem Veröffentlichungsjahr."
 msgid "Scrub incomplete"
 msgstr "Löschung unvollständig"
 
-#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/help_view.py:40
 msgid "See also"
 msgstr "Siehe auch"
 
@@ -994,15 +994,15 @@ msgstr "Technische Verwaltung (keine personenbezogenen Daten)"
 msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
 msgstr "Die Textextraktion wurde für diese Arbeit als unlesbar markiert; jede Metrik in dieser Zeile kann unzuverlässig sein (US-PROF-QUALITY)."
 
-#: tta/ui/tk/main_window.py:628
+#: tta/ui/tk/main_window.py:631
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr "Dieser Ordner ist noch kein Projekt; es wird beim nächsten Start dort angelegt."
 
-#: tta/ui/tk/main_window.py:626
+#: tta/ui/tk/main_window.py:629
 msgid "The project opens on next start."
 msgstr "Das Projekt wird beim nächsten Start geöffnet."
 
-#: tta/ui/tk/main_window.py:568
+#: tta/ui/tk/main_window.py:571
 msgid "The run finished. Open the report for this project now?"
 msgstr "Die Analyse ist abgeschlossen. Bericht für dieses Projekt jetzt öffnen?"
 
@@ -1037,6 +1037,29 @@ msgstr "Abschlussart"
 #: tta/ui/tk/dialogs.py:99
 msgid "Thesis {thesis_id} is no longer in this project."
 msgstr "Arbeit {thesis_id} ist nicht mehr in diesem Projekt."
+
+#: tta/ui/tk/licenses_view.py:22
+#: tta/ui/tk/main_window.py:121
+msgid "Third-party licences"
+msgstr "Lizenzen Dritter"
+
+#: tta/ui/tk/licenses_view.py:23
+msgid ""
+"This copy of the program contains no third-party licence file. The file is generated when a release binary is built and is packed into it, so a run from the source code does not have one.\n"
+"\n"
+"To generate it, run this in the build environment, from the repository root:\n"
+"\n"
+"    python packaging/gen_third_party_licenses.py\n"
+"\n"
+"The repository's docs/dependencies.md lists every component with its purpose and licence."
+msgstr ""
+"Diese Programmkopie enthält keine Datei mit den Lizenzen Dritter. Die Datei wird beim Bauen eines veröffentlichten Programms erzeugt und in dieses eingepackt; ein Start aus dem Quelltext hat deshalb keine.\n"
+"\n"
+"Um sie zu erzeugen, führen Sie in der Build-Umgebung im Wurzelverzeichnis des Repositorys aus:\n"
+"\n"
+"    python packaging/gen_third_party_licenses.py\n"
+"\n"
+"Die Datei docs/dependencies.md im Repository führt alle Bestandteile mit Zweck und Lizenz auf."
 
 #: tta/ui/tk/columns.py:153
 msgid "Total number of sentences detected."
@@ -1264,7 +1287,7 @@ msgid "err"
 msgstr "Fehler"
 
 #: tta/core/progress.py:313
-#: tta/ui/tk/main_window.py:496
+#: tta/ui/tk/main_window.py:499
 msgid "estimating..."
 msgstr "wird geschätzt..."
 
@@ -1420,7 +1443,7 @@ msgid "no help topic {topic}"
 msgstr "kein Hilfethema {topic}"
 
 #: tta/cli/main.py:895
-#: tta/ui/tk/help_view.py:37
+#: tta/ui/tk/help_view.py:39
 msgid "no help topics installed yet"
 msgstr "noch keine Hilfethemen installiert"
 
@@ -1581,7 +1604,7 @@ msgstr "das Forschungssignal: numerischer Metrikwert"
 msgid "theses"
 msgstr "Arbeiten"
 
-#: tta/ui/tk/main_window.py:490
+#: tta/ui/tk/main_window.py:493
 msgid "thesis {done}/{total}"
 msgstr "Arbeit {done}/{total}"
 
@@ -1665,8 +1688,8 @@ msgstr "{count} Arbeiten"
 msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
 msgstr "{count} Arbeit(en) mit unlesbarer Textextraktion sind aus allen Auswertungen oben und unten ausgenommen."
 
-#: tta/ui/tk/main_window.py:494
-#: tta/ui/tk/main_window.py:502
+#: tta/ui/tk/main_window.py:497
+#: tta/ui/tk/main_window.py:505
 msgid "{done}/{total} pairs"
 msgstr "{done}/{total} Paare"
 
@@ -1696,7 +1719,7 @@ msgstr "{header} (aufst.)"
 msgid "{header} (desc)"
 msgstr "{header} (abst.)"
 
-#: tta/ui/tk/main_window.py:500
+#: tta/ui/tk/main_window.py:503
 msgid "{head} - {tail}"
 msgstr "{head} - {tail}"
 
@@ -1732,6 +1755,6 @@ msgstr "{ok} ok | {na} n/a | {error} Fehler | {missing} offen"
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr "{theses} Arbeiten | {ok} ok | {na} n/a | {error} Fehler | {duration} s"
 
-#: tta/ui/tk/main_window.py:498
+#: tta/ui/tk/main_window.py:501
 msgid "~{eta} left"
 msgstr "~{eta} übrig"
