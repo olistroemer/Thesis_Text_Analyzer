@@ -243,6 +243,20 @@ def test_the_smoke_runs_before_the_artifact_upload(workflow_source):
     )
 
 
+def test_binaries_are_uploaded_only_for_tags_and_manual_runs(workflow_source):
+    """ADR-0014 revision 2026-10-12: a private repo's artefact quota holds
+    less than one push's four targets, so a push builds but never uploads."""
+    header = workflow_source.split("jobs:", 1)[0]
+    assert "workflow_dispatch:" in header, "no manual way to fetch a binary"
+    upload = job(workflow_source, "build").split("Upload binaries", 1)[1]
+    condition = upload.split("uses:", 1)[0]
+    assert "startsWith(github.ref, 'refs/tags/v')" in condition, (
+        "the release job would find no artefacts to collect"
+    )
+    assert "github.event_name == 'workflow_dispatch'" in condition
+    assert "retention-days:" in upload
+
+
 # ------------------------------------------------- the tagged release (#4)
 
 
