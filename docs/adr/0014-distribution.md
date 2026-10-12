@@ -32,9 +32,15 @@ The matrix in `.github/workflows/ci.yml` (`build`) is one job per target, each r
 | `linux-x86_64` | `ubuntu-latest` | `tta`, `tta-gui` |
 | `windows-x86_64` | `windows-latest` | `tta.exe`, `tta-gui.exe` |
 | `macos-arm64` | `macos-14` | `tta`, `tta-gui` |
-| `macos-x86_64` | `macos-13` | `tta`, `tta-gui` |
+| `macos-x86_64` | `macos-15-intel` | `tta`, `tta-gui` |
+
+**Revision (2026-10-12): `macos-13` -> `macos-15-intel`.** GitHub retired the `macos-13` runner image, so the `macos-x86_64` job no longer failed - it never *started*: it sat queued until the run was cancelled hours later, and the `release` job that `needs` it was cancelled with it. `macos-15-intel` is GitHub's remaining Intel macOS image. The target is unchanged; only the machine that freezes it moved. The SDD's macOS 12+ floor is a property of the Python build the binary embeds, not of the runner's OS, and is not re-measured by this change.
 
 Every push and pull request builds all four (a build that only runs on tags is a build that is broken on tag day). `fail-fast` is off, so one platform's failure still yields evidence about the other three. A push of a `v*` tag additionally runs a `release` job that collects the four artefacts and opens a **draft** GitHub release. The draft is deliberate: publishing is the step that needs the #8 licence sign-off and the #6 GDPR statement, and those are human decisions, not CI's.
+
+**Revision (2026-10-12): every push builds; only tags and manual runs upload.** The binaries are built, gated and smoke-tested on every push as before, but the `actions/upload-artifact` step runs only for a `v*` tag (the `release` job needs the four artefacts) and for a manual `workflow_dispatch` run (to fetch a binary for testing, e.g. a Windows `.exe`), and those artefacts expire after 3 days. The reason is storage: the repository is private, so artefacts count against the account's Actions storage quota, and one run's four zipped targets (~200 MB each; the Linux one alone was 217 MB) exceed the free plan's 500 MB. Uploading on every push made jobs on a clean binary fail with "Artifact storage quota has been hit". Release assets are stored separately and do not expire with the artefacts.
+
+**Revision (2026-10-12): only `tta-gui` is uploaded and released.** Both executables in the table above are still frozen, size-gated, graph-checked and manifest-checked on every target, and the CLI is still the binary the acceptance smoke drives (below). But only `tta-gui` (plus `THIRD_PARTY_LICENSES.txt`) is uploaded, and therefore only it reaches the draft release: the CLI's users run it from source ([ADR-0003](0003-cli-first-class.md) revision 2026-10-12). This also roughly halves a tag run's artefact volume (each executable is ~70 MB, Linux measurement below), which is what keeps the four targets inside the storage quota.
 
 Approximate release-build size: ~100 MB per OS. The two gates that keep that number honest — a clean build environment and a hard size ceiling — are specified below; they are what makes the frozen binary a function of the declared dependency set rather than of the builder's machine (**QA-REPRO**, SDD §10).
 
@@ -56,11 +62,15 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 | target | ceiling (per executable) | basis |
 |---|---|---|
 | Linux x86_64 | **100 MB** | measured: 69.3 MiB CLI / 70.7 MiB GUI (below) |
-| Windows x86_64 | **200 MB** | **provisional** — no measurement yet |
-| macOS arm64 | **200 MB** | **provisional** — no measurement yet |
-| macOS x86_64 | **200 MB** | **provisional** — no measurement yet |
+| Windows x86_64 | **70 MB** | measured: 48.6 MiB CLI / 49.5 MiB GUI (run 38256015935) |
+| macOS arm64 | **75 MB** | measured: 52.0 MiB CLI / 52.3 MiB GUI (run 38256015935) |
+| macOS x86_64 | **77 MB** | measured: 53.7 MiB CLI / 54.1 MiB GUI (run 38256015935) |
 
-The three provisional ceilings are placeholders with a job to do, not estimates: nobody has yet frozen this application on Windows or macOS, so the honest number is unknown, and a ceiling chosen by analogy would be a guess dressed as a measurement. 200 MB is loose enough that a legitimate first build (Tcl/Tk frameworks, larger platform wheels) will not fail on arrival, and still tight enough to catch the failure it exists for — the contaminated Linux build measured 202.9 MiB, so the numeric stack returning would trip it. **The first green matrix run replaces each provisional row with its measurement**, and the ceiling is then re-tightened to the same ~40 % headroom the Linux row has.
+(As everywhere in this table and in CI, "MB" here means MiB: the gate compares against `n * 1024 * 1024` bytes.)
+
+**Revision (2026-10-12): the provisional rows are measured.** The first green matrix run (CI run 38256015935, `fix/ci-build`) froze all four targets, and the three provisional 200 MB rows were replaced with their measurements and re-tightened to the Linux row's headroom (100 MB over 70.7 MiB = ~41 %): 49.5 x 1.41 = 70, 52.3 x 1.41 = 74 -> 75, 54.1 x 1.41 = 77. The contaminated build (~203 MiB) would trip every one of them by a wide margin. The original reasoning for the provisional rows is kept below as history.
+
+The three provisional ceilings were placeholders with a job to do, not estimates: nobody has yet frozen this application on Windows or macOS, so the honest number is unknown, and a ceiling chosen by analogy would be a guess dressed as a measurement. 200 MB is loose enough that a legitimate first build (Tcl/Tk frameworks, larger platform wheels) will not fail on arrival, and still tight enough to catch the failure it exists for — the contaminated Linux build measured 202.9 MiB, so the numeric stack returning would trip it. **The first green matrix run replaces each provisional row with its measurement**, and the ceiling is then re-tightened to the same ~40 % headroom the Linux row has.
 
 Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0, `--onefile`, UPX off, CPython 3.12.13). Both rows are real freezes of the *same* tree on the same machine: "before" re-runs the pre-#52 spec with the user site live, "after" is `PYTHONNOUSERSITE=1` plus the excludes below.
 
@@ -96,9 +106,9 @@ A build that compiles is not a build that works: the failures freezing introduce
 
 **Bundled NLTK data is `punkt_tab` *and* `cmudict`.** `punkt_tab` is `mod_tokenize`'s sentence model; `cmudict` is the English syllable dictionary `textstat` needs for Flesch. Shipping only the first was a live QA-PRIV defect (#75): textstat downloads `cmudict` itself when it is missing, so the binary both reached out and failed English readability outright. Both are collected into `nltk_data/` and reached through the runtime hook that prepends it to `nltk.data.path`.
 
-**The CLI binary is driven end to end** on every target: `version`, `module list`, `--help`, then a real project — `run` over a generated sample PDF, `list --format json`, and `export` — asserting that the run reports zero module errors, that the thesis shows successful module runs, and that the export is a SQLite file containing metric rows. That covers the acceptance path of #4 for the CLI, and it is what proves the *bundled* payload works: the NLTK `punkt_tab` model, the SQL migrations, the help markdown, and PyMuPDF extraction are all exercised, not merely present. Measured on the Linux build that introduced this clause: 12 modules ok, 0 errors, 29 metric values exported.
+**The CLI binary is driven end to end** on every target: `version`, `module list`, `--help`, then a real project — `run` over a generated sample PDF, `list --format json`, and `export` — asserting that the run reports zero module errors (read from `run --format json`, never from the human summary line: that line is localised and defaults to German per [ADR-0020](0020-i18n-mechanism.md), so a match on the English `0 errors` failed every target the day the catalogue landed, against a binary that had run cleanly), that the thesis shows successful module runs, and that the export is a SQLite file containing metric rows. That covers the acceptance path of #4 for the CLI, and it is what proves the *bundled* payload works: the NLTK `punkt_tab` model, the SQL migrations, the help markdown, and PyMuPDF extraction are all exercised, not merely present. Measured on the Linux build that introduced this clause: 12 modules ok, 0 errors, 29 metric values exported.
 
-**The GUI binary is launched** under `xvfb-run` on the Linux job with `HOME` pointed at a scratch directory: it must still be running when a timeout kills it, and it must have created its default project database. That is the check that would have caught a GUI binary whose Tk, tksheet or matplotlib payload did not survive freezing — the stack the CLI deliberately no longer carries, and therefore the stack no other gate touches. Complementing it, `packaging/check_build.py` asserts that the GUI dependency graph *does* contain tksheet and tkinter, so the per-binary scoping cannot over-shoot and strip the GUI's own stack. matplotlib is deliberately **not** on that list any more (#53): it must be absent from both graphs, which the undeclared-package check now enforces.
+**The GUI binary is launched** under `xvfb-run` on the Linux job with `HOME` pointed at a scratch directory: it must still be running when a timeout kills it (exit status 124, captured with `|| rc=$?`: Actions runs `bash -e`, which would otherwise abort the step on the very status that means "pass"), and it must have created its default project database. That is the check that would have caught a GUI binary whose Tk, tksheet or matplotlib payload did not survive freezing — the stack the CLI deliberately no longer carries, and therefore the stack no other gate touches. Complementing it, `packaging/check_build.py` asserts that the GUI dependency graph *does* contain tksheet and tkinter, so the per-binary scoping cannot over-shoot and strip the GUI's own stack. matplotlib is deliberately **not** on that list any more (#53): it must be absent from both graphs, which the undeclared-package check now enforces.
 
 Two limits are worth stating rather than implying:
 
@@ -155,8 +165,8 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ⚠️ Binary size ~73 MB (CLI) / ~74 MB (GUI) on Linux x86_64; CI ceiling 100 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
-- ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published.
-- ⚠️ The Windows and macOS size ceilings are provisional until the first matrix run measures them.
+- ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published. Artefacts are uploaded only for tags and manual runs (storage quota, revision 2026-10-12).
+- ✅ All four size ceilings are measured (Windows and macOS since run 38256015935, revision 2026-10-12); the release binaries are ~50-71 MiB per target.
 - ⚠️ The GUI binary is only *executed* by CI on Linux (Xvfb); on Windows and macOS it is built and checked but never launched.
 
 ## Revisit when
@@ -164,4 +174,4 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - Code signing becomes affordable / institutionally required (see SDD §12).
 - Startup becomes a complaint (consider Nuitka).
 - A declared dependency legitimately pushes a binary past its ceiling — raise the ceiling here, with the measurement, rather than in CI.
-- The first green Windows/macOS matrix run lands — replace the provisional ceiling rows with the measurements, and re-tighten them to the Linux row's headroom.
+- ~~The first green Windows/macOS matrix run lands — replace the provisional ceiling rows with the measurements, and re-tighten them to the Linux row's headroom.~~ Done 2026-10-12 (run 38256015935).

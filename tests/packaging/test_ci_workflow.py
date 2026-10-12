@@ -138,7 +138,8 @@ def test_every_target_os_in_adr_0014_has_a_matrix_entry(workflow_source):
     for target in ("linux-x86_64", "windows-x86_64", "macos-arm64",
                    "macos-x86_64"):
         assert "target: %s" % target in matrix, "no %s matrix entry" % target
-    for runner in ("ubuntu-latest", "windows-latest", "macos-14", "macos-13"):
+    for runner in ("ubuntu-latest", "windows-latest", "macos-14",
+                   "macos-15-intel"):
         assert runner in matrix, "no %s runner" % runner
 
 
@@ -210,7 +211,13 @@ def test_the_frozen_cli_is_driven_end_to_end(workflow_source):
     assert "metric_values" in smoke, (
         "the smoke never inspects the export, so an empty file would pass"
     )
-    assert "0 errors" in smoke, "the smoke tolerates module errors"
+    assert '"run", "--format", "json"' in smoke, (
+        "the smoke reads the localised summary line instead of the JSON"
+    )
+    assert 'summary["error"] != 0' in smoke, "the smoke tolerates module errors"
+    # The human summary is German by default (ADR-0020): a text match on it
+    # failed every target against binaries that had run cleanly.
+    assert "0 errors" not in smoke
 
 
 def test_the_frozen_gui_is_actually_launched(workflow_source):
@@ -221,6 +228,9 @@ def test_the_frozen_gui_is_actually_launched(workflow_source):
     launch = launch[1]
     assert "xvfb-run" in launch
     assert "124" in launch, "no timeout check, so a crash could read as a pass"
+    # Actions runs `bash -e`: a bare `rc=$?` on the next line is never
+    # reached, because the expected 124 has already aborted the step.
+    assert "|| rc=$?" in launch, "bash -e aborts the step on the passing 124"
     assert "tta.sqlite" in launch, "no proof the app got as far as its project"
     assert "runner.os == 'Linux'" in launch
 
@@ -231,6 +241,33 @@ def test_the_smoke_runs_before_the_artifact_upload(workflow_source):
     assert matrix.index("Smoke-test the CLI binary") < matrix.index(
         "upload-artifact"
     )
+
+
+def test_binaries_are_uploaded_only_for_tags_and_manual_runs(workflow_source):
+    """ADR-0014 revision 2026-10-12: a private repo's artefact quota holds
+    less than one push's four targets, so a push builds but never uploads."""
+    header = workflow_source.split("jobs:", 1)[0]
+    assert "workflow_dispatch:" in header, "no manual way to fetch a binary"
+    upload = job(workflow_source, "build").split("Upload binaries", 1)[1]
+    condition = upload.split("uses:", 1)[0]
+    assert "startsWith(github.ref, 'refs/tags/v')" in condition, (
+        "the release job would find no artefacts to collect"
+    )
+    assert "github.event_name == 'workflow_dispatch'" in condition
+    assert "retention-days:" in upload
+
+
+def test_only_the_gui_binary_is_uploaded(workflow_source):
+    """ADR-0003 revision 2026-10-12: the CLI is frozen for the smoke only;
+    its users run it from source, so it never reaches the release."""
+    matrix = job(workflow_source, "build")
+    upload = matrix.split("Upload binaries", 1)[1]
+    assert "dist/tta-gui${{ matrix.exe_suffix }}" in upload
+    assert "dist/tta${{ matrix.exe_suffix }}" not in upload
+    assert "THIRD_PARTY_LICENSES.txt" in upload
+    # ...while the CLI is still frozen and driven by the smoke.
+    assert '--exe "tta$EXE_SUFFIX"' in matrix
+    assert "CLI_EXE" in matrix.split("Smoke-test the CLI binary", 1)[1]
 
 
 # ------------------------------------------------- the tagged release (#4)
