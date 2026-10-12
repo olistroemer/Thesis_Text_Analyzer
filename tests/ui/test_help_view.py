@@ -14,6 +14,7 @@ import tkinter
 
 import pytest
 
+from tta.core import help_corpus
 from tta.core.project import Project
 from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk import help_view
@@ -21,13 +22,12 @@ from tta.ui.tk.help_view import (
     Block,
     Run,
     Topic,
+    cross_refs,
     document_blocks,
     index_topics,
     load_topics,
     parse_inline,
-    parse_uri_list,
     render_blocks,
-    split_front_matter,
 )
 from tests.ui.conftest import display_available
 
@@ -80,27 +80,27 @@ def _write_corpus(root):
 
 
 # -- front matter -------------------------------------------------------------
+# The parser itself is core's (ADR-0012 rev. 5) and is unit-tested in
+# tests/core/test_help_front_matter.py; here only the viewer's use of it.
 
 
-def test_front_matter_is_parsed_and_stripped_from_the_body():
-    fields, body = split_front_matter(PAGE)
-    assert fields["slug"] == "word_count"
-    assert fields["title"] == "Word count"
-    assert fields["kind"] == "metric"
-    assert body.startswith("\n# Word count")
-    assert "slug:" not in body and "see_also:" not in body
+def test_viewer_has_no_front_matter_parser_of_its_own():
+    """#78: one parser in core; the adapter must not grow a second one."""
+    assert not hasattr(help_view, "split_front_matter")
+    assert not hasattr(help_view, "_FRONT_MATTER")
+    assert help_view.read_page is help_corpus.read_page
 
 
-def test_page_without_front_matter_is_all_body():
-    fields, body = split_front_matter("# Plain\n\ntext\n")
-    assert fields == {}
-    assert body == "# Plain\n\ntext\n"
+def test_front_matter_is_stripped_from_the_topic_body(tmp_path):
+    metric = load_topics(_write_corpus(tmp_path / "help"))[1]
+    assert metric.body.startswith("\n# Word count")
+    assert "slug:" not in metric.body and "see_also:" not in metric.body
 
 
-def test_uri_list_keeps_only_well_formed_cross_references():
-    assert parse_uri_list("[module:a, metric:b]") == ("module:a", "metric:b")
-    assert parse_uri_list("[not-a-uri, concept:c]") == ("concept:c",)
-    assert parse_uri_list("") == ()
+def test_cross_refs_keep_only_well_formed_uris():
+    assert cross_refs(["module:a", "metric:b"]) == ("module:a", "metric:b")
+    assert cross_refs(["not-a-uri", "concept:c"]) == ("concept:c",)
+    assert cross_refs(()) == ()
 
 
 # -- loading ------------------------------------------------------------------

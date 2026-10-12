@@ -28,8 +28,9 @@ help pages and the viewer's topic tree excludes them.
 
 This module reads the `.md` files directly rather than through
 `ui/tk/help_view.py`: a content gate over `core` must not depend on the Tk
-adapter, and it needs the list-valued front-matter fields the viewer's flat
-parser deliberately skips.
+adapter. It parses their front matter with `core.help_corpus`, the one
+parser every consumer shares (ADR-0012 rev. 5, #78), in strict mode: a line
+the flat schema cannot express fails here instead of being skipped.
 
 Assertions stay ASCII (ADR-0018) although the corpus is German (SDD Sec. 9.6):
 they key on slugs, URIs and BibTeX keys, never on rendered prose.
@@ -41,6 +42,7 @@ from importlib import resources
 
 import pytest
 
+from tta.core.help_corpus import split_front_matter
 from tta.core.modules.registry import default_registry
 from tta.core.third_party_licenses import LICENSES_URI
 
@@ -76,34 +78,6 @@ CITATION = re.compile(r"\[@([A-Za-z0-9_:.#$%&+?<>~/-]+)(?:[^\]]*)\]")
 RAW_HTML = re.compile(r"<!--|</?[A-Za-z][A-Za-z0-9]*(?:\s[^>]*)?/?>")
 #: A markdown image whose target is an external URL.
 EXTERNAL_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(https?://[^)\s]*)")
-FRONT_MATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
-
-
-def parse_front_matter(text):
-    """Flat front-matter fields plus the body.
-
-    Scalars stay strings; a value in brackets becomes a list of stripped
-    items. Enough for the ADR-0012 schema, which is flat by design, and it
-    keeps the gate free of a YAML dependency (there is none in the project).
-    """
-    match = FRONT_MATTER.match(text)
-    if not match:
-        return None, text
-    fields = {}
-    for line in match.group(1).splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        key, separator, value = line.partition(":")
-        assert separator and not key[:1].isspace(), (
-            f"front-matter line is neither a scalar nor a list item: {line!r}"
-        )
-        value = value.strip()
-        if value.startswith("[") and value.endswith("]"):
-            items = [item.strip().strip("\"'") for item in value[1:-1].split(",")]
-            fields[key.strip()] = [item for item in items if item]
-        else:
-            fields[key.strip()] = value.strip("\"'")
-    return fields, text[match.end() :]
 
 
 class Page:
@@ -114,7 +88,9 @@ class Page:
         self.path = path
         self.slug = path.name[:-3]
         self.uri = f"{SECTIONS[section]}:{self.slug}"
-        self.fields, self.body = parse_front_matter(path.read_text(encoding="utf-8"))
+        self.fields, self.body = split_front_matter(
+            path.read_text(encoding="utf-8"), strict=True
+        )
 
     def __repr__(self):
         return f"help/{self.section}/{self.path.name}"
@@ -278,7 +254,7 @@ def test_front_matter_references_are_actually_cited_in_the_body(pages):
 
 
 def test_every_page_has_front_matter(pages):
-    assert [repr(page) for page in pages if page.fields is None] == []
+    assert [repr(page) for page in pages if not page.fields] == []
 
 
 def test_front_matter_declares_its_own_slug_and_kind(pages):

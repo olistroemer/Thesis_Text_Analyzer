@@ -227,6 +227,7 @@ tta/                              # repository root
 │   │   ├── export.py             # anonymisation + export
 │   │   ├── importer.py           # import researcher merge DB
 │   │   ├── config.py             # tta.toml reader/writer
+│   │   ├── help_corpus.py        # the one front-matter parser + corpus layout (§9.4)
 │   │   └── help/                 # markdown content (see §9.4)
 │   ├── ui/
 │   │   └── tk/                   # Tk + tksheet UI ([ADR-001](adr/0001-ui-toolkit.md))
@@ -751,8 +752,10 @@ The corpus is **49 pages** (#2, #36): one per module ([§7.1](#71-overview), 13)
 
 Three render targets:
 - **GUI**: `ui/tk/help_view.py` — two panes (topic tree | read-only `tk.Text`), fed by a self-contained markdown-subset renderer; clickable cross-refs.
-- **CLI**: `tta help <topic>`, rendered by `rich`.
+- **CLI**: `tta help <topic>`, rendered by `rich` — the page body only, with the front-matter `title` as its heading when the body has none, and `see_also` as a trailing **See also** block. `tta module show <name>` prints the module page's `title` and first body paragraph, and falls back to the Python docstring only for a module without a page.
 - **PDF**: pandoc + xelatex for the SDD and standalone help bundle.
+
+**One front-matter parser** (ADR-012 rev. 5, #78): `core/help_corpus.py` holds `split_front_matter(text) -> (metadata, body)` and the corpus layout (sections, packaged root). The GUI viewer, the CLI and the corpus gate `tests/core/test_help_corpus.py` all read pages through it, and none carries its own. It lives in `core` because the CLI may not import `tta.ui` ([§5.2](#52-package-layout), ADR-002). Front matter is parsed, never rendered, on every render target.
 
 ### 9.4.1 GUI help viewer
 

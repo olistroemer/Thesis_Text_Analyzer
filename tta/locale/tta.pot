@@ -11,7 +11,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 
-#: tta/cli/main.py:674
+#: tta/cli/main.py:702
 msgid " | cancelled"
 msgstr ""
 
@@ -24,7 +24,7 @@ msgid ""
 "They remain on this machine only and are never exported. Delete that folder manually to remove them."
 msgstr ""
 
-#: tta/cli/main.py:539
+#: tta/cli/main.py:567
 msgid "- (reads the PDF directly)"
 msgstr ""
 
@@ -69,14 +69,14 @@ msgstr ""
 msgid "About"
 msgstr ""
 
-#: tta/cli/main.py:565
+#: tta/cli/main.py:593
 msgid ""
 "Add INPUTS (PDF files or folders) and analyse them.\n"
 "\n"
 "Without INPUTS, every thesis already in the project is analysed. By default only what is missing, out of date or previously failed is computed; --rerun computes everything again. The type of a thesis is detected during the analysis, not entered when the file is added."
 msgstr ""
 
-#: tta/cli/main.py:564
+#: tta/cli/main.py:592
 msgid "Add PDF files or folders and analyse them."
 msgstr ""
 
@@ -130,7 +130,7 @@ msgstr ""
 msgid "Analysis results (aggregated text statistics)"
 msgstr ""
 
-#: tta/cli/main.py:203
+#: tta/cli/main.py:214
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr ""
 
@@ -238,11 +238,11 @@ msgstr ""
 msgid "Cohort report"
 msgstr ""
 
-#: tta/cli/main.py:119
+#: tta/cli/main.py:130
 msgid "Collect diagnostics for a support request."
 msgstr ""
 
-#: tta/cli/main.py:120
+#: tta/cli/main.py:131
 msgid ""
 "Collect diagnostics for a support request: versions, the state of the project, and an offline self-check of the analysis libraries.\n"
 "\n"
@@ -253,15 +253,15 @@ msgstr ""
 msgid "Column name: {name}"
 msgstr ""
 
-#: tta/cli/main.py:223
+#: tta/cli/main.py:234
 msgid "Compact the project database file."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:49
+#: tta/ui/tk/help_view.py:56
 msgid "Concepts"
 msgstr ""
 
-#: tta/cli/main.py:580
+#: tta/cli/main.py:608
 msgid "Concurrent theses (default: cores - 1)."
 msgstr ""
 
@@ -289,11 +289,11 @@ msgid ""
 "{error}"
 msgstr ""
 
-#: tta/cli/main.py:191
+#: tta/cli/main.py:202
 msgid "Create the project in the --project directory, or migrate an existing one."
 msgstr ""
 
-#: tta/cli/main.py:186
+#: tta/cli/main.py:197
 msgid "Create, migrate or compact the project database."
 msgstr ""
 
@@ -345,7 +345,7 @@ msgstr ""
 msgid "Don't ask again"
 msgstr ""
 
-#: tta/cli/main.py:714
+#: tta/cli/main.py:742
 msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
 msgstr ""
 
@@ -360,11 +360,11 @@ msgid ""
 "This is destructive and cannot be undone. The source PDF file is not touched."
 msgstr ""
 
-#: tta/cli/main.py:300
+#: tta/cli/main.py:311
 msgid "Exclude a thesis from analysis and exports."
 msgstr ""
 
-#: tta/cli/main.py:301
+#: tta/cli/main.py:312
 msgid ""
 "Exclude the thesis THESIS_ID from analysis and from exports.\n"
 "\n"
@@ -375,7 +375,7 @@ msgstr ""
 msgid "Exclude thesis"
 msgstr ""
 
-#: tta/cli/main.py:340
+#: tta/cli/main.py:351
 msgid "Exclude thesis {thesis_id} and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? This is destructive and cannot be undone. The source PDF is not touched."
 msgstr ""
 
@@ -481,7 +481,7 @@ msgstr ""
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:38
+#: tta/ui/tk/help_view.py:47
 #: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr ""
@@ -498,7 +498,7 @@ msgstr ""
 msgid "Images"
 msgstr ""
 
-#: tta/cli/main.py:771
+#: tta/cli/main.py:799
 msgid "Import another installation's export as a new, read-only source."
 msgstr ""
 
@@ -510,7 +510,7 @@ msgstr ""
 msgid "In brief"
 msgstr ""
 
-#: tta/cli/main.py:484
+#: tta/cli/main.py:495
 msgid "Inspect the catalogue of analysis modules."
 msgstr ""
 
@@ -550,11 +550,11 @@ msgstr ""
 msgid "Letters"
 msgstr ""
 
-#: tta/cli/main.py:489
+#: tta/cli/main.py:500
 msgid "List every registered module, in the order in which it runs."
 msgstr ""
 
-#: tta/cli/main.py:235
+#: tta/cli/main.py:246
 msgid "List the known theses with the status of their analysis."
 msgstr ""
 
@@ -562,7 +562,7 @@ msgstr ""
 msgid "Median length"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:48
+#: tta/ui/tk/help_view.py:55
 msgid "Metrics"
 msgstr ""
 
@@ -574,7 +574,7 @@ msgstr ""
 msgid "Module"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:54
 msgid "Modules"
 msgstr ""
 
@@ -702,7 +702,7 @@ msgstr ""
 msgid "Planning..."
 msgstr ""
 
-#: tta/cli/main.py:578
+#: tta/cli/main.py:606
 msgid "Print the plan without executing."
 msgstr ""
 
@@ -723,7 +723,7 @@ msgstr ""
 msgid "Produces"
 msgstr ""
 
-#: tta/cli/main.py:74
+#: tta/cli/main.py:85
 msgid "Project directory (default: current directory)."
 msgstr ""
 
@@ -756,14 +756,14 @@ msgstr ""
 msgid "Quit"
 msgstr ""
 
-#: tta/cli/main.py:383
+#: tta/cli/main.py:394
 msgid ""
 "Re-include a previously excluded thesis, clearing its excluded flag.\n"
 "\n"
 "The thesis becomes eligible again and is analysed on the next run. Analysis that was deleted when it was excluded is not restored; run the analysis again to recompute it."
 msgstr ""
 
-#: tta/cli/main.py:382
+#: tta/cli/main.py:393
 msgid "Re-include a previously excluded thesis."
 msgstr ""
 
@@ -771,7 +771,7 @@ msgstr ""
 msgid "Re-run all"
 msgstr ""
 
-#: tta/cli/main.py:577
+#: tta/cli/main.py:605
 msgid "Re-run everything regardless of state."
 msgstr ""
 
@@ -791,11 +791,11 @@ msgstr ""
 msgid "Ready"
 msgstr ""
 
-#: tta/cli/main.py:410
+#: tta/cli/main.py:421
 msgid "Remove a thesis from the project entirely."
 msgstr ""
 
-#: tta/cli/main.py:411
+#: tta/cli/main.py:422
 msgid ""
 "Remove the thesis THESIS_ID from the project entirely.\n"
 "\n"
@@ -808,7 +808,7 @@ msgstr ""
 msgid "Remove thesis"
 msgstr ""
 
-#: tta/cli/main.py:447
+#: tta/cli/main.py:458
 msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
 msgstr ""
 
@@ -825,11 +825,11 @@ msgid ""
 "The PDF itself is not touched. This cannot be undone."
 msgstr ""
 
-#: tta/cli/main.py:802
+#: tta/cli/main.py:830
 msgid "Render the data-protection statement."
 msgstr ""
 
-#: tta/cli/main.py:807
+#: tta/cli/main.py:835
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr ""
 
@@ -851,7 +851,7 @@ msgstr ""
 msgid "Report written to {path}"
 msgstr ""
 
-#: tta/cli/main.py:576
+#: tta/cli/main.py:604
 msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
 msgstr ""
 
@@ -891,7 +891,8 @@ msgstr ""
 msgid "Scrub incomplete"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:40
+#: tta/cli/main.py:918
+#: tta/ui/tk/help_view.py:49
 msgid "See also"
 msgstr ""
 
@@ -911,15 +912,15 @@ msgstr ""
 msgid "Share of word types that occur exactly once."
 msgstr ""
 
-#: tta/cli/main.py:868
+#: tta/cli/main.py:923
 msgid "Show a help topic - a module, a metric or a concept - in the terminal."
 msgstr ""
 
-#: tta/cli/main.py:97
+#: tta/cli/main.py:108
 msgid "Show the application version and the version of every analysis module."
 msgstr ""
 
-#: tta/cli/main.py:522
+#: tta/cli/main.py:533
 msgid "Show what one module reads and what it produces."
 msgstr ""
 
@@ -927,8 +928,8 @@ msgstr ""
 msgid "Size of the PDF file on disk, in bytes."
 msgstr ""
 
-#: tta/cli/main.py:315
-#: tta/cli/main.py:426
+#: tta/cli/main.py:326
+#: tta/cli/main.py:437
 msgid "Skip the confirmation prompt (for scripts)."
 msgstr ""
 
@@ -936,7 +937,7 @@ msgstr ""
 msgid "Source code (GPL Sec. 6), copy the address to visit it:"
 msgstr ""
 
-#: tta/cli/main.py:776
+#: tta/cli/main.py:804
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr ""
 
@@ -996,7 +997,7 @@ msgstr ""
 msgid "Thesis Text Analyzer - {path}"
 msgstr ""
 
-#: tta/cli/main.py:64
+#: tta/cli/main.py:75
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr ""
 
@@ -1044,7 +1045,7 @@ msgstr ""
 msgid "Trends"
 msgstr ""
 
-#: tta/cli/main.py:712
+#: tta/cli/main.py:740
 msgid "Trim history to the latest run per (thesis, module)."
 msgstr ""
 
@@ -1080,7 +1081,7 @@ msgstr ""
 msgid "Vocabulary richness (Yule's K)"
 msgstr ""
 
-#: tta/cli/main.py:846
+#: tta/cli/main.py:874
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr ""
 
@@ -1096,26 +1097,26 @@ msgstr ""
 msgid "Words"
 msgstr ""
 
-#: tta/cli/main.py:582
+#: tta/cli/main.py:610
 msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
 msgstr ""
 
-#: tta/cli/main.py:699
+#: tta/cli/main.py:727
 msgid "Write the researcher export, free of personal data."
 msgstr ""
 
-#: tta/cli/main.py:700
+#: tta/cli/main.py:728
 msgid ""
 "Write the researcher export: an SQLite file holding the metric values and no personal data.\n"
 "\n"
 "With --profiling, the flat per-run timing dataset is written instead: one CSV row per module run, with its duration and the size of the PDF it was measured on. Both obey the same rules - only data produced on this machine, and no identifying column."
 msgstr ""
 
-#: tta/cli/main.py:834
+#: tta/cli/main.py:862
 msgid "Write the stand-alone HTML report for the cohort."
 msgstr ""
 
-#: tta/cli/main.py:835
+#: tta/cli/main.py:863
 msgid ""
 "Write the stand-alone HTML report over the whole cohort.\n"
 "\n"
@@ -1142,16 +1143,16 @@ msgstr ""
 msgid "Yule's K: vocabulary richness, robust to text length."
 msgstr ""
 
-#: tta/cli/main.py:348
-#: tta/cli/main.py:456
+#: tta/cli/main.py:359
+#: tta/cli/main.py:467
 msgid "aborted; no changes made"
 msgstr ""
 
-#: tta/cli/main.py:600
+#: tta/cli/main.py:628
 msgid "added {count} theses from {paths} input path(s)"
 msgstr ""
 
-#: tta/cli/main.py:217
+#: tta/cli/main.py:228
 msgid "applied migrations: {versions}"
 msgstr ""
 
@@ -1159,7 +1160,7 @@ msgstr ""
 msgid "artefact kind of the cached file"
 msgstr ""
 
-#: tta/cli/main.py:543
+#: tta/cli/main.py:571
 msgid "artefacts: {value}"
 msgstr ""
 
@@ -1175,15 +1176,15 @@ msgstr ""
 msgid "audit trail, profiling"
 msgstr ""
 
-#: tta/cli/main.py:891
+#: tta/cli/main.py:944
 msgid "available topics:"
 msgstr ""
 
-#: tta/cli/main.py:641
+#: tta/cli/main.py:669
 msgid "cancelling - finishing in-flight theses (Ctrl-C again to force)..."
 msgstr ""
 
-#: tta/cli/main.py:172
+#: tta/cli/main.py:183
 msgid "checks:"
 msgstr ""
 
@@ -1199,11 +1200,11 @@ msgstr ""
 msgid "confidential theses opt-out (US-PROF-EXCLUDE); local only - excluded rows are stripped from exports, so the column would be constant-zero (#64)"
 msgstr ""
 
-#: tta/cli/main.py:514
+#: tta/cli/main.py:525
 msgid "consumes"
 msgstr ""
 
-#: tta/cli/main.py:538
+#: tta/cli/main.py:566
 msgid "consumes:  {value}"
 msgstr ""
 
@@ -1252,27 +1253,27 @@ msgstr ""
 msgid "estimating..."
 msgstr ""
 
-#: tta/cli/main.py:282
+#: tta/cli/main.py:293
 msgid "excluded"
 msgstr ""
 
-#: tta/cli/main.py:359
+#: tta/cli/main.py:370
 msgid "excluded thesis {thesis_id}"
 msgstr ""
 
-#: tta/cli/main.py:371
+#: tta/cli/main.py:382
 msgid "excluded thesis {thesis_id}; analysis records removed, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
 msgstr ""
 
-#: tta/cli/main.py:362
+#: tta/cli/main.py:373
 msgid "excluded thesis {thesis_id}; cached analysis scrubbed"
 msgstr ""
 
-#: tta/cli/main.py:746
+#: tta/cli/main.py:774
 msgid "exported {rows} module runs across {modules} modules ({policy}) -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:758
+#: tta/cli/main.py:786
 msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy}) -> {path}"
 msgstr ""
 
@@ -1280,7 +1281,7 @@ msgstr ""
 msgid "extract the plain text from the PDF; count pages and characters"
 msgstr ""
 
-#: tta/cli/main.py:179
+#: tta/cli/main.py:190
 msgid "failing checks: {names}"
 msgstr ""
 
@@ -1288,7 +1289,7 @@ msgstr ""
 msgid "file not found"
 msgstr ""
 
-#: tta/cli/main.py:282
+#: tta/cli/main.py:293
 msgid "filename"
 msgstr ""
 
@@ -1316,7 +1317,7 @@ msgstr ""
 msgid "high whisker"
 msgstr ""
 
-#: tta/cli/main.py:282
+#: tta/cli/main.py:293
 msgid "id"
 msgstr ""
 
@@ -1324,11 +1325,11 @@ msgstr ""
 msgid "import compatibility check"
 msgstr ""
 
-#: tta/cli/main.py:786
+#: tta/cli/main.py:814
 msgid "imported source {source_id} ({name}): {theses} theses, {runs} runs, {metrics} metric values"
 msgstr ""
 
-#: tta/cli/main.py:406
+#: tta/cli/main.py:417
 msgid "included thesis {thesis_id}"
 msgstr ""
 
@@ -1371,15 +1372,15 @@ msgstr ""
 msgid "median"
 msgstr ""
 
-#: tta/cli/main.py:546
+#: tta/cli/main.py:574
 msgid "metrics:   {value}"
 msgstr ""
 
-#: tta/cli/main.py:514
+#: tta/cli/main.py:525
 msgid "module"
 msgstr ""
 
-#: tta/cli/main.py:513
+#: tta/cli/main.py:524
 msgid "module catalogue"
 msgstr ""
 
@@ -1399,12 +1400,12 @@ msgstr ""
 msgid "no"
 msgstr ""
 
-#: tta/cli/main.py:882
+#: tta/cli/main.py:932
 msgid "no help topic {topic}"
 msgstr ""
 
-#: tta/cli/main.py:895
-#: tta/ui/tk/help_view.py:39
+#: tta/cli/main.py:948
+#: tta/ui/tk/help_view.py:48
 msgid "no help topics installed yet"
 msgstr ""
 
@@ -1412,7 +1413,7 @@ msgstr ""
 msgid "no project at {folder} ({filename} missing) - run 'tta db init' first"
 msgstr ""
 
-#: tta/cli/main.py:213
+#: tta/cli/main.py:224
 msgid "no project at {path} - run `tta db init` first"
 msgstr ""
 
@@ -1454,7 +1455,7 @@ msgstr ""
 msgid "outliers"
 msgstr ""
 
-#: tta/cli/main.py:176
+#: tta/cli/main.py:187
 msgid "overall: {status}"
 msgstr ""
 
@@ -1462,7 +1463,7 @@ msgstr ""
 msgid "pending migrations {versions} - run 'tta db migrate'"
 msgstr ""
 
-#: tta/cli/main.py:514
+#: tta/cli/main.py:525
 msgid "produces"
 msgstr ""
 
@@ -1470,7 +1471,7 @@ msgstr ""
 msgid "profiling (QA-RES budgets)"
 msgstr ""
 
-#: tta/cli/main.py:199
+#: tta/cli/main.py:210
 msgid "project ready at {path}"
 msgstr ""
 
@@ -1499,11 +1500,11 @@ msgstr ""
 msgid "reading ease"
 msgstr ""
 
-#: tta/cli/main.py:465
+#: tta/cli/main.py:476
 msgid "removed thesis {thesis_id}"
 msgstr ""
 
-#: tta/cli/main.py:471
+#: tta/cli/main.py:482
 msgid "removed thesis {thesis_id}; database rows deleted, but some cached files could not be deleted: {folder} ({error}). They are never exported; delete that folder manually to remove them."
 msgstr ""
 
@@ -1511,11 +1512,11 @@ msgstr ""
 msgid "repeated word-pair/triple rates"
 msgstr ""
 
-#: tta/cli/main.py:861
+#: tta/cli/main.py:889
 msgid "report over {theses} theses -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:689
+#: tta/cli/main.py:717
 msgid "report written to {path}"
 msgstr ""
 
@@ -1527,7 +1528,7 @@ msgstr ""
 msgid "reproducibility: which modules ran"
 msgstr ""
 
-#: tta/cli/main.py:219
+#: tta/cli/main.py:230
 msgid "schema is up to date"
 msgstr ""
 
@@ -1543,7 +1544,7 @@ msgstr ""
 msgid "staleness detection, reproducibility"
 msgstr ""
 
-#: tta/cli/main.py:282
+#: tta/cli/main.py:293
 msgid "status"
 msgstr ""
 
@@ -1574,7 +1575,7 @@ msgstr ""
 msgid "track applied DB migrations"
 msgstr ""
 
-#: tta/cli/main.py:282
+#: tta/cli/main.py:293
 #: tta/core/report.py:520
 #: tta/core/report.py:603
 msgid "type"
@@ -1584,11 +1585,11 @@ msgstr ""
 msgid "until the user deletes the project folder"
 msgstr ""
 
-#: tta/cli/main.py:229
+#: tta/cli/main.py:240
 msgid "vacuumed"
 msgstr ""
 
-#: tta/cli/main.py:514
+#: tta/cli/main.py:525
 msgid "version"
 msgstr ""
 
@@ -1627,7 +1628,7 @@ msgstr ""
 msgid "words"
 msgstr ""
 
-#: tta/cli/main.py:291
+#: tta/cli/main.py:302
 #: tta/core/privacy_metadata.py:269
 msgid "yes"
 msgstr ""
@@ -1636,11 +1637,11 @@ msgstr ""
 msgid "{bins} equal-width bins; series are overlaid, not stacked."
 msgstr ""
 
-#: tta/cli/main.py:627
+#: tta/cli/main.py:655
 msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
-#: tta/cli/main.py:278
+#: tta/cli/main.py:289
 #: tta/ui/tk/grid.py:46
 msgid "{count} theses"
 msgstr ""
@@ -1703,11 +1704,11 @@ msgstr ""
 msgid "{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}"
 msgstr ""
 
-#: tta/cli/main.py:286
+#: tta/cli/main.py:297
 msgid "{ok} ok | {na} na | {error} err | {missing} todo"
 msgstr ""
 
-#: tta/cli/main.py:676
+#: tta/cli/main.py:704
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 
