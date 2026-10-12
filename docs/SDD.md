@@ -305,7 +305,7 @@ A `--dry-run` flag prints the plan without executing.
 
 ## 5.6 Distribution
 
-Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update.
+Decision: [ADR-014](adr/0014-distribution.md). Per-OS single-file PyInstaller `--onefile` binaries built on CI. Stateless binary + project directory. No auto-update. Only the GUI binary is released; the CLI is frozen in CI as the acceptance-test vehicle and reaches its users (research team, power users) from source ([ADR-003](adr/0003-cli-first-class.md) revision 2026-10-12).
 
 On first launch the app creates `~/TTA-Theses/` (or platform equivalent) as the default project and shows a dismissible banner. Subsequent launches auto-open the last project (US-PROF-AUTO-OPEN). By default the app writes **nothing** outside the project folder (US-PROF-NO-TRACES, [ADR-014](adr/0014-distribution.md)); the last-project pointer lives inside the default project, so deleting the folder removes every trace and no `~/.config/tta` file is created. (The AGPL release-gate that previously forbade `import fitz`/`import pymupdf` under `tta/core/` is retired by [ADR-0017](adr/0017-license.md): the project adopts a copyleft licence, so PyMuPDF ships as-is.)
 
@@ -929,7 +929,7 @@ The State column currently reports **garbled extraction only**. A "source PDF no
 
 ### QA-PORT — Cross-platform
 
-The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required. Each target carries a per-OS binary size ceiling enforced in CI ([ADR-014](adr/0014-distribution.md)); the download size is a portability concern, since the professor's happy path begins with fetching one file. Portability is asserted per build rather than per claim: CI freezes both binaries on all four targets (Linux x86_64, Windows x86_64, macOS arm64 and x86_64) on every push, and drives the frozen CLI through a real project - run, list, export - on each of them; the GUI binary is additionally launched on Linux under Xvfb. The one stated gap is that no CI runner launches the *GUI* binary on Windows or macOS (ADR-014, "Packaged-binary acceptance").
+The application runs on Windows 10+, macOS 12+, and Linux (Ubuntu LTS / Fedora). The single-binary build is PyInstaller-based; no Python install on the target machine is required. Each target carries a per-OS binary size ceiling enforced in CI ([ADR-014](adr/0014-distribution.md)); the download size is a portability concern, since the professor's happy path begins with fetching one file. Portability is asserted per build rather than per claim: CI freezes both binaries on all four targets (Linux x86_64, Windows x86_64, macOS arm64 and x86_64) on every push, and drives the frozen CLI through a real project - run, list, export - on each of them (the frozen CLI is that test's vehicle only; releases ship the GUI binary); the GUI binary is additionally launched on Linux under Xvfb. The one stated gap is that no CI runner launches the *GUI* binary on Windows or macOS (ADR-014, "Packaged-binary acceptance").
 
 ### QA-RES — Resource-light
 
