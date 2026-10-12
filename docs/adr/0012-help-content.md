@@ -66,10 +66,12 @@ adapter.
   anyway. Repository-time bibliography, repository-time gate.
 
 **The scope of checks 5-7 is `modules/`, `metrics/`, `concepts/`.**
-`core/help/privacy/` holds the two reviewed legal stubs of
-[ADR-009](0009-privacy-as-code.md) Sec. 6-7: they are fragments appended to a
-generated statement, not help pages, they carry no front matter, they do carry
-an HTML review comment, and the viewer's topic tree deliberately excludes them.
+`core/help/privacy/` holds the legal stubs of
+[ADR-009](0009-privacy-as-code.md) Sec. 6-7, one pair per locale
+(`privacy/de/`, `privacy/en/`; ADR-009 rev. 2026-10-12): they are fragments
+appended to a generated statement, not help pages, they carry no front matter,
+they do carry an HTML status comment, and the viewer's topic tree deliberately
+excludes them.
 
 ## Alternatives considered
 
