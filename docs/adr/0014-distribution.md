@@ -38,6 +38,8 @@ The matrix in `.github/workflows/ci.yml` (`build`) is one job per target, each r
 
 Every push and pull request builds all four (a build that only runs on tags is a build that is broken on tag day). `fail-fast` is off, so one platform's failure still yields evidence about the other three. A push of a `v*` tag additionally runs a `release` job that collects the four artefacts and opens a **draft** GitHub release. The draft is deliberate: publishing is the step that needs the #8 licence sign-off and the #6 GDPR statement, and those are human decisions, not CI's.
 
+**Revision (2026-10-12): every push builds; only tags and manual runs upload.** The binaries are built, gated and smoke-tested on every push as before, but the `actions/upload-artifact` step runs only for a `v*` tag (the `release` job needs the four artefacts) and for a manual `workflow_dispatch` run (to fetch a binary for testing, e.g. a Windows `.exe`), and those artefacts expire after 3 days. The reason is storage: the repository is private, so artefacts count against the account's Actions storage quota, and one run's four zipped targets (~200 MB each; the Linux one alone was 217 MB) exceed the free plan's 500 MB. Uploading on every push made jobs on a clean binary fail with "Artifact storage quota has been hit". Release assets are stored separately and do not expire with the artefacts.
+
 Approximate release-build size: ~100 MB per OS. The two gates that keep that number honest — a clean build environment and a hard size ceiling — are specified below; they are what makes the frozen binary a function of the declared dependency set rather than of the builder's machine (**QA-REPRO**, SDD §10).
 
 ### Clean-environment build (normative)
@@ -157,7 +159,7 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ⚠️ Binary size ~73 MB (CLI) / ~74 MB (GUI) on Linux x86_64; CI ceiling 100 MB per executable.
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
-- ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published.
+- ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published. Artefacts are uploaded only for tags and manual runs (storage quota, revision 2026-10-12).
 - ⚠️ The Windows and macOS size ceilings are provisional until the first matrix run measures them.
 - ⚠️ The GUI binary is only *executed* by CI on Linux (Xvfb); on Windows and macOS it is built and checked but never launched.
 
