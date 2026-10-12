@@ -136,6 +136,8 @@ Three things the inventory alone does not cover, which the generator adds explic
 
 Sections 1 and 2 above are the release prerequisites #8 tracked; the generator makes them a build output rather than a manual checklist item.
 
+**Revision (2026-10-12, #36): the manifest is reachable from inside the GUI.** A notice file buried in a `--onefile` archive is technically present but invisible to the person running the program, so **Help → Third-party licences** opens it (SDD §9.2). The spec bundles it at the archive root (`datas` destination `.`), which the frozen runtime exposes as `sys._MEIPASS`; `core/third_party_licenses.py` reads it from there, the same root `packaging/rthook_nltk.py` uses for the NLTK data. A from-source run has no bundle, so it shows an explanation instead of the file. The plain-language counterpart is the help concept page `bundled_components`.
+
 ## Code signing
 
 MVP ships **unsigned**. Workarounds (SmartScreen "More info → Run anyway", Gatekeeper right-click → Open) documented in release notes. Signing is revisited when deployment to multiple institutions warrants the cost.
