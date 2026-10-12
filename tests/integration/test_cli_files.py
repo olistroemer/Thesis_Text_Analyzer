@@ -250,3 +250,71 @@ def test_export_profiling_refuses_to_overwrite_exits_65(project_dir):
     )
     assert result.exit_code == 65
     assert out.read_bytes() == b"do not clobber"
+
+
+# -- output a narrow stdout cannot encode ------------------------------------
+
+# "Lodz" with its Polish L-with-stroke and z-acute: letters outside cp1252,
+# the encoding a redirected or piped stdout gets on a German/English Windows.
+# Escaped, not written out (ADR-0018).
+UNENCODABLE_NAME = (
+    "\N{LATIN CAPITAL LETTER L WITH STROKE}od\N{LATIN SMALL LETTER Z WITH ACUTE}.pdf"
+)
+
+
+def _list_through_a_cp1252_pipe(project_dir, *extra, errors="surrogateescape"):
+    """`tta list` as the real entry point, its stdout a cp1252 pipe.
+
+    PYTHONIOENCODING gives the child exactly the stdout a Windows redirect
+    has - cp1252 with CPython's Windows default error handler,
+    surrogateescape - on every OS, so the regression is pinned on Linux CI
+    as well.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    env = dict(os.environ, PYTHONPATH=str(repo_root),
+               PYTHONIOENCODING="cp1252:%s" % errors)
+    return subprocess.run(
+        [sys.executable, "-m", "tta.cli.main", "-C", str(project_dir), "list", *extra],
+        capture_output=True,
+        cwd=str(repo_root),
+        env=env,
+    )
+
+
+@pytest.fixture
+def unencodable_project(project_dir, tmp_path):
+    pdf = tmp_path / UNENCODABLE_NAME
+    pdf.write_bytes(b"%PDF-unencodable")
+    invoke("-C", project_dir, "run", pdf, "--dry-run")
+    return project_dir
+
+
+@pytest.mark.parametrize("errors", ["surrogateescape", "strict"])
+def test_list_survives_a_file_name_its_stdout_cannot_encode(unencodable_project, errors):
+    """It used to die with UnicodeEncodeError (exit 70) mid-table."""
+    proc = _list_through_a_cp1252_pipe(unencodable_project, errors=errors)
+    assert proc.returncode == 0, proc.stderr.decode("cp1252", "replace")
+    assert b"?od?.pdf" in proc.stdout
+
+
+def test_list_csv_rows_end_in_one_crlf_and_survive_the_name(unencodable_project):
+    """RFC 4180 row ends on every OS: a translating (Windows) stdout used to
+    double the CR into "\r\r\n"."""
+    proc = _list_through_a_cp1252_pipe(unencodable_project, "--format", "csv")
+    assert proc.returncode == 0, proc.stderr.decode("cp1252", "replace")
+    assert b"\r\r\n" not in proc.stdout
+    header, row = proc.stdout.split(b"\r\n")[:2]
+    assert header.startswith(b"id,filename,")
+    assert b",?od?.pdf," in row
+
+
+def test_list_json_keeps_the_name_losslessly(unencodable_project):
+    """JSON is the scripting contract: ASCII-escaped, so nothing is replaced."""
+    proc = _list_through_a_cp1252_pipe(unencodable_project, "--format", "json")
+    assert proc.returncode == 0, proc.stderr.decode("cp1252", "replace")
+    assert [r["filename"] for r in json.loads(proc.stdout)] == [UNENCODABLE_NAME]

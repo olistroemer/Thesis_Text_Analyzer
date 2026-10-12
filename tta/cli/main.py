@@ -8,7 +8,6 @@ contract); logs and progress go to stderr; exit codes follow sysexits
 
 from __future__ import annotations
 
-import csv
 import json
 import re
 import signal
@@ -25,6 +24,7 @@ from rich.markdown import Markdown
 from rich.table import Table
 
 import tta
+from tta.cli import _stdio
 from tta.core import events
 from tta.core import i18n
 from tta.core import privacy_metadata
@@ -272,9 +272,9 @@ def list_theses(ctx: click.Context, fmt: str) -> None:
     if fmt == "json":
         click.echo(json.dumps(rows, indent=2))
     elif fmt == "csv":
-        writer = csv.DictWriter(sys.stdout, fieldnames=list(rows[0]) if rows else ["id"])
-        writer.writeheader()
-        writer.writerows(rows)
+        # RFC 4180 "\r\n" rows on every OS, written untranslated: a stdout that
+        # translates "\n" (Windows' default) doubled the CR (see _stdio)
+        _stdio.write_csv_rows(sys.stdout, rows, list(rows[0]) if rows else ["id"])
     else:
         table = Table(title=_("{count} theses").format(count=len(rows)))
         # Column headers are display text; the JSON/CSV field names above are
@@ -918,6 +918,8 @@ def main() -> None:
     import multiprocessing
 
     multiprocessing.freeze_support()
+    # A redirected Windows stdout must not abort a command (see _stdio).
+    _stdio.replace_unencodable_output()
     try:
         cli(standalone_mode=True)
     except SystemExit:
