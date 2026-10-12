@@ -26,7 +26,7 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 | Target | Renderer | Cross-refs | Math | Citations |
 |---|---|---|---|---|
 | GUI (Tk Text widget) | built-in markdown-**subset** renderer in `ui/tk/help_view.py`, no extra dependency (rev. 2) | clickable internal links | plain text (MVP) | `[@key]` inline (MVP); bibliography panel deferred |
-| CLI (`tta help <topic>`) | `rich` library's Markdown renderer | "see also" trailing block | plain text | `[Flesch 1948]` inline |
+| CLI (`tta help <topic>`) | `rich` library's Markdown renderer, over the page **body** only (rev. 5) | "see also" trailing block | plain text | `[Flesch 1948]` inline |
 | PDF | pandoc + `--citeproc` + xelatex | pandoc internal refs | LaTeX math | full citations |
 
 ## CI checks
@@ -43,9 +43,9 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 
 Implemented as `tests/core/test_help_corpus.py` (#2), mirroring
 `tests/core/test_privacy.py`: the test module *is* the gate. It reads the
-`.md` files directly with its own front-matter parser rather than through
-`ui/tk/help_view.py`, so a content gate in `core` never depends on the Tk
-adapter.
+`.md` files directly rather than through `ui/tk/help_view.py`, so a content
+gate in `core` never depends on the Tk adapter. Since rev. 5 it parses their
+front matter with the one core parser, in its strict mode.
 
 **Rev. 3 (2026-08-27, #2) corrects two check paths that named the wrong file:**
 
@@ -72,6 +72,47 @@ page. It is not a slug, so check 3 does not apply to it; instead the gate
 fails on any `app:` target other than that one, so a typo cannot render as
 an inert link. Other render targets show the link label as text. No front
 matter field may carry it (`see_also` stays pages only).
+
+**Rev. 5 (2026-10-12, #78): one front-matter parser, in core.** Front
+matter is **parsed, never rendered**, on every render target. The single
+implementation is `split_front_matter(text) -> (metadata, body)` in
+**`tta/core/help_corpus.py`**. Every consumer uses it: the GUI viewer
+(`ui/tk/help_view.py`), the CLI (`tta help`, `tta module show`) and the
+corpus gate. No adapter and no test carries a parser of its own. Before this
+the tree had two parsers (the viewer's and the gate's) and the CLI had none,
+so `tta help` printed every page's front matter as its first paragraph.
+
+- **Why core.** Both adapters need it, and the CLI may not import `tta.ui`
+  ([ADR-002](0002-ui-core-boundary.md), SDD §5.2), so the viewer's parser was
+  out of its reach. Reading the corpus is not a UI concern.
+- **Why next to `core/help/`, not inside it.** `core/help/` is packaged
+  *content*: `pyproject.toml` ships `help/**/*.md`, and the PyInstaller spec
+  copies the directory as data. A Python module in there would turn the corpus
+  into a package and ship a second time, as data. The module also owns the
+  corpus layout both adapters share (the three sections, the packaged root).
+- **What it parses.** This ADR's flat schema, with no YAML dependency (the
+  project has none). It reads `key: value` lines: a scalar stays a string, and
+  a value in brackets (`[a, b]`) becomes a list of its stripped items. It skips
+  blank lines and `#` comment lines. Only a `---` block that opens on the
+  file's **first** line counts; a later `---` (a thematic break) is body. CRLF
+  line endings are accepted. A page without front matter yields `({}, text)`.
+- **Lenient by default, strict for the gate.** By default, the parser skips a
+  line the flat schema cannot express: an indented or `- item` line of nested
+  YAML, or a line without a colon. A contributed page written in fuller YAML
+  therefore still loads in both viewers. The gate calls the same function with
+  `strict=True`, which raises on such a line, so the shipped corpus stays flat.
+- **CLI rendering.** `tta help <topic>` renders the body only. The `title`
+  becomes the heading when the body does not open with its own `#` heading
+  (the GUI's rule; every shipped page has one). `see_also` becomes a trailing
+  *See also* block that lists each target's title and the slug `tta help`
+  accepts.
+- **`tta module show <name>`** prints the module page's `title` and the
+  body's first paragraph instead of the module's Python docstring. The
+  docstring is English and names internals (*catalogue #7 (SDD Sec. 7.1)*). It
+  stays only as the fallback for a module without a page, which means a
+  contributed one: the gate guarantees a page for every registered module. The
+  page is the module's user-facing description, so it is the single source of
+  that description on every surface.
 
 **The scope of checks 5-7 is `modules/`, `metrics/`, `concepts/`.**
 `core/help/privacy/` holds the legal stubs of
