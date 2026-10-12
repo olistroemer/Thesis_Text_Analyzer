@@ -688,7 +688,7 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
         )
     if report_path is not None:
         stderr.print(_("report written to {path}").format(path=report_path))
-        webbrowser.open(report_path.as_uri())
+        webbrowser.open(report_path.resolve().as_uri())  # -C defaults to "."
     if summary.error or summary.cancelled:
         ctx.exit(EX_PARTIAL)
 
