@@ -4,7 +4,9 @@ Two panes: a topic tree grouped by kind on the left, the rendered page in a
 read-only ``tk.Text`` on the right - the same read-only text-window pattern
 the privacy statement uses. Pages are read from ``tta.core/help`` through
 ``importlib.resources``, so the frozen single-file build works unchanged
-(the PyInstaller spec bundles ``help/**/*.md``).
+(the PyInstaller spec bundles ``help/**/*.md``). Front matter is split off by
+``core.help_corpus``, the one parser every consumer shares (ADR-0012 rev. 5);
+this module only renders.
 
 The renderer handles the documented markdown *subset* of Sec. 9.4.1 and
 carries no extra runtime dependency (QA-RES; ADR-0012 rev. 2): headings,
@@ -27,10 +29,17 @@ from __future__ import annotations
 import re
 import tkinter as tk
 from dataclasses import dataclass
-from importlib import resources
 from tkinter import font as tkfont
 from tkinter import ttk
 
+from tta.core.help_corpus import (
+    SECTION_KINDS,
+    SECTIONS,
+    help_root,
+    list_field,
+    read_page,
+    text_field,
+)
 from tta.core.i18n import N_, _
 from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk.columns import column_label
@@ -39,10 +48,8 @@ WINDOW_TITLE = N_("Help")
 EMPTY_MESSAGE = N_("no help topics installed yet")
 SEE_ALSO_HEADING = N_("See also")
 
-# Corpus layout (ADR-0012). "privacy" is deliberately absent: the privacy
+# Tree labels for the corpus sections (core.help_corpus.SECTIONS). The privacy
 # statement is not help content and keeps its own menu entry.
-SECTIONS = ("modules", "metrics", "concepts")
-SECTION_KINDS = {"modules": "module", "metrics": "metric", "concepts": "concept"}
 SECTION_LABELS = {
     "modules": N_("Modules"),
     "metrics": N_("Metrics"),
@@ -93,38 +100,9 @@ class Topic:
 
 # -- loading ------------------------------------------------------------------
 
-_FRONT_MATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.DOTALL)
-
-
-def split_front_matter(text: str) -> tuple[dict[str, str], str]:
-    """Split a help page into flat front-matter fields and its body.
-
-    Only the scalar top-level fields the viewer needs are read (title, kind,
-    slug, see_also); nested YAML is skipped rather than mis-parsed, so no
-    YAML dependency is pulled in for four keys.
-    """
-    match = _FRONT_MATTER.match(text)
-    if not match:
-        return {}, text
-    fields: dict[str, str] = {}
-    for line in match.group(1).splitlines():
-        if not line.strip() or line.lstrip().startswith("#") or line[:1] in " \t-":
-            continue
-        key, separator, value = line.partition(":")
-        if separator:
-            fields[key.strip()] = value.strip().strip("\"'")
-    return fields, text[match.end() :]
-
-
-def parse_uri_list(value: str) -> tuple[str, ...]:
-    """Parse a front-matter list of cross-reference URIs ("[a:b, c:d]")."""
-    items = [item.strip().strip("\"'") for item in value.strip("[]").split(",")]
+def cross_refs(items) -> tuple[str, ...]:
+    """The well-formed cross-reference URIs among front-matter list items."""
     return tuple(item for item in items if CROSS_REF.match(item))
-
-
-def help_root():
-    """The installed help corpus root (a Traversable, works when frozen)."""
-    return resources.files("tta.core") / "help"
 
 
 def load_topics(root=None) -> list[Topic]:
@@ -143,19 +121,19 @@ def load_topics(root=None) -> list[Topic]:
         for entry in sorted(directory.iterdir(), key=lambda item: item.name):
             if not entry.name.endswith(".md"):
                 continue
-            fields, body = split_front_matter(entry.read_text(encoding="utf-8"))
-            slug = fields.get("slug") or entry.name[:-3]
+            fields, body = read_page(entry)
+            slug = text_field(fields, "slug") or entry.name[:-3]
             topics.append(
                 Topic(
-                    kind=fields.get("kind") or SECTION_KINDS[section],
+                    kind=text_field(fields, "kind") or SECTION_KINDS[section],
                     slug=slug,
                     # Every shipped page carries a title (#2). A page without
                     # one - a contributed module's, say - falls back to the
                     # friendly column label (#16) and only then to the bare
                     # slug, so the tree is never blank.
-                    title=fields.get("title") or column_label(slug),
+                    title=text_field(fields, "title") or column_label(slug),
                     body=body,
-                    see_also=parse_uri_list(fields.get("see_also", "")),
+                    see_also=cross_refs(list_field(fields, "see_also")),
                 )
             )
     return topics
