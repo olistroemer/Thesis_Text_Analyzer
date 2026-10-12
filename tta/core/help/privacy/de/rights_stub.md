@@ -28,11 +28,10 @@ Datenschutzbeauftragten oder Datenschutzkontakt.
 Exporte an das Forschungsteam: Ein Export enthält nur die in Abschnitt 5
 aufgeführten Werte. Jede Arbeit ist darin nur durch einen Fingerabdruck
 ihrer PDF-Datei gekennzeichnet (`theses.pdf_sha256`). Er dient
-ausschließlich dazu, doppelt vorhandene Arbeiten zu erkennen; das
-Forschungsteam verwendet ihn nicht, um Verfasserinnen oder Verfasser zu
-ermitteln. Ohne die PDF-Datei selbst hat das Forschungsteam keine Mittel,
-eine Arbeit einer Person zuzuordnen; Exporte werden beim Forschungsteam
-deshalb als anonyme Daten behandelt (Erwägungsgrund 26 DSGVO). Wer die
+ausschließlich dazu, doppelt vorhandene Arbeiten zu erkennen. Ohne die
+PDF-Datei selbst hat das Forschungsteam keine Mittel, eine Arbeit einer
+Person zuzuordnen; Exporte werden beim Forschungsteam deshalb als anonyme
+Daten behandelt (Erwägungsgrund 26 DSGVO). Wer die
 PDF-Datei besitzt, kann den Fingerabdruck allerdings nachrechnen und so den
 Eintrag dieser Arbeit in einem Export wiederfinden.
 
@@ -40,8 +39,8 @@ Praktischer Hinweis: Diese Anwendung speichert alle Daten in einem lokalen
 Projektordner auf dem Rechner, auf dem sie läuft. Wird dieser Ordner
 gelöscht, sind alle verarbeiteten Daten endgültig entfernt. Exporte, die
 Sie bereits an das Forschungsteam geschickt haben, löschen wir auf Anfrage
-über den Kontakt in Abschnitt 7, auch ohne dazu verpflichtet zu sein –
-Exporte sind nach Institution und Datum zugeordnet, nicht nach Person.
+über den Kontakt in Abschnitt 7 – Exporte sind nach Institution und Datum
+zugeordnet, nicht nach Person.
 
 Unabhängig davon haben Sie das Recht auf Beschwerde bei einer
 Datenschutz-Aufsichtsbehörde (Art. 77 DSGVO).

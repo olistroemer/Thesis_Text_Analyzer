@@ -27,8 +27,7 @@ contact.
 Exports to the research team: an export contains only the values listed
 in section 5. Each thesis is identified in it only by a fingerprint of its
 PDF file (`theses.pdf_sha256`). It serves only to recognise duplicate
-theses; the research team does not use it to identify authors. Without the
-PDF file itself the research team has no means of attributing a thesis to
+theses. Without the PDF file itself the research team has no means of attributing a thesis to
 a person, so exports are treated as anonymous data by the research team
 (GDPR Recital 26). Anyone who holds the PDF file can, however, recompute
 the fingerprint and so find that thesis's entry in an export.
@@ -36,9 +35,8 @@ the fingerprint and so find that thesis's entry in an export.
 Practical note: this application stores all data in a local project
 folder on the machine it runs on. Deleting that folder permanently
 removes all processed data. Exports you have already sent to the research
-team will be deleted on request via the contact in section 7, even though
-we are not obliged to – exports are identified by institution and date,
-not by person.
+team will be deleted on request via the contact in section 7 – exports
+are identified by institution and date, not by person.
 
 Regardless of this, you have the right to lodge a complaint with a data
 protection supervisory authority (Art. 77 GDPR).

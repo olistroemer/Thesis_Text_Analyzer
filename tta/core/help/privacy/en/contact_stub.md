@@ -5,10 +5,12 @@
      published privacy-policy contact data
      (https://www.fh-wedel.de/datenschutzrichtlinien/) and revised the same
      day for the owner's role split (ADR-0009): this section names the
-     publisher and a contact, not a controller. No personal data of project
-     members belongs here. No qualified legal review has taken place: FH
-     Wedel's data protection officer should confirm that he agrees to be
-     named here before the first public release (ADR-0009). -->
+     publisher and a contact, not a controller. It names no person: the
+     data protection officer is reached via the privacy-policy page, so
+     the text stays correct when the office changes hands. No personal
+     data of project members belongs here. No qualified legal review has
+     taken place: FH Wedel's data protection officer should confirm this
+     contact route before the first public release (ADR-0009). -->
 
 This application is published by the research project of the Data Science
 Project Group SS26 at
@@ -22,8 +24,6 @@ Project Group SS26 at
 
 Questions about data protection in this application – including a request
 to delete an export you have already sent – please direct to the data
-protection officer of Fachhochschule Wedel:
-
-- Christian Krug
-- Phone: +49 (0) 4103 8048 66
-- E-mail: ckrug@fh-wedel.de
+protection officer of Fachhochschule Wedel. The contact details are in the
+university's privacy policy:
+https://www.fh-wedel.de/datenschutzrichtlinien/

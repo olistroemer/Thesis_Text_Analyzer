@@ -100,10 +100,12 @@ def test_json_report_is_machine_readable():
 # -- legal stubs, sections 6-7 (ADR-0009 "Legal stubs", #6) -------------------
 
 STUBS = (privacy_metadata.RIGHTS_STUB, privacy_metadata.CONTACT_STUB)
-#: The only addresses a stub may carry: the publisher's and its data
-#: protection officer's. Never a project member's, and no supervisory
-#: authority's - naming one would imply FH Wedel processes the data.
-ALLOWED_EMAILS = {"info@fh-wedel.de", "ckrug@fh-wedel.de"}
+#: The only address a stub may carry: the publisher's. Never a person's -
+#: the data protection officer is reached via the privacy-policy page
+#: (DPO_CONTACT_PAGE) - and no supervisory authority's: naming one would
+#: imply FH Wedel processes the data.
+ALLOWED_EMAILS = {"info@fh-wedel.de"}
+DPO_CONTACT_PAGE = "https://www.fh-wedel.de/datenschutzrichtlinien/"
 #: Words that would make FH Wedel the controller (ADR-0009 role split).
 CONTROLLER_WORDS = {"de": "Verantwortlicher", "en": "controller"}
 
@@ -136,9 +138,19 @@ def test_stubs_name_publisher_and_contact_but_no_controller(locale):
     assert "Art. 77" in rights  # the complaint right, stated generically
     assert "ULD" not in rights and "datenschutzzentrum" not in rights
     assert "Fachhochschule Wedel gGmbH" in contact
-    assert "ckrug@fh-wedel.de" in contact
+    assert DPO_CONTACT_PAGE in contact
     emails = set(re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", rights + contact))
     assert emails and emails <= ALLOWED_EMAILS
+
+
+@pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
+def test_section_6_makes_no_promise_about_using_the_hash(locale):
+    """ADR-0009 (owner decision 2026-10-12): a promise not to identify
+    authors through the hash would imply that it were possible. The stub
+    states the hash's purpose and the residual, nothing about intent."""
+    rights = privacy_metadata.load_legal_stub(privacy_metadata.RIGHTS_STUB, locale)
+    for phrase in ("Verfasser", "identify authors", "verpflichtet", "obliged"):
+        assert phrase not in rights
 
 
 @pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
