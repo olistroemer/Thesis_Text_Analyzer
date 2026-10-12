@@ -2,28 +2,17 @@
 
 Headless where possible: the menu wiring is read from the real window only
 in the display-gated tests, which follow the tests/ui/test_smoke.py pattern
-and run for real under Xvfb in CI.
+and run for real under Xvfb in CI and natively on Windows.
 """
 
-import os
 import tkinter
 
 import pytest
 
 from tta.core.project import Project
+from tests.ui.conftest import display_available
 
-
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-display_only = pytest.mark.skipif(not _display_available(), reason="no display")
+display_only = pytest.mark.skipif(not display_available(), reason="no display")
 
 
 def _help_menu(window) -> tkinter.Menu:
