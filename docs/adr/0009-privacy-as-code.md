@@ -61,13 +61,13 @@ Why files per locale and not gettext msgids: the stubs are multi-paragraph legal
 
 **Plain-language summary, generated.** Above section 1 the statement carries an unnumbered summary: the application works offline and sends nothing by itself; no data leaves the machine unless the user saves an export and passes it on; what an export contains; that a thesis is keyed only by a content fingerprint used for deduplication; who is responsible for what. It is rendered by `render_report_md()` from the registry, and each claim about the export is **conditional on the registry**: the "no personal names, no file names or paths, no notes or tags, no text" sentence is emitted only while no `IDENTIFYING`/`CONTENT` field and no artefact kind is exported, and the fingerprint sentence names the `CONTENT_HASH` columns actually exported. `tests/core/test_privacy.py` pins both directions, so the summary cannot drift from sections 1–5. The summary does **not** claim the user sees the export's content before sending it — the GUI shows a count and the file's location, not a preview; it claims only what is true: the export is a file the user saves and passes on themselves.
 
-**Review status — stated plainly.** The wording was prepared by the project team on 2026-10-12 and revised the same day after the owner's decision on roles. **No qualified legal review has taken place.** FH Wedel's data protection officer should confirm, before the first public release:
+**Review status — stated plainly.** The wording was prepared by the project team on 2026-10-12 and revised the same day after the owner's decision on roles. **No qualified legal review has taken place.** The three points such a review would have had to confirm were **settled by the project owner on 2026-10-12** and are not release blockers:
 
-1. that the data protection officer of FH Wedel - reached via the contact details on FH Wedel's privacy-policy page, to which section 7 refers without naming a person - is the right contact for data-protection questions about the application;
-2. the anonymity assessment of the export (Recital 26, the relative approach of C-413/23 P, and the residual risks above);
-3. the role-split wording of section 6 (local processing under the using institution's responsibility; no controllership assumed by FH Wedel or the project group).
+1. the data protection officer of FH Wedel - reached via the contact details on FH Wedel's privacy-policy page, to which section 7 refers without naming a person - is the contact for data-protection questions about the application;
+2. the export is anonymous for the research team (Recital 26, the relative approach of C-413/23 P, with the residual risks above);
+3. the role split of section 6: local processing is under the using institution's responsibility, and FH Wedel and the project group assume no controllership.
 
-Whether the English version is a convenience translation with the German text prevailing can be settled at the same time; it changes no content.
+**The German version prevails** (owner decision, 2026-10-12). The English sections are a convenience translation, and the English statement says so at the end of section 7.
 
 ## Alternatives considered
 
@@ -79,7 +79,7 @@ Whether the English version is a convenience translation with the German text pr
 - ✅ Schema evolution and statement evolution cannot drift: a missing entry breaks CI.
 - ✅ Researchers, IT staff, and ethics boards can run one command to see exactly what the app does with data.
 - ✅ Export rules and the statement's "what leaves your machine" section can be cross-checked against the same registry.
-- ⚠️ The legal stubs are finalised as **project-team wording** (#6, 2026-10-12, revised for the role split), not as legally reviewed text: no qualified legal review has taken place, and FH Wedel's data protection officer should confirm the three points listed under *Legal stubs* before the first public release.
+- ⚠️ The legal stubs are finalised as **project-team wording** (#6, 2026-10-12, revised for the role split), not as legally reviewed text: no qualified legal review has taken place. The project owner settled the three points such a review would cover on 2026-10-12 (*Legal stubs*), so they do not block a release.
 - ⚠️ The project assumes **no controllership for local processing** and treats the export as **anonymous for the research team**. Both rest on facts the code must keep true: no `IDENTIFYING`/`CONTENT` column may become exported, and `pdf_sha256` may be used for deduplication only. A change to either reopens this ADR.
 - ⚠️ ~~Statement is in English in MVP; localisation deferred via the i18n pipeline.~~ **Superseded:** the MVP is now **German-first** (SDD §9.6) — the statement renders in the active locale (German by default), and the legal stubs exist per locale in German and English (#6, see *Legal stubs* above).
 
