@@ -18,7 +18,6 @@ question Sec. 9.6 raises - German runs about 30 % longer than English, so
 every widget has to have grown rather than clipped.
 """
 
-import os
 import tkinter
 
 import pytest
@@ -26,21 +25,12 @@ import pytest
 from tta.core import i18n
 from tta.core.project import Project
 from tta.ui.tk.columns import LEAD_COLUMNS, column_label
+from tests.ui.conftest import display_available
 
 FILE_COL = LEAD_COLUMNS.index("file")
 
 
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
+pytestmark = pytest.mark.skipif(not display_available(), reason="no display")
 
 
 @pytest.fixture

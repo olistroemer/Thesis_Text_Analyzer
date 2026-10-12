@@ -4,7 +4,6 @@ Needs a display; skipped headless. Covers the lead-column rendering (#65) and
 the details panel that replaced the hover tooltips (#66).
 """
 
-import os
 import tkinter
 
 import pytest
@@ -17,6 +16,7 @@ from tta.ui.tk.columns import (
     column_help,
     column_label,
 )
+from tests.ui.conftest import display_available
 
 LEAD = len(LEAD_COLUMNS)
 EXCLUDED_COL = LEAD_COLUMNS.index("excluded")
@@ -24,17 +24,7 @@ STATE_COL = LEAD_COLUMNS.index("state")
 FILE_COL = LEAD_COLUMNS.index("file")
 
 
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
+pytestmark = pytest.mark.skipif(not display_available(), reason="no display")
 
 COLUMNS = [
     MetricColumn("word_count", "mod_surface_counts"),

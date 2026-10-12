@@ -10,7 +10,6 @@ the real-corpus tests key on slugs and URIs, never on rendered titles.
 
 import ast
 import inspect
-import os
 import tkinter
 
 import pytest
@@ -29,6 +28,7 @@ from tta.ui.tk.help_view import (
     render_blocks,
     split_front_matter,
 )
+from tests.ui.conftest import display_available
 
 PAGE = """---
 slug: word_count
@@ -250,17 +250,7 @@ def test_see_also_block_links_resolvable_refs_and_inerts_the_rest():
 # -- window (needs a display) -------------------------------------------------
 
 
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-display_only = pytest.mark.skipif(not _display_available(), reason="no display")
+display_only = pytest.mark.skipif(not display_available(), reason="no display")
 
 
 @pytest.fixture
