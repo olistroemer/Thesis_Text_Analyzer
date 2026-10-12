@@ -332,6 +332,15 @@ Everything persistent lives under the project directory: `tta.toml`, `tta.sqlite
 
 OS-level caches that any GUI process touches (fontconfig, GPU shader caches) are outside the application's control and outside this guarantee.
 
+### 5.6.3 Development environment (Linux and native Windows)
+
+Development happens on Linux and on **native Windows** — the platform the GUI is mostly *used* on, so it is a development platform in its own right rather than only a packaging target. Both run the same gate: CI's `lint-and-test` job runs the full suite, the coverage gate and the source invariants on `ubuntu-latest` and on `windows-latest` (QA-PORT, QA-TEST). On Windows the GUI tests in `tests/ui` run against the desktop session directly; Linux needs X11/Wayland or Xvfb.
+
+- **Environment.** A conda env `pds` with Python 3.12 (Miniconda's Python ships Tcl/Tk, so `tkinter` works natively on Windows), holding the package editable with its declared extras plus the coverage plugin — `pip install -e ".[dev,build]" "pytest-cov>=5"` — and the NLTK data the modules need, `python -m nltk.downloader punkt_tab cmudict`. Nothing undeclared goes into it (cf. ADR-014's clean-environment clause).
+- **Line endings.** `.gitattributes` pins every text file to **LF in the working tree on every OS** (`* text=auto eol=lf`; the compiled `.mo` and other binary formats are `binary`). Git for Windows defaults to `core.autocrlf=true`, which without it checks out CRLF and breaks byte-exact tests, the `.po`/`.mo` gate and shebangs. No per-clone git configuration is required.
+- **OS-neutral tests.** Paths are compared as `Path` objects or via `as_posix()`, never as `str` with `/`; files are read and written with an explicit encoding; a test that reads a subprocess's output pins the pipe encoding on *both* ends; nothing relies on symlinks (Windows refuses them without Developer Mode) or on POSIX permission bits. A test that is inherently POSIX-only skips with a reason string. Two Windows/Tk specifics are handled once, in `tests/ui/conftest.py`: the display gate only consults `$DISPLAY` on X11 platforms, and Tcl's standard channels are created on private handles before the first interpreter, because pytest's fd-level capture closes the process std handles under Tcl on Windows.
+- **Local frozen builds** follow ADR-014 in a throwaway environment with `PYTHONNOUSERSITE=1`. A conda environment must be **activated** (or driven through `conda run -n <env> pyinstaller ...`) while PyInstaller runs: it resolves the DLLs an extension module links against through `PATH`, and with only a base Miniconda on `PATH` it bundled the base installation's `libexpat.dll` beside the build env's `pyexpat.pyd`. That binary built and passed every size and graph gate, then failed on launch with "DLL load failed while importing pyexpat". CI's setup-python interpreter links expat statically and is not exposed to this.
+
 ---
 
 # 6. Domain Model

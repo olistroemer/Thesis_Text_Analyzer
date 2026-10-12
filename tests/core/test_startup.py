@@ -5,6 +5,8 @@ US-PROF-NO-TRACES, plus the #41 regressions: a startup that used to
 discard the user's File -> Open choice, or die on it permanently.
 """
 
+import tomllib
+
 import pytest
 
 from tta.core.config import Config, load_config, save_config
@@ -76,7 +78,9 @@ def test_pointer_lives_in_the_default_projects_toml(tmp_path):
     other = _make_project(tmp_path / "other")
     remember_project(other, base)
     raw = (base / "tta.toml").read_text(encoding="utf-8")
-    assert str(other.resolve()) in raw
+    # parsed, not substring-matched: TOML escapes the backslashes of a
+    # Windows path, so the raw text never contains str(path) verbatim there
+    assert tomllib.loads(raw)["project"]["last_opened"] == str(other.resolve())
     assert load_config(base).last_opened == str(other.resolve())
 
 

@@ -8,7 +8,6 @@ the packaging metadata in pyproject.toml.
 
 import ast
 import inspect
-import os
 import pathlib
 import tkinter
 import tomllib
@@ -19,21 +18,12 @@ import tta
 from tta.core.project import Project
 from tta.ui.tk import about_view
 from tta.ui.tk.about_view import LICENCE_SPDX, REPO_URL, about_lines
+from tests.ui.conftest import display_available
 
 PYPROJECT = pathlib.Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-display_only = pytest.mark.skipif(not _display_available(), reason="no display")
+display_only = pytest.mark.skipif(not display_available(), reason="no display")
 
 
 @pytest.fixture

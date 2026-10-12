@@ -341,3 +341,36 @@ def test_the_retired_agpl_gate_has_not_come_back(workflow_source):
 def test_ascii_source_invariant_is_gated(workflow_source):
     assert "ADR-0018" in workflow_source
     assert "git ls-files" in workflow_source
+
+
+# ------------------------------------------ both development platforms (5.6.3)
+
+
+def test_the_suite_is_gated_on_linux_and_native_windows(workflow_source):
+    """SDD 5.6.3: native Windows is a development platform, so the suite,
+    the coverage gate and the invariants run there too - not only the
+    frozen-binary smoke of the build job."""
+    test_job = build_job(workflow_source)
+    assert "os: ubuntu-latest" in test_job
+    assert "os: windows-latest" in test_job
+    assert "runs-on: ${{ matrix.os }}" in test_job
+    assert "fail-fast: false" in test_job
+    # every step is one bash script on both legs, as in the build job
+    assert "shell: bash" in test_job
+
+
+def test_the_linux_only_steps_are_conditional(workflow_source):
+    """apt-get and xvfb-run do not exist on the Windows runner."""
+    test_job = build_job(workflow_source)
+    for step in ("Install Tk and Xvfb (system)", "GUI tests under Xvfb"):
+        body = test_job.split("name: " + step, 1)[1].split("- name:", 1)[0]
+        assert "if: runner.os == 'Linux'" in body, step
+
+
+def test_the_ascii_gate_runs_grep_in_a_utf8_locale(workflow_source):
+    """Git bash on Windows starts in a locale where `grep -P` refuses to run;
+    inside the step's `if`, that error reads as "no match" and the gate
+    passes without having checked anything."""
+    test_job = build_job(workflow_source)
+    body = test_job.split("name: ASCII-source invariant", 1)[1].split("- name:", 1)[0]
+    assert "LC_ALL: C.UTF-8" in body

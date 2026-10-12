@@ -151,7 +151,9 @@ def test_the_catalogs_are_where_the_loader_looks():
     PyInstaller spec and pyproject's package-data."""
     for path in po_paths():
         locale = path.parent.parent.name
-        assert str(i18n.catalog_path(locale)).endswith(
+        # as_posix: the expected tail is written with "/", and str() of a
+        # Windows path uses "\\"
+        assert i18n.catalog_path(locale).as_posix().endswith(
             "%s/LC_MESSAGES/tta.mo" % locale
         )
 

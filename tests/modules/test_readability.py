@@ -1,6 +1,7 @@
 """Unit tests for mod_readability (SDD Sec. 7.1 #7) - Flesch en / Amstad de."""
 
 import os
+import shutil
 
 import pytest
 
@@ -116,9 +117,14 @@ def _punkt_only_nltk_data(tmp_path):
 
     data_dir = tmp_path / "nltk_data"
     (data_dir / "tokenizers").mkdir(parents=True)
-    (data_dir / "tokenizers" / "punkt_tab").symlink_to(
-        str(nltk.data.find("tokenizers/punkt_tab"))
-    )
+    source = str(nltk.data.find("tokenizers/punkt_tab"))
+    target = data_dir / "tokenizers" / "punkt_tab"
+    try:
+        target.symlink_to(source, target_is_directory=True)
+    except OSError:
+        # Windows refuses symlinks without Developer Mode or admin rights
+        # (WinError 1314); a copy (~11 MB) is the same data dir to NLTK.
+        shutil.copytree(source, target)
     return data_dir
 
 

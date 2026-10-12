@@ -15,9 +15,27 @@ permissions:
   contents: read
 
 jobs:
+  # One leg per development platform (SDD §5.6.3): Linux, and native Windows,
+  # where the GUI is mostly used. `label` keeps the Linux check's name
+  # unchanged. Every step is the same script on both, through Git bash on
+  # Windows - as in the build job.
   lint-and-test:
-    name: lint-and-test (linux)
-    runs-on: ubuntu-latest
+    name: lint-and-test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # A Windows-only failure must not hide the Linux result, or vice versa.
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux
+            os: ubuntu-latest
+          - label: windows
+            os: windows-latest
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
@@ -30,8 +48,10 @@ jobs:
 
       # python3-tk pulls in the libtcl/libtk shared objects the setup-python
       # interpreter's tkinter links against; xvfb gives the display-gated GUI
-      # tests somewhere to draw (see the GUI step below).
+      # tests somewhere to draw (see the GUI step below). The Windows
+      # interpreter ships Tcl/Tk, and Windows needs no virtual display.
       - name: Install Tk and Xvfb (system)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-tk xvfb
@@ -61,7 +81,12 @@ jobs:
           fi
 
       # ADR-0018 — Python source must be pure ASCII.
+      # LC_ALL: grep -P refuses to run outside a UTF-8 or unibyte locale, and
+      # Git bash on Windows starts in neither. Its error would read as "no
+      # match" in the `if` below, so the gate would pass without checking.
       - name: ASCII-source invariant (ADR-0018)
+        env:
+          LC_ALL: C.UTF-8
         run: |
           if git ls-files '*.py' | xargs grep -lP '[^\x00-\x7F]'; then
             echo "::error::non-ASCII byte found in tracked *.py (ADR-0018)"
@@ -69,8 +94,9 @@ jobs:
           fi
 
       # Includes the slow-marked tests (full pipeline, GUI smoke) - nothing
-      # deselects them. The display-gated GUI tests self-skip here; the step
-      # after this one runs them for real under Xvfb.
+      # deselects them. On Linux the display-gated GUI tests self-skip here,
+      # and the step after this one runs them for real under Xvfb; on Windows
+      # they run here, against the runner's desktop session.
       #
       # Coverage gate (QA-TEST, SDD §10): 85 % line AND 70 % branch on
       # tta/core - two separate targets, which is why this cannot use
@@ -120,8 +146,10 @@ jobs:
       # Without this the display-gated tests under tests/ui NEVER run in CI -
       # they self-skip, which reads as a pass. Issue #3 allows either, but a
       # permanently skipped test is untested code. Kept as its own step so an
-      # Xvfb problem is instantly distinguishable from a real failure.
+      # Xvfb problem is instantly distinguishable from a real failure. Linux
+      # only: the Windows leg already ran them in the step above.
       - name: GUI tests under Xvfb
+        if: runner.os == 'Linux'
         run: xvfb-run -a python -m pytest tests/ui -q
 
   # Frozen release binaries (issue #4, ADR-0014): one job per target OS, on

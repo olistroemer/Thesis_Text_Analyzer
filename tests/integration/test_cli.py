@@ -343,6 +343,27 @@ def test_run_open_report_writes_and_opens_the_report(project_dir, english_pdf, m
     assert opened == []
 
 
+def test_run_open_report_from_inside_the_project(project_dir, english_pdf, monkeypatch):
+    """`-C` defaults to "." - the project the user is standing in. The report
+    path is then relative, and Path.as_uri() refuses a relative path, so the
+    run crashed (exit 70) right after writing the report."""
+    import webbrowser
+
+    from tta.core.runner import RunSummary, Runner
+
+    monkeypatch.setattr(
+        Runner, "execute", _fake_execute(RunSummary(theses_total=1, theses_completed=1, ok=1))
+    )
+    opened: list[str] = []
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+    monkeypatch.chdir(project_dir)
+
+    invoke("run", english_pdf, "--open-report")
+    written = sorted((project_dir / "reports").glob("report-*.html"))
+    assert len(written) == 1
+    assert opened == [written[0].resolve().as_uri()]
+
+
 def test_run_open_report_is_suppressed_for_a_cancelled_run(project_dir, english_pdf, monkeypatch):
     import webbrowser
 

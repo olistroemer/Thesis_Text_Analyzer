@@ -5,8 +5,6 @@ loop once, exercises mode switch, grid render, report generation, and the
 post-run report offer.
 """
 
-import os
-import tkinter
 import webbrowser
 from types import SimpleNamespace
 
@@ -15,23 +13,14 @@ import pytest
 from tta.core import events
 from tta.core.project import Project
 from tta.ui.tk.columns import LEAD_COLUMNS, column_label
+from tests.ui.conftest import display_available
 
 # The filename lives in the "file" lead column, no longer column 0 (the
 # Excluded checkbox is now the first lead column, #11).
 FILE_COL = LEAD_COLUMNS.index("file")
 
 
-def _display_available() -> bool:
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        return False
-    try:
-        tkinter.Tk().destroy()
-        return True
-    except tkinter.TclError:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _display_available(), reason="no display")
+pytestmark = pytest.mark.skipif(not display_available(), reason="no display")
 
 
 def _assert_header_binding_installed(grid) -> None:
@@ -287,10 +276,18 @@ def test_right_clicking_a_row_reaches_the_remove_flow(tmp_path, english_pdf, mon
             ]
             assert any("Remove" in lab or "entfernen" in lab for lab in labels), labels
 
-            # right-click resolves the row under the cursor, then the menu acts
+            # right-click resolves the row under the cursor, then the menu acts.
+            # The popup itself is recorded, not posted: on Windows tk_popup is
+            # modal (the native menu loop runs until the menu is dismissed), so
+            # a real post would hang the test waiting for a click.
+            posted = []
+            monkeypatch.setattr(
+                grid._row_menu, "tk_popup", lambda x, y, *a: posted.append((x, y))
+            )
             grid._on_row_right_click(
                 SimpleNamespace(widget=grid.sheet.MT, x=5, y=5, x_root=0, y_root=0)
             )
+            assert posted == [(0, 0)]
             grid._remove_menu_row()
             assert removed == [thesis.id]
 
