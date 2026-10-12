@@ -43,33 +43,33 @@ msgstr ""
 msgid "- (reads the PDF directly)"
 msgstr "- (liest die PDF-Datei direkt)"
 
-#: tta/core/privacy_metadata.py:187
+#: tta/core/privacy_metadata.py:251
 msgid "1. What we process"
 msgstr "1. Was verarbeitet wird"
 
-#: tta/core/privacy_metadata.py:213
+#: tta/core/privacy_metadata.py:277
 msgid "2. Module-level processing"
 msgstr "2. Verarbeitung auf Modulebene"
 
-#: tta/core/privacy_metadata.py:226
+#: tta/core/privacy_metadata.py:290
 msgid "3. Cached files (never exported)"
 msgstr "3. Zwischengespeicherte Dateien (werden nie exportiert)"
 
-#: tta/core/privacy_metadata.py:236
+#: tta/core/privacy_metadata.py:300
 msgid "4. Storage and retention"
 msgstr "4. Speicherung und Aufbewahrung"
 
-#: tta/core/privacy_metadata.py:244
+#: tta/core/privacy_metadata.py:308
 msgid "5. What leaves your machine"
 msgstr "5. Was Ihren Rechner verlässt"
 
-#: tta/core/privacy_metadata.py:261
-msgid "6. Your rights under GDPR"
-msgstr "6. Ihre Rechte nach der DSGVO"
+#: tta/core/privacy_metadata.py:327
+msgid "6. Responsibility and your rights under GDPR"
+msgstr "6. Verantwortlichkeit und Ihre Rechte nach der DSGVO"
 
-#: tta/core/privacy_metadata.py:263
-msgid "7. Controller contact"
-msgstr "7. Kontakt des Verantwortlichen"
+#: tta/core/privacy_metadata.py:332
+msgid "7. Publisher and contact"
+msgstr "7. Herausgeber und Kontakt"
 
 #: tta/ui/tk/main_window.py:59
 msgid "? Help"
@@ -136,11 +136,19 @@ msgstr "{count} Arbeiten hinzugefügt - jetzt \"Alle analysieren\" klicken"
 msgid "Address copied to the clipboard."
 msgstr "Adresse in die Zwischenablage kopiert."
 
-#: tta/core/privacy_metadata.py:238
+#: tta/core/privacy_metadata.py:302
 msgid "All data lives in the project folder on this machine and is retained {retention}. The application is fully offline: it makes no network connections of any kind."
 msgstr "Alle Daten liegen im Projektordner auf diesem Rechner und werden {retention} aufbewahrt. Die Anwendung arbeitet vollständig offline: sie baut keinerlei Netzverbindungen auf."
 
-#: tta/core/privacy_metadata.py:160
+#: tta/core/privacy_metadata.py:176
+msgid "An export contains only analysis results and technical values ({count} values, listed in section 5): no personal names, no file names or paths, no notes or tags, and no text from the theses."
+msgstr "Ein Export enthält nur Analyseergebnisse und technische Angaben ({count} Werte, aufgeführt in Abschnitt 5): keine Personennamen, keine Dateinamen oder -pfade, keine Notizen oder Schlagwörter und keinen Text aus den Arbeiten."
+
+#: tta/core/privacy_metadata.py:181
+msgid "An export contains the {count} values listed in section 5."
+msgstr "Ein Export enthält die {count} in Abschnitt 5 aufgeführten Werte."
+
+#: tta/core/privacy_metadata.py:220
 msgid "Analysis results (aggregated text statistics)"
 msgstr "Analyseergebnisse (aggregierte Textstatistiken)"
 
@@ -224,7 +232,7 @@ msgstr "Analyse abbrechen"
 msgid "Cancelling - finishing in-flight theses..."
 msgstr "Wird abgebrochen - laufende Arbeiten werden noch beendet..."
 
-#: tta/core/privacy_metadata.py:228
+#: tta/core/privacy_metadata.py:292
 msgid "Category"
 msgstr "Kategorie"
 
@@ -286,7 +294,7 @@ msgstr "Gleichzeitig verarbeitete Arbeiten (Vorgabe: Kerne - 1)."
 msgid "Confidence of the language detection, from 0 to 1."
 msgstr "Sicherheit der Spracherkennung, von 0 bis 1."
 
-#: tta/core/privacy_metadata.py:159
+#: tta/core/privacy_metadata.py:219
 msgid "Content fingerprints (no personal data recoverable)"
 msgstr "Inhaltsfingerabdrücke (keine personenbezogenen Daten rekonstruierbar)"
 
@@ -334,7 +342,7 @@ msgstr "Gestrichelte Linie: Trend nach kleinsten Quadraten über alle dargestell
 msgid "Data table"
 msgstr "Datentabelle"
 
-#: tta/core/privacy_metadata.py:228
+#: tta/core/privacy_metadata.py:292
 msgid "Description"
 msgstr "Beschreibung"
 
@@ -350,7 +358,7 @@ msgstr "Erkannte Hauptsprache als ISO-639-Code."
 msgid "Detected thesis type (bachelor / master / unspecified); blank until analysed."
 msgstr "Erkannte Abschlussart (bachelor / master / unspecified); leer bis zur Analyse."
 
-#: tta/core/privacy_metadata.py:162
+#: tta/core/privacy_metadata.py:222
 msgid "Directly identifying values (kept on this machine only)"
 msgstr "Unmittelbar identifizierende Werte (bleiben ausschließlich auf diesem Rechner)"
 
@@ -358,7 +366,7 @@ msgstr "Unmittelbar identifizierende Werte (bleiben ausschließlich auf diesem R
 msgid "Distributions"
 msgstr "Verteilungen"
 
-#: tta/core/privacy_metadata.py:161
+#: tta/core/privacy_metadata.py:221
 msgid "Document content (kept on this machine only)"
 msgstr "Dokumentinhalte (bleiben ausschließlich auf diesem Rechner)"
 
@@ -415,7 +423,7 @@ msgstr "Diese Arbeit von Analyse und Export ausschließen. Wird eine bereits ana
 msgid "Excluded"
 msgstr "Ausgeschlossen"
 
-#: tta/core/privacy_metadata.py:254
+#: tta/core/privacy_metadata.py:318
 msgid "Excluded theses, file paths and names, free-form notes and tags, raw text, tokenisations, full PDF metadata, error tracebacks, and module diagnostics never leave this machine."
 msgstr "Ausgeschlossene Arbeiten, Dateipfade und -namen, freie Notizen und Schlagwörter, Rohtext, Tokenisierungen, vollständige PDF-Metadaten, Fehler-Tracebacks und Moduldiagnosen verlassen diesen Rechner nie."
 
@@ -510,7 +518,7 @@ msgstr "Freie Software unter der GNU General Public License, {spdx} (SPDX)."
 msgid "Generated locally by tta {version}. This file is self-contained: it loads nothing from the network and contains no file names, paths, notes or document text. Regenerate it any time from the Report button or `tta report`."
 msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: sie lädt nichts aus dem Netz und enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Sie kann jederzeit über die Schaltfläche \"Bericht\" oder mit `tta report` neu erzeugt werden."
 
-#: tta/core/privacy_metadata.py:182
+#: tta/core/privacy_metadata.py:242
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
 
@@ -535,11 +543,19 @@ msgstr "Abbildungen"
 msgid "Import another installation's export as a new, read-only source."
 msgstr "Den Export einer anderen Installation als neue, nur lesbare Quelle importieren."
 
+#: tta/core/privacy_metadata.py:182
+msgid "In an export, a thesis is identified only by a fingerprint of its PDF file ({columns}). It serves only to recognise duplicates; anyone who holds the PDF itself can recompute it (section 6)."
+msgstr "In einem Export ist eine Arbeit nur durch einen Fingerabdruck ihrer PDF-Datei gekennzeichnet ({columns}). Er dient nur dazu, doppelte Arbeiten zu erkennen; wer die PDF-Datei selbst besitzt, kann ihn nachrechnen (Abschnitt 6)."
+
+#: tta/core/privacy_metadata.py:166
+msgid "In brief"
+msgstr "Das Wichtigste in Kürze"
+
 #: tta/cli/main.py:484
 msgid "Inspect the catalogue of analysis modules."
 msgstr "Den Katalog der Analysemodule ansehen."
 
-#: tta/core/privacy_metadata.py:228
+#: tta/core/privacy_metadata.py:292
 msgid "Kind"
 msgstr "Art"
 
@@ -559,7 +575,7 @@ msgstr "Sprachverteilung"
 msgid "Languages"
 msgstr "Sprachen"
 
-#: tta/core/privacy_metadata.py:201
+#: tta/core/privacy_metadata.py:265
 msgid "Leaves your machine on export"
 msgstr "Verlässt beim Export Ihren Rechner"
 
@@ -595,7 +611,7 @@ msgstr "Metriken"
 msgid "Modified (year)"
 msgstr "Geändert (Jahr)"
 
-#: tta/core/privacy_metadata.py:216
+#: tta/core/privacy_metadata.py:280
 msgid "Module"
 msgstr "Modul"
 
@@ -610,6 +626,10 @@ msgid ""
 msgstr ""
 "Keine PDF-Dateien in oder unter:\n"
 "{folder}"
+
+#: tta/core/privacy_metadata.py:171
+msgid "No data leaves this machine unless you create an export and pass it on yourself. An export is a file you save in a folder of your choice; the application never transmits it."
+msgstr "Daten verlassen diesen Rechner nur, wenn Sie selbst einen Export erstellen und weitergeben. Ein Export ist eine Datei, die Sie in einem Ordner Ihrer Wahl speichern; die Anwendung übermittelt sie nie."
 
 #: tta/core/report.py:678
 msgid "No language has been detected yet."
@@ -671,7 +691,7 @@ msgstr "Einmalwörter (an Tokens)"
 msgid "Once-only words (of types)"
 msgstr "Einmalwörter (an Typen)"
 
-#: tta/core/privacy_metadata.py:246
+#: tta/core/privacy_metadata.py:310
 msgid "Only when you explicitly export, and only the following values:"
 msgstr "Nur wenn Sie ausdrücklich exportieren, und nur die folgenden Werte:"
 
@@ -734,7 +754,7 @@ msgstr "Den Plan ausgeben, ohne ihn auszuführen."
 msgid "Privacy statement"
 msgstr "Datenschutzerklärung"
 
-#: tta/core/privacy_metadata.py:179
+#: tta/core/privacy_metadata.py:239
 msgid "Privacy statement - Thesis Text Analyzer"
 msgstr "Datenschutzerklärung - Thesis Text Analyzer"
 
@@ -742,7 +762,7 @@ msgstr "Datenschutzerklärung - Thesis Text Analyzer"
 msgid "Producer tool"
 msgstr "Erzeugendes Programm"
 
-#: tta/core/privacy_metadata.py:216
+#: tta/core/privacy_metadata.py:280
 msgid "Produces"
 msgstr "Erzeugt"
 
@@ -762,8 +782,8 @@ msgstr "Quelle des Veröffentlichungsjahres"
 msgid "Publication years"
 msgstr "Veröffentlichungsjahre"
 
-#: tta/core/privacy_metadata.py:200
-#: tta/core/privacy_metadata.py:216
+#: tta/core/privacy_metadata.py:264
+#: tta/core/privacy_metadata.py:280
 msgid "Purpose"
 msgstr "Zweck"
 
@@ -809,7 +829,7 @@ msgstr "Lesbarkeit (Flesch)"
 msgid "Reading ease distribution"
 msgstr "Verteilung der Lesbarkeit"
 
-#: tta/core/privacy_metadata.py:216
+#: tta/core/privacy_metadata.py:280
 msgid "Reads"
 msgstr "Liest"
 
@@ -982,11 +1002,11 @@ msgstr "Standardabweichung der Satzlänge in Wörtern."
 msgid "State"
 msgstr "Status"
 
-#: tta/core/privacy_metadata.py:199
+#: tta/core/privacy_metadata.py:263
 msgid "Stored value"
 msgstr "Gespeicherter Wert"
 
-#: tta/core/privacy_metadata.py:158
+#: tta/core/privacy_metadata.py:218
 msgid "Technical bookkeeping (no personal data)"
 msgstr "Technische Verwaltung (keine personenbezogenen Daten)"
 
@@ -997,6 +1017,10 @@ msgstr "Die Textextraktion wurde für diese Arbeit als unlesbar markiert; jede M
 #: tta/ui/tk/main_window.py:631
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr "Dieser Ordner ist noch kein Projekt; es wird beim nächsten Start dort angelegt."
+
+#: tta/core/privacy_metadata.py:187
+msgid "The person using this application and their institution are responsible for what happens on this machine; the publisher of the application receives no personal data from it (sections 6 and 7)."
+msgstr "Für die Verarbeitung auf diesem Rechner sind die Person, die die Anwendung einsetzt, und ihre Einrichtung verantwortlich; der Herausgeber der Anwendung erhält daraus keine personenbezogenen Daten (Abschnitte 6 und 7)."
 
 #: tta/ui/tk/main_window.py:629
 msgid "The project opens on next start."
@@ -1042,6 +1066,10 @@ msgstr "Arbeit {thesis_id} ist nicht mehr in diesem Projekt."
 #: tta/ui/tk/main_window.py:121
 msgid "Third-party licences"
 msgstr "Lizenzen Dritter"
+
+#: tta/core/privacy_metadata.py:167
+msgid "This application works entirely on this machine. It makes no network connections and sends nothing anywhere by itself."
+msgstr "Diese Anwendung arbeitet vollständig auf diesem Rechner. Sie baut keine Netzverbindungen auf und sendet von sich aus nichts."
 
 #: tta/ui/tk/licenses_view.py:23
 msgid ""
@@ -1247,8 +1275,8 @@ msgid "consumes:  {value}"
 msgstr "verbraucht:  {value}"
 
 #: tta/core/privacy_metadata.py:85
-msgid "content-addressed identity; computed at first run (NULL until then); survives renames; portable cross-export identifier"
-msgstr "inhaltsbasierte Identität; wird beim ersten Lauf berechnet (bis dahin NULL); übersteht Umbenennungen; exportübergreifend portabler Bezeichner"
+msgid "content fingerprint of the PDF, used only to recognise duplicate copies of the same file (within a project and across exports), never to identify authors; computed at first run (NULL until then); survives renames"
+msgstr "Inhaltsfingerabdruck der PDF-Datei, ausschließlich zum Erkennen doppelter Exemplare derselben Datei (innerhalb eines Projekts und über Exporte hinweg), nie zur Ermittlung von Verfassern; wird beim ersten Lauf berechnet (bis dahin NULL); übersteht Umbenennungen"
 
 #: tta/core/privacy_metadata.py:137
 msgid "count embedded images in the PDF"
@@ -1434,7 +1462,7 @@ msgstr "Modul hat eine Ausnahme ausgelöst"
 msgid "n"
 msgstr "n"
 
-#: tta/core/privacy_metadata.py:205
+#: tta/core/privacy_metadata.py:269
 msgid "no"
 msgstr "nein"
 
@@ -1667,7 +1695,7 @@ msgid "words"
 msgstr "Wörter"
 
 #: tta/cli/main.py:291
-#: tta/core/privacy_metadata.py:205
+#: tta/core/privacy_metadata.py:269
 msgid "yes"
 msgstr "ja"
 

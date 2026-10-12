@@ -63,8 +63,9 @@ def test_the_privacy_window_shows_the_legal_sections_too(tmp_path):
             ]
             assert texts, "the privacy window did not open"
             statement = texts[-1].get("1.0", "end")
-            assert "## 6. Your rights under GDPR" in statement
-            assert "## 7. Controller contact" in statement
+            assert "## In brief" in statement
+            assert "## 6. Responsibility and your rights under GDPR" in statement
+            assert "## 7. Publisher and contact" in statement
             assert "Fachhochschule Wedel gGmbH" in statement
         finally:
             window.root.destroy()
