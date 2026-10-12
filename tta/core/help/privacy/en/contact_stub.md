@@ -9,8 +9,8 @@
      data protection officer is reached via the privacy-policy page, so
      the text stays correct when the office changes hands. No personal
      data of project members belongs here. No qualified legal review has
-     taken place: FH Wedel's data protection officer should confirm this
-     contact route before the first public release (ADR-0009). -->
+     taken place; the project owner settled the open points on 2026-10-12,
+     and the German version prevails (ADR-0009). -->
 
 This application is published by the research project of the Data Science
 Project Group SS26 at
@@ -27,3 +27,6 @@ to delete an export you have already sent – please direct to the data
 protection officer of Fachhochschule Wedel. The contact details are in the
 university's privacy policy:
 https://www.fh-wedel.de/datenschutzrichtlinien/
+
+This English version of the privacy statement is a convenience
+translation; only the German version is authoritative.

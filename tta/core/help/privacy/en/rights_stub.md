@@ -5,9 +5,9 @@
      same day for the owner's role split (ADR-0009): local processing is
      the using institution's responsibility, FH Wedel assumes no
      controllership for it, and the export is treated as anonymous for the
-     research team. No qualified legal review has taken place: FH Wedel's
-     data protection officer should confirm the role split and the
-     anonymity assessment before the first public release (ADR-0009). -->
+     research team. No qualified legal review has taken place; the project
+     owner settled the role split and the anonymity assessment on
+     2026-10-12, and the German version prevails (ADR-0009). -->
 
 This application is a tool that runs entirely on the machine it is started
 on. It works offline and sends no usage or diagnostic data. Processing

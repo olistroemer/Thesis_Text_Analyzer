@@ -153,6 +153,15 @@ def test_section_6_makes_no_promise_about_using_the_hash(locale):
         assert phrase not in rights
 
 
+def test_the_english_statement_defers_to_the_german_one():
+    """ADR-0009 (owner decision 2026-10-12): the German version prevails,
+    and the English statement must say so to its reader."""
+    en = privacy_metadata.load_legal_stub(privacy_metadata.CONTACT_STUB, "en")
+    de = privacy_metadata.load_legal_stub(privacy_metadata.CONTACT_STUB, "de")
+    assert "only the German version is authoritative" in en
+    assert "authoritative" not in de
+
+
 @pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
 def test_the_fingerprint_the_stub_names_is_the_exported_content_hash(locale):
     """Section 6 explains the export's only per-thesis key; it must name the

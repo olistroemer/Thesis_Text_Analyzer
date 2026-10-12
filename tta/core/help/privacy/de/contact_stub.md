@@ -8,8 +8,8 @@
      data protection officer is reached via the privacy-policy page, so
      the text stays correct when the office changes hands. No personal
      data of project members belongs here. No qualified legal review has
-     taken place: FH Wedel's data protection officer should confirm this
-     contact route before the first public release (ADR-0009). -->
+     taken place; the project owner settled the open points on 2026-10-12,
+     and this German version prevails over ../en/ (ADR-0009). -->
 
 Diese Anwendung wird herausgegeben vom Forschungsprojekt der Data Science
 Project Group SS26 an der
