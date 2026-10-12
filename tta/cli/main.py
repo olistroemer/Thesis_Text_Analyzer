@@ -14,12 +14,12 @@ import sys
 import traceback
 import webbrowser
 from datetime import date
-from importlib import resources
 from pathlib import Path
 
 import click
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.table import Table
 
 import tta
@@ -31,6 +31,17 @@ from tta.core.config import load_config
 from tta.core.db import migrator
 from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database, export_profiling
+from tta.core.help_corpus import (
+    KIND_SECTIONS,
+    SECTIONS,
+    find_page,
+    first_paragraph,
+    help_root,
+    list_field,
+    opens_with_title,
+    read_page,
+    text_field,
+)
 from tta.core.i18n import _
 from tta.core.importer import ImportError_, import_export
 from tta.core.modules.registry import default_registry
@@ -524,16 +535,33 @@ def module_list(fmt: str) -> None:
 ))
 @click.argument("name")
 def module_show(name: str) -> None:
-    """Spec details for one module."""
+    """Spec details for one module.
+
+    The description is the module's help page - its title and first
+    paragraph - not the Python docstring, which is English and names
+    internals (ADR-0012 rev. 5, #78). The docstring is the fallback only for
+    a module without a page: a contributed one, since the corpus gate
+    guarantees a page for every registered module.
+    """
     try:
         mod = default_registry().get(name)
     except KeyError as exc:
         raise click.UsageError(str(exc)) from exc
     s = mod.spec
     stdout.print(f"[bold]{s.name}[/bold] {s.version}")
-    doc = (type(mod).__module__ and sys.modules[type(mod).__module__].__doc__) or ""
-    if doc:
-        stdout.print(doc.strip().split("\n\n")[0])
+    page = find_page(s.name, "module")
+    if page is not None:
+        fields, body = read_page(page)
+        title = text_field(fields, "title")
+        if title:
+            stdout.print(f"[bold]{escape(title)}[/bold]")
+        paragraph = first_paragraph(body)
+        if paragraph:
+            stdout.print(Markdown(paragraph))
+    else:
+        doc = (type(mod).__module__ and sys.modules[type(mod).__module__].__doc__) or ""
+        if doc:
+            stdout.print(escape(doc.strip().split("\n\n")[0]))
     stdout.print(
         _("consumes:  {value}").format(
             value=", ".join(s.consumes) or _("- (reads the PDF directly)")
@@ -865,24 +893,49 @@ def write_report(ctx: click.Context, out: Path | None) -> None:
 # -- help -------------------------------------------------------------------------
 
 
+def _help_markdown(fields: dict, body: str) -> str:
+    """One help page as the terminal shows it (ADR-0012 rev. 5, #78).
+
+    The body only: front matter is parsed, never rendered. The ``title`` is
+    the heading when the body does not open with one of its own, and
+    ``see_also`` becomes a trailing block naming each target's title and the
+    slug ``tta help`` accepts for it.
+    """
+    parts = []
+    title = text_field(fields, "title")
+    if title and not opens_with_title(body):
+        parts.append(f"# {title}")
+    parts.append(body.strip())
+    see_also = []
+    for uri in list_field(fields, "see_also"):
+        kind, _separator, slug = uri.partition(":")
+        if kind not in KIND_SECTIONS or not slug:
+            continue
+        target = find_page(slug, kind)
+        label = text_field(read_page(target)[0], "title") if target is not None else ""
+        see_also.append(f"- {label} (`{slug}`)" if label else f"- `{slug}`")
+    if see_also:
+        parts.append("## " + _("See also"))
+        parts.append("\n".join(see_also))
+    return "\n\n".join(parts)
+
+
 @cli.command("help", help=_(
     "Show a help topic - a module, a metric or a concept - in the terminal."
 ))
 @click.argument("topic", required=False)
 def help_(topic: str | None) -> None:
     """Render a help topic (module, metric, or concept) in the terminal."""
-    root = resources.files("tta.core") / "help"
-    sections = ("modules", "metrics", "concepts")
     if topic:
-        for section in sections:
-            candidate = root / section / f"{topic}.md"
-            if candidate.is_file():
-                stdout.print(Markdown(candidate.read_text("utf-8")))
-                return
-        raise DataError(_("no help topic {topic}").format(topic=repr(topic)))
+        page = find_page(topic)
+        if page is None:
+            raise DataError(_("no help topic {topic}").format(topic=repr(topic)))
+        stdout.print(Markdown(_help_markdown(*read_page(page))))
+        return
+    root = help_root()
     available = [
         f"{section}/{entry.name[:-3]}"
-        for section in sections
+        for section in SECTIONS
         if (root / section).is_dir()
         for entry in sorted((root / section).iterdir())
         if entry.name.endswith(".md")

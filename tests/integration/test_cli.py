@@ -5,6 +5,7 @@ real multiprocessing runner over a generated PDF.
 """
 
 import json
+import re
 
 import pytest
 from click.testing import CliRunner
@@ -112,6 +113,91 @@ def test_help_lists_topics():
     result = invoke("help")
     assert "topic" in result.stdout  # no content yet: lists or says none installed
     invoke("help", "does_not_exist", expect_exit=65)
+
+
+#: Every field of the ADR-0012 front-matter schema, as it would print.
+FRONT_MATTER_KEY = re.compile(
+    r"\b(slug|title|kind|produced_by|consumes|produces_artefacts|produces_metrics"
+    r"|applicability|references|see_also):"
+)
+
+
+def _shipped_slugs():
+    from tta.core.help_corpus import SECTIONS, help_root
+
+    return [
+        entry.name[:-3]
+        for section in SECTIONS
+        for entry in sorted((help_root() / section).iterdir())
+        if entry.name.endswith(".md")
+    ]
+
+
+def test_help_topic_renders_no_front_matter():
+    """#78: `tta help` printed every page's YAML front matter as its first
+    paragraph. ADR-0012: front matter is parsed, never rendered."""
+    from tta.core.help_corpus import find_page, read_page, text_field
+
+    slugs = _shipped_slugs()
+    assert "flesch_reading_ease" in slugs
+    leaked = {}
+    for slug in slugs:
+        out = invoke("help", slug).stdout
+        if FRONT_MATTER_KEY.search(out):
+            leaked[slug] = FRONT_MATTER_KEY.findall(out)
+    assert leaked == {}
+    # ...while the page itself, its title and its "See also" block still render
+    fields, _body = read_page(find_page("flesch_reading_ease"))
+    out = invoke("help", "flesch_reading_ease").stdout
+    assert text_field(fields, "title") in out
+    assert "See also" in out
+    assert "(mod_readability)" in out  # a see_also target, by the slug `tta help` takes
+
+
+def test_help_topic_uses_the_title_when_the_body_has_no_heading(tmp_path, monkeypatch):
+    from tta.core import help_corpus
+
+    root = tmp_path / "help"
+    (root / "concepts").mkdir(parents=True)
+    (root / "concepts" / "plain.md").write_text(
+        "---\nslug: plain\ntitle: Plain Title\nkind: concept\n"
+        "see_also: [concept:missing]\n---\n\nJust a paragraph.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(help_corpus, "help_root", lambda: root)
+    out = invoke("help", "plain").stdout
+    assert "Plain Title" in out
+    assert "Just a paragraph." in out
+    assert "missing" in out  # a target with no page is still named, never an error
+    assert not FRONT_MATTER_KEY.search(out)
+    assert out.index("Plain Title") < out.index("Just a paragraph.")
+
+
+def test_module_show_prints_the_help_page_not_the_docstring():
+    """#78 / #2: the module's description comes from its help page (title +
+    first paragraph); the English docstring with its internal cross-refs no
+    longer reaches the user."""
+    from tta.core.help_corpus import find_page, read_page, text_field
+
+    fields, _body = read_page(find_page("mod_readability", "module"))
+    out = invoke("module", "show", "mod_readability").stdout
+    assert out.startswith("mod_readability ")
+    assert text_field(fields, "title") in out
+    assert "textstat" in out  # named in the page's first paragraph
+    assert "catalogue #7" not in out and "SDD Sec." not in out  # the docstring
+    # the spec lines still follow; "consumes:" there is the CLI's own label
+    description, spec_lines = out.split("\nconsumes:", 1)
+    assert not FRONT_MATTER_KEY.search(description)
+    assert "flesch_reading_ease" in spec_lines
+
+
+def test_module_show_falls_back_to_the_docstring_without_a_page(monkeypatch):
+    """A contributed module may ship no page; then the docstring stands in."""
+    from tta.cli import main as cli_main
+
+    monkeypatch.setattr(cli_main, "find_page", lambda *args, **kwargs: None)
+    out = invoke("module", "show", "mod_readability").stdout
+    assert "catalogue #7" in out
 
 
 def test_run_sigint_cancels_skip_pending_and_exits_partial(project_dir, english_pdf, monkeypatch):
