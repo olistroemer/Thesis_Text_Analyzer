@@ -10,12 +10,14 @@ missing - schema evolution and statement evolution cannot drift.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from importlib import resources
 
 import tta
-from tta.core.i18n import N_, _
+from tta.core.i18n import DEFAULT_LOCALE, N_, _, active_locale, normalise_locale
 
 
 class Category(str, Enum):
@@ -261,6 +263,52 @@ def render_report_md(rights_stub: str = "", controller_stub: str = "") -> str:
         lines += ["", "## " + _("7. Controller contact"), "", controller_stub.strip()]
     lines.append("")
     return "\n".join(lines)
+
+
+# -- legal stubs (sections 6-7) ----------------------------------------------
+
+#: Section 6 (data-subject rights) and section 7 (controller contact). One
+#: pair per locale under core/help/privacy/<locale>/ (ADR-0009 "Legal
+#: stubs"); the German pair is the primary version and the fallback.
+RIGHTS_STUB = "rights_stub.md"
+CONTROLLER_STUB = "controller_stub.md"
+
+_HTML_COMMENT = re.compile(r"<!--.*?-->\s*", re.DOTALL)
+
+
+def legal_stub_root():
+    """The installed stub root (a Traversable, so a frozen build works)."""
+    return resources.files("tta.core") / "help" / "privacy"
+
+
+def load_legal_stub(filename: str, locale: str | None = None) -> str:
+    """One legal stub in ``locale`` (default: the active one), comments stripped.
+
+    A locale without its own stub falls back to the German one: a statement
+    in the default language is better than one with a missing legal section.
+    Returns "" only if not even the German stub is installed, which
+    tests/core/test_privacy.py rules out for the shipped tree.
+    """
+    tag = normalise_locale(locale) or active_locale()
+    root = legal_stub_root()
+    for candidate in (tag, DEFAULT_LOCALE):
+        stub = root / candidate / filename
+        if stub.is_file():
+            return _HTML_COMMENT.sub("", stub.read_text("utf-8")).strip()
+    return ""
+
+
+def render_statement_md() -> str:
+    """The complete statement, sections 1-7, in the active locale.
+
+    The one entry point both adapters use (``tta privacy report`` and the
+    GUI's Help -> Privacy statement), so neither can render the generated
+    sections without the legal ones.
+    """
+    return render_report_md(
+        rights_stub=load_legal_stub(RIGHTS_STUB),
+        controller_stub=load_legal_stub(CONTROLLER_STUB),
+    )
 
 
 def render_report_json() -> str:

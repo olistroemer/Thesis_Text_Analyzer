@@ -21,9 +21,9 @@ metric names (ADR-0012 rev. 3 corrects the check's wording). The bibliography
 is `docs/references.bib`, also per rev. 3: the only render target that
 resolves `[@key]` is the pandoc pipeline, which runs over the repository.
 
-Scope is modules/ metrics/ concepts/. `help/privacy/` holds the two reviewed
+Scope is modules/ metrics/ concepts/. `help/privacy/<locale>/` holds the
 legal stubs of ADR-0009 Sec. 6-7 - fragments appended to a generated
-statement, with no front matter and one HTML review comment. They are not
+statement, with no front matter and one HTML status comment. They are not
 help pages and the viewer's topic tree excludes them.
 
 This module reads the `.md` files directly rather than through

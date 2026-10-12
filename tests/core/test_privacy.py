@@ -5,8 +5,11 @@ A schema column, registered module, or artefact kind missing from
 """
 
 import json
+import re
 
-from tta.core import artefact_kinds, privacy_metadata
+import pytest
+
+from tta.core import artefact_kinds, i18n, privacy_metadata
 from tta.core.export import export_database
 from tta.core.modules.registry import default_registry
 
@@ -90,3 +93,70 @@ def test_json_report_is_machine_readable():
     }
     assert len(payload["modules"]) == 13  # +mod_extract_filesystem_metadata (#18)
     assert len(payload["artefact_kinds"]) == 4
+
+
+# -- legal stubs, sections 6-7 (ADR-0009 "Legal stubs", #6) -------------------
+
+STUBS = (privacy_metadata.RIGHTS_STUB, privacy_metadata.CONTROLLER_STUB)
+#: The only addresses a stub may carry: the controller's, its data protection
+#: officer's and the supervisory authority's. Never a project member's.
+ALLOWED_EMAILS = {"info@fh-wedel.de", "ckrug@fh-wedel.de", "mail@datenschutzzentrum.de"}
+
+
+@pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
+@pytest.mark.parametrize("filename", STUBS)
+def test_every_supported_locale_has_its_own_stub(locale, filename):
+    assert (privacy_metadata.legal_stub_root() / locale / filename).is_file()
+
+
+@pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
+@pytest.mark.parametrize("filename", STUBS)
+def test_no_stub_is_still_marked_as_a_draft(locale, filename):
+    raw = (privacy_metadata.legal_stub_root() / locale / filename).read_text("utf-8")
+    assert "DRAFT" not in raw.upper()
+    assert "to be completed" not in raw
+
+
+@pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
+def test_stubs_name_the_controller_its_dpo_and_the_complaint_right(locale):
+    rights = privacy_metadata.load_legal_stub(privacy_metadata.RIGHTS_STUB, locale)
+    controller = privacy_metadata.load_legal_stub(privacy_metadata.CONTROLLER_STUB, locale)
+    assert "<!--" not in rights + controller  # maintainer comments are stripped
+    for article in ("Art. 15", "Art. 16", "Art. 17", "Art. 18", "Art. 20", "Art. 21", "Art. 77"):
+        assert article in rights
+    assert "Fachhochschule Wedel gGmbH" in controller
+    assert "ckrug@fh-wedel.de" in controller
+    emails = set(re.findall(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", rights + controller))
+    assert emails and emails <= ALLOWED_EMAILS
+
+
+def test_the_stub_follows_the_locale():
+    german = privacy_metadata.load_legal_stub(privacy_metadata.RIGHTS_STUB, "de")
+    english = privacy_metadata.load_legal_stub(privacy_metadata.RIGHTS_STUB, "en")
+    assert "DSGVO" in german and "DSGVO" not in english
+    assert "GDPR" in english
+
+
+def test_a_locale_without_stubs_falls_back_to_german(tmp_path, monkeypatch):
+    (tmp_path / "de").mkdir()
+    (tmp_path / "de" / "rights_stub.md").write_text("<!-- note -->\nGERMAN", "utf-8")
+    monkeypatch.setattr(privacy_metadata, "legal_stub_root", lambda: tmp_path)
+    assert privacy_metadata.load_legal_stub("rights_stub.md", "en") == "GERMAN"
+    assert privacy_metadata.load_legal_stub("missing.md", "en") == ""
+
+
+@pytest.mark.parametrize("locale", i18n.SUPPORTED_LOCALES)
+def test_the_full_statement_carries_sections_6_and_7(locale):
+    """The entry point both adapters use renders the legal sections too -
+    the GUI used to render sections 1-5 only."""
+    i18n.install(locale)
+    try:
+        statement = privacy_metadata.render_statement_md()
+        heading_6 = "## " + i18n._("6. Your rights under GDPR")
+        heading_7 = "## " + i18n._("7. Controller contact")
+    finally:
+        i18n.install("en")
+    assert heading_6 in statement and heading_7 in statement
+    assert statement.index(heading_6) < statement.index(heading_7)
+    assert "Fachhochschule Wedel gGmbH" in statement.split(heading_7, 1)[1]
+    assert "Art. 77" in statement.split(heading_6, 1)[1]

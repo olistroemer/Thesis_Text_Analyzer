@@ -362,8 +362,8 @@ jobs:
           if-no-files-found: error
 
   # Tagged release (issue #4, ADR-0014). Collects the four targets' artefacts
-  # and opens a DRAFT release: publishing needs the #8 licence sign-off and
-  # the #6 GDPR statement, which are human decisions, not CI's.
+  # and opens a DRAFT release: publishing needs the #8 licence sign-off, a
+  # human decision, not CI's. (#6, the GDPR statement, is finalised.)
   release:
     name: draft release (v* tag)
     if: startsWith(github.ref, 'refs/tags/v')
@@ -414,4 +414,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" upload/* \
             --draft \
             --title "$GITHUB_REF_NAME" \
-            --notes "Unsigned single-file GUI binaries per ADR-0014 (the tta CLI is used from source) (SmartScreen: More info -> Run anyway; Gatekeeper: right-click -> Open). Each binary bundles its THIRD_PARTY_LICENSES.txt, also attached per target. Draft on purpose: publishing needs the LICENSE sign-off (#8) and the finalised GDPR statement (#6)."
+            --notes "Unsigned single-file GUI binaries per ADR-0014 (the tta CLI is used from source) (SmartScreen: More info -> Run anyway; Gatekeeper: right-click -> Open). Each binary bundles its THIRD_PARTY_LICENSES.txt, also attached per target. Draft on purpose: publishing needs the LICENSE sign-off (#8). The GDPR statement (Help -> Privacy statement) was finalised in #6; per ADR-0009, FH Wedel's data protection officer should confirm its legal sections 6-7 before the first public release."

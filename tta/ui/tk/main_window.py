@@ -18,7 +18,7 @@ from tta.core import events, progress, report
 from tta.core.config import save_config
 from tta.core.i18n import N_, _, format_integer
 from tta.core.modules.registry import default_registry
-from tta.core.privacy_metadata import render_report_md
+from tta.core.privacy_metadata import render_statement_md
 from tta.core.project import Project
 from tta.ui.tk import dialogs
 from tta.ui.tk.columns import metric_columns
@@ -637,7 +637,7 @@ class MainWindow:
         window.title(_("Privacy statement"))
         window.geometry("800x600")
         text = tk.Text(window, wrap="word")
-        text.insert("1.0", render_report_md())
+        text.insert("1.0", render_statement_md())
         text.configure(state="disabled")
         scrollbar = ttk.Scrollbar(window, command=text.yview)
         text.configure(yscrollcommand=scrollbar.set)
