@@ -257,6 +257,19 @@ def test_binaries_are_uploaded_only_for_tags_and_manual_runs(workflow_source):
     assert "retention-days:" in upload
 
 
+def test_only_the_gui_binary_is_uploaded(workflow_source):
+    """ADR-0003 revision 2026-10-12: the CLI is frozen for the smoke only;
+    its users run it from source, so it never reaches the release."""
+    matrix = job(workflow_source, "build")
+    upload = matrix.split("Upload binaries", 1)[1]
+    assert "dist/tta-gui${{ matrix.exe_suffix }}" in upload
+    assert "dist/tta${{ matrix.exe_suffix }}" not in upload
+    assert "THIRD_PARTY_LICENSES.txt" in upload
+    # ...while the CLI is still frozen and driven by the smoke.
+    assert '--exe "tta$EXE_SUFFIX"' in matrix
+    assert "CLI_EXE" in matrix.split("Smoke-test the CLI binary", 1)[1]
+
+
 # ------------------------------------------------- the tagged release (#4)
 
 
