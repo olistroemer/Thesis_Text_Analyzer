@@ -62,11 +62,15 @@ CI **fails the build** if either produced executable exceeds a per-OS ceiling. T
 | target | ceiling (per executable) | basis |
 |---|---|---|
 | Linux x86_64 | **100 MB** | measured: 69.3 MiB CLI / 70.7 MiB GUI (below) |
-| Windows x86_64 | **200 MB** | **provisional** — no measurement yet |
-| macOS arm64 | **200 MB** | **provisional** — no measurement yet |
-| macOS x86_64 | **200 MB** | **provisional** — no measurement yet |
+| Windows x86_64 | **70 MB** | measured: 48.6 MiB CLI / 49.5 MiB GUI (run 38256015935) |
+| macOS arm64 | **75 MB** | measured: 52.0 MiB CLI / 52.3 MiB GUI (run 38256015935) |
+| macOS x86_64 | **77 MB** | measured: 53.7 MiB CLI / 54.1 MiB GUI (run 38256015935) |
 
-The three provisional ceilings are placeholders with a job to do, not estimates: nobody has yet frozen this application on Windows or macOS, so the honest number is unknown, and a ceiling chosen by analogy would be a guess dressed as a measurement. 200 MB is loose enough that a legitimate first build (Tcl/Tk frameworks, larger platform wheels) will not fail on arrival, and still tight enough to catch the failure it exists for — the contaminated Linux build measured 202.9 MiB, so the numeric stack returning would trip it. **The first green matrix run replaces each provisional row with its measurement**, and the ceiling is then re-tightened to the same ~40 % headroom the Linux row has.
+(As everywhere in this table and in CI, "MB" here means MiB: the gate compares against `n * 1024 * 1024` bytes.)
+
+**Revision (2026-10-12): the provisional rows are measured.** The first green matrix run (CI run 38256015935, `fix/ci-build`) froze all four targets, and the three provisional 200 MB rows were replaced with their measurements and re-tightened to the Linux row's headroom (100 MB over 70.7 MiB = ~41 %): 49.5 x 1.41 = 70, 52.3 x 1.41 = 74 -> 75, 54.1 x 1.41 = 77. The contaminated build (~203 MiB) would trip every one of them by a wide margin. The original reasoning for the provisional rows is kept below as history.
+
+The three provisional ceilings were placeholders with a job to do, not estimates: nobody has yet frozen this application on Windows or macOS, so the honest number is unknown, and a ceiling chosen by analogy would be a guess dressed as a measurement. 200 MB is loose enough that a legitimate first build (Tcl/Tk frameworks, larger platform wheels) will not fail on arrival, and still tight enough to catch the failure it exists for — the contaminated Linux build measured 202.9 MiB, so the numeric stack returning would trip it. **The first green matrix run replaces each provisional row with its measurement**, and the ceiling is then re-tightened to the same ~40 % headroom the Linux row has.
 
 Measured on the build that introduced the gate (Linux x86_64, PyInstaller 6.21.0, `--onefile`, UPX off, CPython 3.12.13). Both rows are real freezes of the *same* tree on the same machine: "before" re-runs the pre-#52 spec with the user site live, "after" is `PYTHONNOUSERSITE=1` plus the excludes below.
 
@@ -162,7 +166,7 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - ⚠️ The `excludes` list is a standing maintenance item: a future module that genuinely needs `pandas`/`scipy` must be declared in `pyproject.toml` **and** removed from the spec's excludes in the same change, or it will fail only in the frozen binary.
 - ⚠️ Unsigned binary → first-run warnings on Windows / macOS (workaround documented).
 - ✅ Per-OS build matrix implemented (Linux / Windows / macOS arm64 + x86_64), tag-triggered draft release on top of it; the produced CLI binary is driven end to end on every target before its artefact is published. Artefacts are uploaded only for tags and manual runs (storage quota, revision 2026-10-12).
-- ⚠️ The Windows and macOS size ceilings are provisional until the first matrix run measures them.
+- ✅ All four size ceilings are measured (Windows and macOS since run 38256015935, revision 2026-10-12); the release binaries are ~50-71 MiB per target.
 - ⚠️ The GUI binary is only *executed* by CI on Linux (Xvfb); on Windows and macOS it is built and checked but never launched.
 
 ## Revisit when
@@ -170,4 +174,4 @@ DB schema migrations run on app startup against the project's `tta.sqlite`. Befo
 - Code signing becomes affordable / institutionally required (see SDD §12).
 - Startup becomes a complaint (consider Nuitka).
 - A declared dependency legitimately pushes a binary past its ceiling — raise the ceiling here, with the measurement, rather than in CI.
-- The first green Windows/macOS matrix run lands — replace the provisional ceiling rows with the measurements, and re-tighten them to the Linux row's headroom.
+- ~~The first green Windows/macOS matrix run lands — replace the provisional ceiling rows with the measurements, and re-tighten them to the Linux row's headroom.~~ Done 2026-10-12 (run 38256015935).
