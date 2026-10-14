@@ -3,8 +3,8 @@
 Counts images from the PDF structure via pypdf's object model and never
 decodes one (#85): per page, the distinct image XObjects reachable from the
 page's resources (recursing into Form XObjects) plus the inline images
-(`BI ... ID ... EI`) in the page content and in every Form XObject walked.
-Only content streams are decompressed; image data is skipped, so neither
+(`BI ... ID ... EI`) in the page's own content. Only the page content
+streams are decompressed; image data is skipped, so neither
 Pillow nor pypdf's image-decoding path (`page.images`, `_xobj_to_image`) is
 ever touched.
 
@@ -156,59 +156,42 @@ def _key(obj: Any) -> Any:
     return (ref.idnum, ref.generation) if ref is not None else id(obj)
 
 
-class _Counter:
-    """Per-document walk; caches each Form XObject's own inline-image count."""
+def _collect_image_xobjects(owner: DictionaryObject, images: set[Any], forms: set[Any]) -> None:
+    """Add the keys of image XObjects reachable from `owner`'s resources to `images`.
 
-    def __init__(self) -> None:
-        self._form_inline: dict[Any, int] = {}
+    Recurses into Form XObjects not yet in `forms` (the per-page visited set,
+    which also ends cycles). Form content is never read.
+    """
+    resources = _resolve(owner.get("/Resources"))
+    if not isinstance(resources, DictionaryObject):
+        return
+    xobjects = _resolve(resources.get("/XObject"))
+    if not isinstance(xobjects, DictionaryObject):
+        return
+    for name in list(xobjects.keys()):
+        xobj = _resolve(xobjects.get(name))
+        if not isinstance(xobj, StreamObject):
+            continue
+        subtype = xobj.get("/Subtype")
+        key = _key(xobj)
+        if subtype == "/Image":
+            images.add(key)
+        elif subtype == "/Form" and key not in forms:
+            forms.add(key)
+            _collect_image_xobjects(xobj, images, forms)
 
-    def count_page(self, page: DictionaryObject) -> int:
-        images: set[Any] = set()
-        forms: set[Any] = set()
-        inline = count_inline_images(_content_bytes(page.get("/Contents")))
-        inline += self._walk(page, images, forms)
-        return len(images) + inline
 
-    def _walk(self, owner: DictionaryObject, images: set[Any], forms: set[Any]) -> int:
-        """Add the image XObjects reachable from `owner`'s resources to `images`.
-
-        Recurses into Form XObjects not yet in `forms` (the per-page visited
-        set, which also ends cycles) and returns their inline-image count.
-        """
-        resources = _resolve(owner.get("/Resources"))
-        if not isinstance(resources, DictionaryObject):
-            return 0
-        xobjects = _resolve(resources.get("/XObject"))
-        if not isinstance(xobjects, DictionaryObject):
-            return 0
-        inline = 0
-        for name in list(xobjects.keys()):
-            xobj = _resolve(xobjects.get(name))
-            if not isinstance(xobj, StreamObject):
-                continue
-            subtype = xobj.get("/Subtype")
-            key = _key(xobj)
-            if subtype == "/Image":
-                images.add(key)
-            elif subtype == "/Form" and key not in forms:
-                forms.add(key)
-                inline += self._form_inline_count(xobj, key)
-                inline += self._walk(xobj, images, forms)
-        return inline
-
-    def _form_inline_count(self, form: StreamObject, key: Any) -> int:
-        cached = self._form_inline.get(key)
-        if cached is None:
-            cached = count_inline_images(form.get_data())
-            self._form_inline[key] = cached
-        return cached
+def count_page_images(page: DictionaryObject) -> int:
+    """Distinct image XObjects reachable from the page plus inline images in its content."""
+    images: set[Any] = set()
+    _collect_image_xobjects(page, images, set())
+    return len(images) + count_inline_images(_content_bytes(page.get("/Contents")))
 
 
 def count_images(path: str) -> int:
     """`n_images` for the PDF at `path` (counting rule: SDD Sec. 7.1, 7.4)."""
     reader = PdfReader(path)
-    counter = _Counter()
-    return sum(counter.count_page(page) for page in reader.pages)
+    return sum(count_page_images(page) for page in reader.pages)
 
 
 class CountImages(Module):
