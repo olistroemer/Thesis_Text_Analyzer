@@ -21,6 +21,18 @@ from tta.core.runner import Runner
 pytestmark = pytest.mark.skipif(not display_available(), reason="no display")
 
 
+def _state(window) -> str:
+    """Everything needed to explain a failure after the fact."""
+    thread = window._run_thread
+    return (
+        f"status={window.status.cget('text')!r} "
+        f"theses_done={window._run_theses_done} "
+        f"thread_alive={thread is not None and thread.is_alive()} "
+        f"children={[p.pid for p in multiprocessing.active_children()]} "
+        f"toolbar={sorted(window._toolbar_buttons)}"
+    )
+
+
 def _pump(window, until, timeout=60.0):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -28,7 +40,7 @@ def _pump(window, until, timeout=60.0):
         if until():
             return
         time.sleep(0.02)
-    raise AssertionError("condition not reached in time")
+    raise AssertionError(f"condition not reached in {timeout} s: {_state(window)}")
 
 
 def test_gui_cancel_leaves_no_worker_and_a_consistent_db(tmp_path, monkeypatch):
@@ -58,15 +70,15 @@ def test_gui_cancel_leaves_no_worker_and_a_consistent_db(tmp_path, monkeypatch):
             window._run(rerun=False)
             # the three fast theses complete; hang1 holds its worker
             _pump(window, lambda: window._run_theses_done >= 3)
-            assert window._run_thread.is_alive()
-            assert len(multiprocessing.active_children()) >= 1
+            assert window._run_thread.is_alive(), _state(window)
+            assert len(multiprocessing.active_children()) >= 1, _state(window)
 
             started = time.monotonic()
             window._cancel_run()  # the Cancel button's command
             _pump(window, lambda: not window._run_thread.is_alive())
             _pump(window, lambda: mw.BTN_CANCEL not in window._toolbar_buttons)
-            assert time.monotonic() - started < 15  # grace + join timeouts
-            assert window.status.cget("text").startswith("Run cancelled")
+            assert time.monotonic() - started < 15, _state(window)  # grace + joins
+            assert window.status.cget("text").startswith("Run cancelled"), _state(window)
         finally:
             window.root.destroy()
 
