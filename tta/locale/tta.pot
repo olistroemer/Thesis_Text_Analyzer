@@ -277,13 +277,13 @@ msgstr ""
 msgid "Copy"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:619
+#: tta/ui/tk/main_window.py:637
 msgid ""
 "Could not remember {path}:\n"
 "{error}"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:535
+#: tta/ui/tk/main_window.py:553
 msgid ""
 "Could not write the report:\n"
 "{error}"
@@ -341,7 +341,7 @@ msgstr ""
 msgid "Document content (kept on this machine only)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:576
+#: tta/ui/tk/main_window.py:594
 msgid "Don't ask again"
 msgstr ""
 
@@ -612,7 +612,7 @@ msgstr ""
 msgid "Not applicable for this thesis."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:591
+#: tta/ui/tk/main_window.py:609
 msgid "Not now"
 msgstr ""
 
@@ -652,8 +652,8 @@ msgstr ""
 msgid "Only when you explicitly export, and only the following values:"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:618
-#: tta/ui/tk/main_window.py:635
+#: tta/ui/tk/main_window.py:636
+#: tta/ui/tk/main_window.py:653
 msgid "Open Project"
 msgstr ""
 
@@ -661,11 +661,11 @@ msgstr ""
 msgid "Open Project..."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:609
+#: tta/ui/tk/main_window.py:627
 msgid "Open project folder"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:594
+#: tta/ui/tk/main_window.py:612
 msgid "Open report"
 msgstr ""
 
@@ -707,7 +707,7 @@ msgid "Print the plan without executing."
 msgstr ""
 
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:640
+#: tta/ui/tk/main_window.py:658
 msgid "Privacy statement"
 msgstr ""
 
@@ -841,13 +841,13 @@ msgstr ""
 msgid "Repeated word triples"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:534
-#: tta/ui/tk/main_window.py:565
+#: tta/ui/tk/main_window.py:552
 #: tta/ui/tk/main_window.py:57
+#: tta/ui/tk/main_window.py:583
 msgid "Report"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:521
+#: tta/ui/tk/main_window.py:539
 msgid "Report written to {path}"
 msgstr ""
 
@@ -961,7 +961,7 @@ msgstr ""
 msgid "Text extraction was flagged as garbled for this thesis; every metric in this row may be unreliable (US-PROF-QUALITY)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:631
+#: tta/ui/tk/main_window.py:649
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr ""
 
@@ -969,11 +969,11 @@ msgstr ""
 msgid "The person using this application and their institution are responsible for what happens on this machine; the publisher of the application receives no personal data from it (sections 6 and 7)."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:629
+#: tta/ui/tk/main_window.py:647
 msgid "The project opens on next start."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:571
+#: tta/ui/tk/main_window.py:589
 msgid "The run finished. Open the report for this project now?"
 msgstr ""
 
@@ -1248,8 +1248,8 @@ msgstr ""
 msgid "err"
 msgstr ""
 
-#: tta/core/progress.py:313
-#: tta/ui/tk/main_window.py:499
+#: tta/core/progress.py:337
+#: tta/ui/tk/main_window.py:517
 msgid "estimating..."
 msgstr ""
 
@@ -1566,7 +1566,7 @@ msgstr ""
 msgid "theses"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:493
+#: tta/ui/tk/main_window.py:511
 msgid "thesis {done}/{total}"
 msgstr ""
 
@@ -1650,8 +1650,8 @@ msgstr ""
 msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
 msgstr ""
 
-#: tta/ui/tk/main_window.py:497
-#: tta/ui/tk/main_window.py:505
+#: tta/ui/tk/main_window.py:515
+#: tta/ui/tk/main_window.py:523
 msgid "{done}/{total} pairs"
 msgstr ""
 
@@ -1676,7 +1676,7 @@ msgstr ""
 msgid "{header} (desc)"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:503
+#: tta/ui/tk/main_window.py:521
 msgid "{head} - {tail}"
 msgstr ""
 
@@ -1712,6 +1712,6 @@ msgstr ""
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 
-#: tta/ui/tk/main_window.py:501
+#: tta/ui/tk/main_window.py:519
 msgid "~{eta} left"
 msgstr ""

@@ -12,15 +12,17 @@ deterministic function of its arguments.
 The model, per SDD Sec. 5.5:
 
 *   **Affine cost.** One ``(thesis x module)`` pair costs
-    ``intercept_ms + slope_ms_per_byte * pdf_size_bytes``. Not a pure rate: a
-    large part of the cost is constant (``spawn`` re-imports nltk/textstat/
-    langdetect in every worker, ADR-0013) and several modules are page- or
-    token-driven rather than byte-driven. ``Repository.module_duration_stats``
+    ``intercept_ms + slope_ms_per_byte * pdf_size_bytes``. Not a pure rate:
+    part of the cost is constant per document and several modules are page-
+    or token-driven rather than byte-driven. ``Repository.module_duration_stats``
     fits the pair from history; ``fit_cost`` is the maths.
-*   **Priors.** A module with no history uses a per-module prior seeded from
-    ADR-0015's budget table (``prior_cost``) - never the mean of whichever
+*   **Priors.** A module with no history uses a per-module prior measured on
+    a warm, reused worker (``prior_cost``, #86) - never the mean of whichever
     rates happen to be known already, which on a first run priced all eleven
     not-yet-reported modules at the extractor's rate (#54).
+*   **Worker start-up.** Workers are long-lived (ADR-0013 rev. 3, #86), so the
+    library start-up is a one-off per worker, not part of every thesis. The
+    workers start in parallel, so ``estimate`` adds it once (``startup_ms``).
 *   **Parallelism.** Theses run concurrently (up to ``workers``) while modules
     within a thesis are serial, so remaining cost is bucketed per thesis and the
     estimate is a makespan bound: the worker-count division or the longest
@@ -38,39 +40,53 @@ from dataclasses import dataclass
 from tta.core.i18n import _
 
 #: ``(intercept_ms, slope_ms_per_byte)`` - the affine cost of one module on one
-#: thesis. ``intercept`` is the size-independent part (worker spawn + imports,
-#: fixed setup); ``slope`` scales with the PDF's byte size.
+#: thesis. ``intercept`` is the size-independent part (fixed per-document
+#: setup); ``slope`` scales with the PDF's byte size.
 CostModel = tuple[float, float]
 
-#: Nominal size of the "median 100-page thesis" that ADR-0015's per-module
-#: budgets are quoted for. Only used to turn a budget into a prior slope.
+#: Nominal size of a median thesis - the exp-86 sample's median PDF is 2.16 MB.
+#: Only used to turn a per-module prior into a slope.
 PRIOR_THESIS_BYTES = 2_000_000
 
-#: Per-module time budgets from ADR-0015 ("Per-module time budgets", median
-#: 100-page thesis), in milliseconds. These seed the priors for modules with no
-#: recorded history; they are upper bounds, so a prior errs high until the first
-#: real observation is blended in.
-MODULE_BUDGET_MS: dict[str, float] = {
-    "mod_extract_pymupdf": 6000.0,
-    "mod_check_extraction_quality": 100.0,
-    "mod_classify_language": 500.0,
-    "mod_tokenize": 4000.0,
-    "mod_surface_counts": 200.0,
-    "mod_vocabulary": 300.0,
-    "mod_readability": 500.0,
-    "mod_redundancy": 400.0,
-    "mod_count_images": 2000.0,
-    "mod_extract_pdf_metadata": 1000.0,
+#: Per-module prior cost in milliseconds, for modules with no recorded history
+#: (#86). Measured, not budgeted: the mean ``duration_ms`` per module on a warm,
+#: reused worker in the exp-86 trial (200 theses, 1 worker, i7-13700H, native
+#: Windows; the worker's first thesis excluded), ~1.9 s per thesis in sum. A
+#: mean rather than a median because an ETA sums expected costs and some
+#: modules have a long tail (``mod_count_images``: median 611 ms, mean 1316).
+#: ADR-0015's budget table used to seed these; its figures are ceilings that
+#: contained the per-thesis library start-up, so they overstated a first run's
+#: estimate several times over. On slower hardware the in-run blend corrects a
+#: prior within a few observations (``HISTORY_WEIGHT``).
+MODULE_PRIOR_MS: dict[str, float] = {
+    "mod_extract_pymupdf": 150.0,
+    "mod_check_extraction_quality": 25.0,
+    "mod_classify_language": 17.0,
+    "mod_tokenize": 115.0,
+    "mod_surface_counts": 47.0,
+    "mod_vocabulary": 24.0,
+    "mod_readability": 116.0,
+    "mod_redundancy": 35.0,
+    "mod_count_images": 1316.0,
+    "mod_extract_pdf_metadata": 76.0,
+    "mod_determine_publication_year": 6.0,
+    "mod_classify_thesis_type": 1.0,
+    "mod_extract_filesystem_metadata": 1.0,
 }
 
-#: Budget for a module absent from ADR-0015's table (a newer or third-party
-#: module): the order of magnitude of the cheap-to-middling entries above.
-DEFAULT_BUDGET_MS = 500.0
+#: Prior for a module absent from the table (a newer or third-party module):
+#: the order of magnitude of the cheap-to-middling entries above.
+DEFAULT_PRIOR_MS = 100.0
 
-#: Fraction of a prior/history budget attributed to the size-independent part.
-#: ADR-0015 quotes one number per module, not a split, so an even split is the
-#: neutral choice: at ``PRIOR_THESIS_BYTES`` the prior reproduces the budget
-#: exactly, while a thesis twice that size costs 1.5x rather than 2x.
+#: One-off start-up of a worker process in milliseconds (#86): interpreter
+#: spawn plus the library imports (nltk, textstat, langdetect, PyMuPDF) that a
+#: long-lived worker pays once, measured at ~2.6 s in the exp-86 trial.
+WORKER_STARTUP_MS = 2600.0
+
+#: Fraction of a prior attributed to the size-independent part. One number per
+#: module is measured, not a split, so an even split is the neutral choice: at
+#: ``PRIOR_THESIS_BYTES`` the prior reproduces the measured cost exactly, while
+#: a thesis twice that size costs 1.5x rather than 2x.
 PRIOR_INTERCEPT_SHARE = 0.5
 
 #: Pseudo-count given to the history/prior model when blending in-run
@@ -100,16 +116,16 @@ def _mean(values: Iterable[float]) -> float:
 
 
 def prior_cost(module: str) -> CostModel:
-    """Per-module cost prior from ADR-0015's budget table (#54).
+    """Per-module cost prior from the measured table (#54, #86).
 
-    The budget is split ``PRIOR_INTERCEPT_SHARE`` constant / remainder
+    The prior is split ``PRIOR_INTERCEPT_SHARE`` constant / remainder
     size-proportional at ``PRIOR_THESIS_BYTES``, so a nominal thesis costs
-    exactly the budget and larger theses cost proportionally more - but not
-    linearly more, which matches the constant spawn/import overhead.
+    exactly the prior and larger theses cost proportionally more - but not
+    linearly more, which matches the constant per-document overhead.
     """
-    budget = MODULE_BUDGET_MS.get(module, DEFAULT_BUDGET_MS)
-    intercept = budget * PRIOR_INTERCEPT_SHARE
-    slope = (budget - intercept) / PRIOR_THESIS_BYTES
+    prior = MODULE_PRIOR_MS.get(module, DEFAULT_PRIOR_MS)
+    intercept = prior * PRIOR_INTERCEPT_SHARE
+    slope = (prior - intercept) / PRIOR_THESIS_BYTES
     return (intercept, slope)
 
 
@@ -201,6 +217,7 @@ def estimate(
     theses_total: int = 0,
     theses_done: int = 0,
     thesis_floors: Mapping[int, float] | None = None,
+    startup_ms: float = 0.0,
 ) -> Progress:
     """Determinate-bar fraction plus a size-weighted, parallelism-aware ETA.
 
@@ -227,6 +244,11 @@ def estimate(
             only, so without this the next run under-estimates it exactly as
             badly. Applied per thesis, never per module: a hang is a property
             of the one document that hung.
+        startup_ms: worker start-up still ahead of the run, in ms (#86). Long-
+            lived workers pay the library start-up once each, and in parallel,
+            so it is added **once** to the makespan rather than per thesis. The
+            caller passes ``WORKER_STARTUP_MS`` minus the run's elapsed time,
+            so the term counts down to zero early in the run.
         theses_done: theses the caller has *seen* complete. The estimator also
             derives completion from ``remaining``, and reports the larger of the
             two, so it stays correct on its own if a thesis is killed without
@@ -238,7 +260,8 @@ def estimate(
         - No evidence at all (no ``costs``, nothing done, nothing in flight) ->
           ``None``, so the caller shows "estimating..." while the bar advances.
         - Otherwise the makespan bound over the remaining per-thesis costs:
-          ``max(total / min(workers, remaining theses), largest thesis)``.
+          ``max(total / min(workers, remaining theses), largest thesis)``,
+          plus the remaining one-off worker start-up (``startup_ms``).
     """
     in_flight = in_flight or {}
     fraction = 0.0 if total <= 0 else max(0.0, min(1.0, done / total))
@@ -282,6 +305,7 @@ def estimate(
 
     divisor = max(1, min(max(workers, 1), len(per_thesis)))
     eta_ms = max(sum(per_thesis.values()) / divisor, max(per_thesis.values()))
+    eta_ms += max(startup_ms, 0.0)
     return _progress(eta_ms / 1000.0)
 
 

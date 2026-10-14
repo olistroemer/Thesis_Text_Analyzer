@@ -508,8 +508,9 @@ class Repository:
         Returns, per module, a least-squares ``(intercept_ms,
         slope_ms_per_byte)`` fit over that module's past **successful** (``ok``)
         runs. Cost is a constant part *plus* a size-proportional part, not a
-        pure ms-per-byte rate: much of the per-thesis cost is size-independent
-        (worker ``spawn`` re-imports nltk/textstat/langdetect, ADR-0013) and
+        pure ms-per-byte rate: part of the per-thesis cost is size-independent
+        (fixed per-document setup; the one-off worker start-up is modelled
+        separately since workers are long-lived, ADR-0013 rev. 3, #86) and
         several modules are page- or token-driven, so a model through the origin
         let one small thesis inflate every large one still queued (#54).
 

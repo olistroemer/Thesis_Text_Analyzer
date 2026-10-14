@@ -92,6 +92,46 @@ def test_merged_costs_blends_observations_into_history_by_weight():
     assert 0.0 < slope < 1.0
 
 
+class _RunStub(_Stub):
+    """Enough run state for ``_advance_progress`` without a Tk widget."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._run_remaining = [(1, "mod_a"), (2, "mod_a")]
+        self._run_in_flight = {}
+        self._run_done = 0
+        self._run_sizes = {1: 1000, 2: 1000}
+        self._run_cold = {1}
+        self._run_started = None
+        self._progress_bar = None
+
+    def _render_progress(self) -> None:
+        pass
+
+
+def test_a_fresh_workers_first_thesis_stays_out_of_the_in_run_fit():
+    """#86: the first ``workers`` theses run on fresh workers and carry the
+    library start-up inside their module timers; it is modelled separately,
+    so their durations must not inflate the per-thesis fit."""
+    from tta.core import events
+
+    stub = _RunStub()
+    MainWindow._advance_progress(stub, events.ModuleCompleted(1, "mod_a", "ok", 3000))
+    assert stub._run_obs == {}  # cold: counted as done, not as a cost sample
+    assert stub._run_done == 1
+    MainWindow._advance_progress(stub, events.ModuleCompleted(2, "mod_a", "ok", 100))
+    assert stub._run_obs == {"mod_a": [(1000.0, 100.0)]}
+
+
+def test_start_up_term_counts_down_with_the_run():
+    stub = _RunStub()
+    assert MainWindow._startup_ahead_ms(stub, 50.0) == 0.0  # no run started
+    stub._run_started = 100.0
+    assert MainWindow._startup_ahead_ms(stub, 100.0) == progress.WORKER_STARTUP_MS
+    assert MainWindow._startup_ahead_ms(stub, 101.0) == progress.WORKER_STARTUP_MS - 1000.0
+    assert MainWindow._startup_ahead_ms(stub, 200.0) == 0.0
+
+
 def test_merged_costs_leaves_unseen_modules_absent_for_the_prior():
     stub = _Stub()
     stub._run_costs = {"mod_a": (100.0, 1.0)}
