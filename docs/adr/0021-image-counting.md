@@ -97,13 +97,16 @@ Single process on native Windows (pds env), only `mod_count_images`. "Old (DB)":
 | Old (DB), sample | 200 | 2,482 ms | 12,002 ms | 80,784 ms |
 | Old (re-run), sample, ok runs | 192 | 810 ms | 2,822 ms | 12,870 ms |
 | 0.2.0 before the size filter, sample | 200 | 66 ms | 182 ms | 1,735 ms |
+| **0.2.0 with the size filter, sample** | 200 | **54 ms** | **168 ms** | **1,553 ms** |
 
-| #5 case | pages | Old (DB) | Old (re-run) | 0.2.0 before the size filter |
-|---|---:|---|---|---|
-| 1330 | 10 | 166 s, n = 1,001 | timeout at 60 s | 0.36 s, n = 365 |
-| 1421 | 133 | 18.4 s, n = 25,123 | 14.5 s | 2.97 s, n = 25,119 |
-| 1784 | 170 | 8.6 s, n = 99 | 1.4 s | 0.50 s, n = 93 |
-| 1303 | - | 205 s, `LimitReachedError` | timeout at 90 s | 0.6 s, `LimitReachedError` |
+| #5 case | pages | Old (DB) | Old (re-run) | 0.2.0 before the size filter | **0.2.0 with the size filter** |
+|---|---:|---|---|---|---|
+| 1330 | 10 | 166 s, n = 1,001 | timeout at 60 s | 0.36 s, n = 365 | **0.39 s, n = 365** |
+| 1421 | 133 | 18.4 s, n = 25,123 | 14.5 s | 2.97 s, n = 25,119 | **2.94 s, n = 308** |
+| 1784 | 170 | 8.6 s, n = 99 | 1.4 s | 0.50 s, n = 93 | **0.31 s, n = 93** |
+| 1303 | - | 205 s, `LimitReachedError` | timeout at 90 s | 0.6 s, `LimitReachedError` | **0.58 s, `LimitReachedError`** |
+
+The size filter costs nothing measurable: timed interleaved with the version before it (same process, alternating order per thesis, so background load hits both alike), the median per-thesis time ratio is 1.00 on the sample and 1.01 on the #5 cases. Another experiment was running on the machine at times during these runs (CPU load sampled at 0-5 % right before and after the interleaved runs, up to 100 % between other runs); the interleaved design is what keeps the comparison fair, and the absolute numbers may be slightly pessimistic.
 
 ## Consequences
 
