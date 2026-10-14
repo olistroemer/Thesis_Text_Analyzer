@@ -16,7 +16,7 @@ Workers are spawned with the **`spawn`** start method (`multiprocessing.get_cont
 
 ## Worker reuse
 
-**Rev. 3 (2026-10-14, #86).** With one fresh process per thesis, library start-up dominated the run: the exp-86 trial (200 theses, native Windows, i7-13700H) measured a median **3.0 s per thesis with a fresh worker against 1.1 s in a reused one**; `mod_tokenize`, `mod_readability` and `mod_classify_language` lose over 90 % of their time, and the time outside the module timers falls from ~450 ms to ~30 ms. Wall clock fell **2.27x at 1 worker and 1.74x at 19**, with all 6,178 metric values and all 2,600 statuses identical. The one-off start-up of a worker is ~2.6 s.
+**Rev. 3 (2026-10-14, #86).** With one fresh process per thesis, library start-up dominated the run: the exp-86 trial (200 theses, native Windows, i7-13700H) measured a median **3.0 s per thesis with a fresh worker against 1.1 s in a reused one**; `mod_tokenize`, `mod_readability` and `mod_classify_language` lose over 90 % of their time, and the time outside the module timers falls from ~450 ms to ~30 ms. Wall clock fell **2.27x at 1 worker and 1.74x at 19**, with all 6,178 metric values and all 2,600 statuses identical. The one-off start-up of a worker is ~2-2.6 s. Re-measured on the implementation with #85's `mod_count_images` (which no longer decodes images), the same sample at 1 worker took 592.6 s with fresh workers against 173.4 s reused (3.4x), and 3.4-4.2x at 2, 4 and 8 workers, again with identical results.
 
 **Mechanism.** A *slot* is one spawned process plus its own task queue and result queue. The worker loops: it takes a `ThesisPlan` from its task queue, runs it exactly as before, and waits for the next one, until it receives the `None` sentinel. The scheduling loop in `execute` is unchanged in shape:
 
@@ -47,7 +47,7 @@ The resident-set probe uses the **standard library only** (psutil is not a depen
 
 ### Effect on the ETA
 
-The cost of a run is now a **one-off start-up per worker plus a per-thesis cost**, not a per-thesis cost that contains the start-up. The estimator models it that way (SDD Sec. 5.5): workers start in parallel, so their start-up (~2.6 s, `WORKER_STARTUP_MS`) shifts the whole run once and counts down with the run's elapsed time; the per-module priors are re-seeded from the trial's warm-worker means per module (~1.9 s per thesis in sum; the median thesis takes ~1.1-1.3 s, the mean is pulled up by `mod_count_images`' tail); and the in-run fit ignores the first `workers` theses of the plan, which go to fresh workers and carry the start-up. Replacements after a kill or a recycle pay the start-up again; they are rare and not modelled.
+The cost of a run is now a **one-off start-up per worker plus a per-thesis cost**, not a per-thesis cost that contains the start-up. The estimator models it that way (SDD Sec. 5.5): workers start in parallel, so their start-up (~2.1 s, `WORKER_STARTUP_MS`) shifts the whole run once and counts down with the run's elapsed time; the per-module priors are re-seeded from warm-worker means per module (~0.83 s per thesis in sum, measured on the exp-86 sample with #85's `mod_count_images`); and the in-run fit ignores the first `workers` theses of the plan, which go to fresh workers and carry the start-up. Replacements after a kill or a recycle pay the start-up again; they are rare and not modelled.
 
 ## Cancellation
 
