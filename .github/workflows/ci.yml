@@ -2,11 +2,10 @@
 # for (SDD 5.6.4); the SDD gives the overview and does not repeat it.
 #
 # Actions: GitHub's own JavaScript actions only, pinned to a major tag whose
-# action.yml declares `runs.using: node24` - checkout v7, setup-python v7,
-# upload-artifact v7, download-artifact v8 (#35). Node 20 is deprecated on the
-# runners: an action on a node20 major still runs, but forced onto Node 24
-# and with a warning on every job. Check `runs.using` and the release notes
-# of a new major before bumping; tests/packaging rejects a node20 major.
+# action.yml declares `runs.using: node24` (#35). Node 20 is deprecated on
+# the runners: an action on a node20 major still runs, but forced onto
+# Node 24 and with a warning on every job. Check `runs.using` and the release
+# notes of a new major before bumping; tests/packaging rejects a node20 major.
 name: CI
 
 on:
