@@ -421,6 +421,11 @@ jobs:
       # The artefacts all carry the same file names, so flatten them into one
       # directory with the target in the name - that is what somebody
       # downloading a single binary from the release page needs to see.
+      # `find`, not a `$dir*` glob: upload-artifact roots an artefact at the
+      # least common ancestor of its paths, which for dist/ + build/licenses/
+      # is the checkout, so each artefact holds dist/tta-gui[.exe] and
+      # build/licenses/THIRD_PARTY_LICENSES.txt, not two top-level files.
+      # The glob saw the two directories and `cp` failed on them (#35).
       - name: Collect the release assets
         run: |
           set -euo pipefail
@@ -428,7 +433,7 @@ jobs:
           for dir in artifacts/*/; do
             target="$(basename "$dir")"      # tta-linux-x86_64
             target="${target#tta-}"          # linux-x86_64
-            for path in "$dir"*; do
+            find "$dir" -type f -print0 | while IFS= read -r -d '' path; do
               name="$(basename "$path")"
               case "$name" in
                 THIRD_PARTY_LICENSES.txt)
