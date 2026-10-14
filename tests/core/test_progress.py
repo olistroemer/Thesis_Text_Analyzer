@@ -111,14 +111,14 @@ def test_prior_cost_reproduces_the_measured_prior_at_nominal_size():
 
 
 def test_priors_cover_the_catalogue_and_describe_a_warm_worker():
-    """#86: the priors are a reused worker's per-thesis cost (~1.9 s in sum on
-    the reference machine), no longer ADR-0015's ceilings (15 s), which
+    """#86: the priors are a reused worker's per-thesis cost (~0.83 s in sum
+    on the reference machine), no longer ADR-0015's ceilings (15 s), which
     contained the per-thesis library start-up."""
     from tta.core.modules.registry import default_registry
 
     names = {m.spec.name for m in default_registry().in_topological_order(None)}
     assert names <= set(progress.MODULE_PRIOR_MS)
-    assert 1000.0 < sum(progress.MODULE_PRIOR_MS.values()) < 3000.0
+    assert 500.0 < sum(progress.MODULE_PRIOR_MS.values()) < 2000.0
 
 
 def test_worker_start_up_is_added_once_not_per_thesis():

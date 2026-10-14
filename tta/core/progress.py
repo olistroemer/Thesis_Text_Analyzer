@@ -50,26 +50,26 @@ PRIOR_THESIS_BYTES = 2_000_000
 
 #: Per-module prior cost in milliseconds, for modules with no recorded history
 #: (#86). Measured, not budgeted: the mean ``duration_ms`` per module on a warm,
-#: reused worker in the exp-86 trial (200 theses, 1 worker, i7-13700H, native
-#: Windows; the worker's first thesis excluded), ~1.9 s per thesis in sum. A
-#: mean rather than a median because an ETA sums expected costs and some
-#: modules have a long tail (``mod_count_images``: median 611 ms, mean 1316).
+#: reused worker (exp-86 sample, 200 theses, 1 worker, i7-13700H, native
+#: Windows, with #85's non-decoding ``mod_count_images``; the worker's first
+#: thesis excluded), ~0.83 s per thesis in sum. A mean rather than a median
+#: because an ETA sums expected costs and several modules have a long tail.
 #: ADR-0015's budget table used to seed these; its figures are ceilings that
 #: contained the per-thesis library start-up, so they overstated a first run's
 #: estimate several times over. On slower hardware the in-run blend corrects a
 #: prior within a few observations (``HISTORY_WEIGHT``).
 MODULE_PRIOR_MS: dict[str, float] = {
-    "mod_extract_pymupdf": 150.0,
+    "mod_extract_pymupdf": 170.0,
     "mod_check_extraction_quality": 25.0,
-    "mod_classify_language": 17.0,
-    "mod_tokenize": 115.0,
-    "mod_surface_counts": 47.0,
-    "mod_vocabulary": 24.0,
-    "mod_readability": 116.0,
-    "mod_redundancy": 35.0,
-    "mod_count_images": 1316.0,
-    "mod_extract_pdf_metadata": 76.0,
-    "mod_determine_publication_year": 6.0,
+    "mod_classify_language": 20.0,
+    "mod_tokenize": 143.0,
+    "mod_surface_counts": 52.0,
+    "mod_vocabulary": 23.0,
+    "mod_readability": 141.0,
+    "mod_redundancy": 41.0,
+    "mod_count_images": 110.0,
+    "mod_extract_pdf_metadata": 93.0,
+    "mod_determine_publication_year": 7.0,
     "mod_classify_thesis_type": 1.0,
     "mod_extract_filesystem_metadata": 1.0,
 }
@@ -80,8 +80,10 @@ DEFAULT_PRIOR_MS = 100.0
 
 #: One-off start-up of a worker process in milliseconds (#86): interpreter
 #: spawn plus the library imports (nltk, textstat, langdetect, PyMuPDF) that a
-#: long-lived worker pays once, measured at ~2.6 s in the exp-86 trial.
-WORKER_STARTUP_MS = 2600.0
+#: long-lived worker pays once. Measured as the per-thesis wall-clock
+#: difference between fresh and reused workers on the exp-86 sample at 1
+#: worker (592.6 s against 173.4 s for 200 theses); the trial saw ~2.6 s.
+WORKER_STARTUP_MS = 2100.0
 
 #: Fraction of a prior attributed to the size-independent part. One number per
 #: module is measured, not a split, so an even split is the neutral choice: at
