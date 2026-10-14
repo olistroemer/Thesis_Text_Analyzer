@@ -14,13 +14,19 @@ from tests.conftest import make_thesis
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# A 1x1 RGB image XObject; its data is never read by the module.
-IMAGE = (b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "
-         b"/ColorSpace /DeviceRGB /BitsPerComponent 8 >>", b"\xff\x00\x00")
+
+def _image(width: int, height: int) -> tuple:
+    """An RGB image XObject of the given pixel size; its data is never read."""
+    return (b"<< /Type /XObject /Subtype /Image /Width %d /Height %d "
+            b"/ColorSpace /DeviceRGB /BitsPerComponent 8 >>" % (width, height), b"\xff\x00\x00")
+
+
+# A 4x4 image XObject: above the 3 px minimum (ADR-0021).
+IMAGE = _image(4, 4)
 # An inline image whose data cannot be decoded: DCT filter over garbage (and
 # decoding DCT needs Pillow in any case). 0.1.0 failed on it.
 BAD_INLINE = b"q 10 0 0 10 0 0 cm BI /W 4 /H 4 /CS /RGB /BPC 8 /F /DCT ID \x00\x01BI\x02\xff EI Q\n"
-GOOD_INLINE = b"q BI /W 2 /H 1 /CS /G /BPC 8 ID \x10\x20 EI Q\n"
+GOOD_INLINE = b"q BI /W 3 /H 3 /CS /G /BPC 8 ID \x10\x20\x30\x40\x50\x60\x70\x80\x90 EI Q\n"
 
 
 def _pdf(objects: dict, page_ids: list) -> bytes:
@@ -186,15 +192,79 @@ def test_undecodable_inline_image_is_counted(build_ctx, tmp_path):
     (b"BT (BI) Tj ET", 0),
     (b"BT (a \\) BI ( nested ) ) Tj ET", 0),
     (b"/BI 1 def", 0),
-    (b"BI /W 1 /H 1 /BPC 8 /CS /G ID \x00 EI", 1),
-    (b"BI/W 1/H 1/BPC 8/CS/G ID \x00 EI\nBI /W 1 /H 1 /BPC 8 /CS /G ID \x00 EI", 2),
+    (b"BI /W 3 /H 3 /BPC 8 /CS /G ID \x00 EI", 1),
+    (b"BI/W 3/H 3/BPC 8/CS/G ID \x00 EI\nBI /W 3 /H 3 /BPC 8 /CS /G ID \x00 EI", 2),
     # /L skips data that contains " EI " instead of stopping there.
-    (b"BI /W 5 /H 1 /BPC 8 /CS /G /L 5 ID x EI  EI BI ", 1),
-    (b"BI /W 1 /H 1 ID \x00", 1),  # truncated data: counted, scan ends
-    (b"BI /W 1 /H 1", 0),  # no ID: not an image
+    (b"BI /W 5 /H 3 /BPC 8 /CS /G /L 5 ID x EI  EI BI ", 1),
+    (b"BI /W 3 /H 3 ID \x00", 1),  # truncated data: counted, scan ends
+    (b"BI /W 3 /H 3", 0),  # no ID: not an image
 ])
 def test_count_inline_images(data, expected):
     assert count_inline_images(data) == expected
+
+
+# ---- minimum image size: both sides >= 3 px (ADR-0021) --------------------
+
+@pytest.mark.parametrize("width, height, counted", [
+    (2, 2, False),     # below on both sides
+    (2, 500, False),   # a long 2 px strip or rule
+    (500, 1, False),   # a 1 px rule
+    (3, 3, True),      # exactly at the minimum
+    (3, 500, True),
+    (4, 4, True),      # above
+    (1000, 700, True),
+])
+def test_min_size_for_image_xobjects(build_ctx, tmp_path, width, height, counted):
+    objects = {3: _page(b"<< /XObject << /Im 4 0 R >> >>", 5), 4: _image(width, height),
+               5: (b"<< >>", b"/Im Do")}
+    assert _count(build_ctx, tmp_path, objects, [3]) == int(counted)
+
+
+def test_min_size_applies_inside_forms_and_ignores_the_drawn_size(build_ctx, tmp_path):
+    # A 1x1 image stretched over the whole page is a fill, not a figure.
+    objects = {
+        3: _page(b"<< /XObject << /Fm 6 0 R /Fill 5 0 R >> >>", 7),
+        4: _image(2, 40),
+        5: _image(1, 1),
+        6: _form(b"<< /XObject << /Small 4 0 R /Big 8 0 R >> >>", b"/Small Do /Big Do"),
+        7: (b"<< >>", b"q 100 0 0 100 0 0 cm /Fill Do Q /Fm Do"),
+        8: _image(64, 64),
+    }
+    assert _count(build_ctx, tmp_path, objects, [3]) == 1
+
+
+def test_image_xobject_without_a_readable_size_does_not_count(build_ctx, tmp_path):
+    objects = {
+        3: _page(b"<< /XObject << /A 4 0 R /B 5 0 R /C 6 0 R >> >>", 7),
+        4: (b"<< /Type /XObject /Subtype /Image /ColorSpace /DeviceGray /BitsPerComponent 8 >>", b"\x00"),
+        5: (b"<< /Type /XObject /Subtype /Image /Width /Bad /Height 4 >>", b"\x00"),
+        6: (b"<< /Type /XObject /Subtype /Image /Width 9 0 R /Height 4 >>", b"\x00"),  # indirect, 5 px
+        7: (b"<< >>", b"/A Do /B Do /C Do"),
+        9: b"5",
+    }
+    assert _count(build_ctx, tmp_path, objects, [3]) == 1
+
+
+@pytest.mark.parametrize("head, counted", [
+    (b"/W 2 /H 2", False),
+    (b"/W 1 /H 1 /IM true", False),   # the classic rule: a stretched 1x1 mask
+    (b"/W 2 /H 300", False),
+    (b"/W 3 /H 3", True),
+    (b"/W 300 /H 3", True),
+    (b"/Width 8 /Height 8", True),    # full key names
+    (b"/Width 8 /Height 2", False),
+    (b"/W 8", False),                 # no height: unreadable, not counted
+    (b"/IM true /W 16 /H 16 /BPC 1", True),
+])
+def test_min_size_for_inline_images(head, counted):
+    data = b"q 100 0 0 1 0 0 cm BI " + head + b" ID \x00\x00\x00 EI Q"
+    assert count_inline_images(data) == int(counted)
+
+
+def test_min_side_constant():
+    from tta.core.modules.count_images import MIN_IMAGE_SIDE_PX
+
+    assert MIN_IMAGE_SIDE_PX == 3
 
 
 def test_pil_is_never_imported(tmp_path):
