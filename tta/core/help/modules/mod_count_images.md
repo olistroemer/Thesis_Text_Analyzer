@@ -16,7 +16,7 @@ Dieses Modul liest die PDF-Datei direkt – nicht den extrahierten Text – und 
 
 ## Verfahren
 
-Für jede Seite werden die eingebetteten Bildobjekte gezählt und die Zahlen addiert. Es findet keine Auswertung statt: Größe, Position, Inhalt und Rolle eines Bildes werden nicht betrachtet.
+Für jede Seite werden die Bilder gezählt, die ihr zur Verfügung stehen, und die Zahlen addiert: eingebettete Bildobjekte – auch solche, die in eingebetteten Teil-Grafiken stecken – und direkt in den Seiteninhalt geschriebene Bilder. Ein Bild, das auf mehreren Seiten steht, zählt auf jeder dieser Seiten einmal; mehrfach auf derselben Seite zählt es einmal. Gezählt wird allein anhand des Aufbaus der PDF-Datei: Kein Bild wird dabei geöffnet oder entpackt, deshalb ist das Zählen auch bei gescannten Arbeiten schnell. Es findet keine Auswertung statt: Größe, Position, Inhalt und Rolle eines Bildes werden nicht betrachtet.
 
 ## Ergebnis
 
