@@ -1433,7 +1433,7 @@ msgstr ""
 msgid "no word tokens in tokenisation"
 msgstr ""
 
-#: tta/core/modules/count_images.py:28
+#: tta/core/modules/count_images.py:223
 #: tta/core/modules/extract_pdf_metadata.py:69
 #: tta/core/modules/extract_pymupdf.py:34
 msgid "not a PDF"
