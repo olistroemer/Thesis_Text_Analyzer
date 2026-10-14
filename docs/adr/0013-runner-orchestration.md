@@ -1,18 +1,53 @@
 # ADR-0013: Runner orchestration — plan/execute split, per-thesis process pool
 
-**Status:** Accepted (revision 2 — cancellation revised from pure skip-pending to **bounded-grace worker-kill** (#57, the ADR's own "Revisit when" trigger); a second, **per-thesis** timeout beside the per-module one, both configurable (#56); **worker death** named as a distinct failure trigger and `ModuleCompleted(status="skipped")` added so no planned pair leaves without an event (#55); module stdout/stderr captured into `module_runs.diagnostics` (#68); a third run mode, stale-only (#7). See below.)
-**Date:** 2026-06-03 (rev. 2: 2026-08-26)
+**Status:** Accepted (revision 3 — workers are **long-lived and reused across theses**, one per slot, replaced lazily after any kill and recycled as a safeguard; the per-thesis deadline is measured from the thesis's **hand-over** to its worker (#86, see [Worker reuse](#worker-reuse)). Revision 2 — cancellation revised from pure skip-pending to **bounded-grace worker-kill** (#57, the ADR's own "Revisit when" trigger); a second, **per-thesis** timeout beside the per-module one, both configurable (#56); **worker death** named as a distinct failure trigger and `ModuleCompleted(status="skipped")` added so no planned pair leaves without an event (#55); module stdout/stderr captured into `module_runs.diagnostics` (#68); a third run mode, stale-only (#7). See below.)
+**Date:** 2026-06-03 (rev. 2: 2026-08-26; rev. 3: 2026-10-14)
 **Drivers:** US-RES-CLI, US-PROF-RERUN, US-PROF-UPDATE, QA-PORT, QA-RES, ADR-0002 (hexagonal boundary), ADR-0006 (append-only history).
 
 ## Decision
 
 The runner separates **planning** (deterministic, side-effect-free) from **execution** (stateful, event-emitting). Plans are returned to the caller before execution begins; both CLI and GUI invoke the same API.
 
-Execution spawns one worker **process per thesis** directly - `multiprocessing.get_context("spawn")` plus `ctx.Process` and `ctx.Queue`, with a hand-rolled scheduling loop in `Runner.execute` - not a `ProcessPoolExecutor` (this ADR said otherwise until #73; the pool was the original design and never the implementation). The loop is what makes the per-module timeout, the per-thesis deadline, the bounded-grace cancel (#57) and the dead-worker detection (#55) possible at all: each needs to terminate one identified process and account for the pairs it never reported, which a pool's opaque worker reuse does not expose. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
+Execution runs each thesis in a worker **process**, at most `workers` theses at a time, spawned directly - `multiprocessing.get_context("spawn")` plus `ctx.Process` and `ctx.Queue`, with a hand-rolled scheduling loop in `Runner.execute` - not a `ProcessPoolExecutor` (this ADR said otherwise until #73; the pool was the original design and never the implementation). Since rev. 3 a worker is **long-lived**: it takes one thesis after another from its own task queue, so the libraries load once per worker instead of once per thesis, and it is replaced only when it had to be killed or is recycled (see [Worker reuse](#worker-reuse), #86). The loop is what makes the per-module timeout, the per-thesis deadline, the bounded-grace cancel (#57) and the dead-worker detection (#55) possible at all: each needs to terminate one identified process and account for the pairs it never reported, which a pool's opaque worker reuse does not expose - the runner's own reuse keeps exactly one thesis per worker in flight, so that property holds. Modules within a thesis run **serially** in topological order. Workers compute results and serialise them back; the main process commits per-thesis transactions and emits domain events.
 
 Cancellation is **skip-pending with a bounded grace**: no new theses are submitted, and an in-flight thesis is given a short grace to finish before its worker is terminated (see [Cancellation](#cancellation)). Runaway work is bounded by **two** timeouts - per module and per thesis (see [Timeouts](#timeouts)) - both of which kill the worker process. Failures within a thesis cascade as `na` to dependents (see [Failure policy](#failure-policy)).
 
-Workers are spawned with the **`spawn`** start method (`multiprocessing.get_context("spawn")`), not the Linux `fork` default: `execute()` runs on a background thread in the GUI, and forking a multi-threaded process risks deadlocks (and warns since Python 3.12). Spawn is thread-safe and matches the macOS/Windows default; per-worker re-import cost (nltk/textstat/langdetect) stays well within the ADR-0015 per-thesis budget (#32).
+Workers are spawned with the **`spawn`** start method (`multiprocessing.get_context("spawn")`), not the Linux `fork` default: `execute()` runs on a background thread in the GUI, and forking a multi-threaded process risks deadlocks (and warns since Python 3.12). Spawn is thread-safe and matches the macOS/Windows default (#32). Its price is that every worker re-imports the libraries (nltk/textstat/langdetect/PyMuPDF); until rev. 3 that was paid once per *thesis* and was most of the per-thesis cost (#86), now it is paid once per *worker*.
+
+## Worker reuse
+
+**Rev. 3 (2026-10-14, #86).** With one fresh process per thesis, library start-up dominated the run: the exp-86 trial (200 theses, native Windows, i7-13700H) measured a median **3.0 s per thesis with a fresh worker against 1.1 s in a reused one**; `mod_tokenize`, `mod_readability` and `mod_classify_language` lose over 90 % of their time, and the time outside the module timers falls from ~450 ms to ~30 ms. Wall clock fell **2.27x at 1 worker and 1.74x at 19**, with all 6,178 metric values and all 2,600 statuses identical. The one-off start-up of a worker is ~2.6 s.
+
+**Mechanism.** A *slot* is one spawned process plus its own task queue and result queue. The worker loops: it takes a `ThesisPlan` from its task queue, runs it exactly as before, and waits for the next one, until it receives the `None` sentinel. The scheduling loop in `execute` is unchanged in shape:
+
+- A pending thesis is **handed over** to an idle slot whose process is still alive; if there is none, a new worker is spawned for it. Replacement is therefore **lazy**: a slot lost to a kill is re-created only when a thesis needs it.
+- A thesis that ends with `thesis_done` returns its live worker to the idle set (unless it is [recycled](#recycling)).
+- A worker that had to be **terminated** - module timeout, thesis deadline, cancel - or that **died** is dropped and its queues are closed. Every guard keeps working on the one identified process of the one thesis in flight on it; a worker never holds more than one thesis.
+- A worker found dead **while idle** carries no thesis, so nothing is recorded; it is dropped at the next hand-over. One that dies after the hand-over is a worker death of that thesis, exactly as before.
+- **Shutdown.** Idle workers get the sentinel as soon as nothing is pending (or the run is cancelled), so a long tail does not hold every worker's memory. When `execute` leaves its loop - normally, on cancel, or through an **exception** - a `finally` sends the sentinel to every idle worker, joins it, and terminates (then kills) whatever is still alive, in-flight workers included. No worker outlives `execute()`.
+- **Signals and orphans.** Workers **ignore SIGINT**: a terminal delivers Ctrl-C to every process in its foreground group (on Windows: on its console), workers included, but whether and how to cancel is the main process's decision ([Cancellation](#cancellation)) - a worker interrupted by it would otherwise die mid-module and be recorded as a worker death. An idle worker waits on its task queue with a 1 s timeout and exits when its parent process is gone, so a hard-killed main process leaves no idle worker behind.
+
+**State that survives between theses.** Module instances are unpickled fresh with every `ThesisPlan`, and the `tta/core/modules` keep no module-level state, so only *library* state persists. The trial audited it: langdetect reseeds per detection, the MuPDF store, pypdf and nltk stay flat, and the runner's output capture restores the root logger in a `finally`. Two consequences are accepted and documented:
+
+- **Library caches** must not grow with the corpus. textstat's per-text `lru_cache`s and pyphen's unbounded per-word hyphenation cache did (+2.4 MB per thesis, linearly); `mod_readability` clears both after each run, which made a worker plateau at ~330-350 MB with identical results (SDD Sec. 7.4).
+- **Python warnings print once per process.** A library's import-time warning (e.g. PyMuPDF's `fitz` deprecation notice) is therefore captured into `_stdout` ([Module output capture](#module-output-capture)) only for each worker's first thesis.
+
+### Recycling
+
+Recycling is a **safeguard**, not a fix: after a thesis, a worker is retired (sentinel; its successor is spawned lazily) when either limit is reached:
+
+| `[runner]` key | Default | Rule |
+|---|---|---|
+| `recycle_after_theses` | 250 | the worker has served this many theses |
+| `recycle_above_rss_mb` | 1024 | its resident set, read after the thesis, exceeds this many MiB |
+
+`0` disables a limit. With the readability fix no growth remains to be caught; the limits bound one that a future library version or module could bring back. **250 theses** costs one start-up per 250 theses (~10 ms per thesis amortised), and a worker leaking at the rate the trial found would reach ~950 MB by then. **1024 MiB** is [ADR-0015](0015-performance-budget.md)'s per-worker memory budget: a worker that stays above it *after* a thesis is over budget at rest. The value is read after the thesis, not as a peak, so a large PDF whose transient peak is returned (the trial's largest sample PDF: 743 MB on a reused worker against 505 MB on a fresh one) does not trigger it.
+
+The resident-set probe uses the **standard library only** (psutil is not a dependency): `GetProcessMemoryInfo` (`WorkingSetSize`) via `ctypes` on Windows and `/proc/<pid>/statm` on Linux. macOS offers no standard-library way to read another process's resident set, so there - and wherever the probe fails - it reports nothing and only the thesis count applies.
+
+### Effect on the ETA
+
+The cost of a run is now a **one-off start-up per worker plus a per-thesis cost**, not a per-thesis cost that contains the start-up. The estimator models it that way (SDD Sec. 5.5): workers start in parallel, so their start-up (~2.6 s, `WORKER_STARTUP_MS`) shifts the whole run once and counts down with the run's elapsed time; the per-module priors are re-seeded from the trial's warm-worker medians (~1.1 s per thesis in sum); and the in-run fit ignores each worker's first thesis, which carries the start-up. Replacements after a kill or a recycle pay the start-up again; they are rare and not modelled.
 
 ## Cancellation
 
@@ -45,7 +80,7 @@ Two nested guards, both enforced by the main process from its poll loop, both ki
 | Guard | Default | Measured from |
 |---|---|---|
 | **Per module** | 300 s | the `module_started` message for the module in flight |
-| **Per thesis** | 600 s | the worker's spawn |
+| **Per thesis** | 600 s | the thesis's hand-over to its worker (rev. 3; until then the worker's spawn, which was the same moment) |
 
 The per-module guard alone left the ceiling for one document at `module_timeout x modules attempted` — up to ~60 min with the 12-module catalogue, 240× [ADR-0015](0015-performance-budget.md)'s 15 s per-thesis budget (#56). Worse, it is blind to a worker that keeps *finishing* modules while making no progress overall, and to time spent between modules.
 
@@ -61,6 +96,8 @@ workers = 4
 module_timeout_s = 300.0
 thesis_timeout_s = 600.0
 cancel_grace_s = 2.0
+recycle_after_theses = 250      # rev. 3, see Recycling; 0 disables
+recycle_above_rss_mb = 1024.0   # rev. 3, see Recycling; 0 disables
 ```
 
 Omitted keys take the defaults above. `Runner.__init__` keeps them as constructor arguments and `Project.make_runner` passes the configured values through — previously only tests could change them.
@@ -72,7 +109,7 @@ Three ways a thesis can end in a *failure*, all funnelled through **one** cascad
 | Trigger | Detection |
 |---|---|
 | **Module timeout** | the in-flight module has been running longer than the per-module timeout ([Timeouts](#timeouts)) |
-| **Thesis deadline** | the worker has been alive longer than the per-thesis timeout, whatever it is doing ([Timeouts](#timeouts)) |
+| **Thesis deadline** | the thesis has been with its worker longer than the per-thesis timeout, whatever it is doing ([Timeouts](#timeouts)) |
 | **Worker death** | `process.is_alive()` is false and no `thesis_done` arrived (OOM kill, a segfault in the native PDF layer, a dead queue feeder thread) |
 
 A fourth early ending, an **abandoned** worker after the cancel grace, shares the pair-accounting half of this policy but not the failure half: it records no `error` and no `na` at all (see [Cancellation](#cancellation)).
@@ -178,6 +215,8 @@ Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI v
 - **Single-threaded sequential execution** (simpler but leaves 75 % of CPU idle on a 4-core machine). Rejected.
 - **Cooperative cancellation inside modules** (every module would need checkpoints in tight loops; many bottlenecks are in C library calls that don't yield). Rejected for MVP.
 - **Workers writing directly to the DB** (SQLite is single-writer; would require connection pooling). Cleaner: main process is sole writer.
+- **A pool with `maxtasksperchild`** for the reuse of rev. 3 (#86). Rejected for the reason the pool was never implemented: the guards need to kill one identified worker and know which thesis it held. The runner's own slots give reuse without giving that up.
+- **Recycling after every N theses as the fix for growing workers** (#86). Rejected as the fix: the growth had one identifiable cause (textstat/pyphen caches), which is cleared at the source; recycling stays only as the [safeguard](#recycling).
 
 ## Consequences
 
@@ -186,7 +225,10 @@ Adapters subscribe and marshal to their event loops (GUI via `root.after`, CLI v
 - ✅ Crashes are isolated per worker / per thesis, and a *hard* crash (no `thesis_done`) is detected rather than hanging the run (#55).
 - ✅ DB writes serialised through the main process; no SQLite contention.
 - ✅ Cancel lag is bounded by `cancel_grace_s` + the join timeouts (~12 s worst case), not by one thesis per worker (~30–120 s) as in the original decision (#57).
+- ✅ Libraries load once per worker, not once per thesis (#86): 2.27x faster at 1 worker, 1.74x at 19 in the trial, with identical metrics.
 - ⚠️ Process pool brings pickling overhead per task; amortised away for our work units.
+- ⚠️ A long-lived worker carries library state from one thesis to the next. Guarded by clearing the one cache found to grow (`mod_readability`) and by [recycling](#recycling); a large PDF's heap peak now sits on the worker's ~330 MB base instead of a fresh ~200 MB process.
+- ⚠️ A warning a library prints once per process reaches `_stdout` only for each worker's first thesis (#86).
 
 ## Revisit when
 
