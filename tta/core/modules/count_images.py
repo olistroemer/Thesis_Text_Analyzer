@@ -31,21 +31,28 @@ _WS = rb"\x00\t\n\x0c\r "
 _WS_BYTES = b"\x00\t\n\x0c\r "
 _DELIM = rb"()<>\[\]{}/%"
 # A token boundary before an operator: start, whitespace or a closing
-# delimiter -- not `/`, which would make the letters part of a name.
-_BEFORE = rb"(?<![^" + _WS + rb")>\]}])"
+# delimiter -- not `/`, which would make the letters part of a name. Checked
+# in Python after a literal-first regex match: a regex lookbehind in front of
+# the literal defeats the engine's fast literal search (~50x slower on MBs of
+# image data).
+_BEFORE_BYTES = _WS_BYTES + b")>]}"
 _AFTER = rb"(?![^" + _WS + _DELIM + rb"])"
-_BI = _BEFORE + rb"BI" + _AFTER
-_BI_CANDIDATE = re.compile(_BI)
-# Careful scan: string literal start, comment start, or a `BI` operator.
-_SCAN = re.compile(rb"[(%]|" + _BI)
+_BI = re.compile(rb"BI" + _AFTER)
+# Careful scan: string literal start, comment start, or a `BI` candidate.
+_SCAN = re.compile(rb"[(%]|BI" + _AFTER)
 # Inside an inline-image dictionary: string literal, comment, or `ID` plus
 # the single whitespace byte that separates it from the image data.
-_ID_SCAN = re.compile(rb"[(%]|" + _BEFORE + rb"ID[" + _WS + rb"]")
-# End of inline-image data: a whitespace-delimited `EI`.
-_EI = re.compile(rb"[" + _WS + rb"]EI" + _AFTER)
+_ID_SCAN = re.compile(rb"[(%]|ID[" + _WS + rb"]")
+# End of inline-image data: `EI`, preceded by whitespace (checked in Python).
+_EI = re.compile(rb"EI" + _AFTER)
 _STRING_SPECIAL = re.compile(rb"[()\\]")
 _EOL = re.compile(rb"[\r\n]")
 _LENGTH = re.compile(rb"/L(?:ength)?[" + _WS + rb"]+(\d+)")
+
+
+def _at_boundary(data: bytes, start: int) -> bool:
+    """True if an operator matched at `start` begins a token."""
+    return start == 0 or data[start - 1] in _BEFORE_BYTES
 
 
 def _skip_string(data: bytes, pos: int) -> int:
@@ -89,8 +96,10 @@ def _skip_inline_image(data: bytes, pos: int) -> tuple[bool, int]:
             pos = _skip_string(data, m.end())
         elif tok == b"%":
             pos = _skip_comment(data, m.end())
-        else:
+        elif _at_boundary(data, m.start()):
             break
+        else:
+            pos = m.start() + 1
     data_start = m.end()
     length = _LENGTH.search(data, dict_start, m.start())
     if length is not None:
@@ -100,8 +109,14 @@ def _skip_inline_image(data: bytes, pos: int) -> tuple[bool, int]:
             j += 1
         if data.startswith(b"EI", j):
             return True, j + 2
-    ei = _EI.search(data, data_start)
-    return True, (len(data) if ei is None else ei.end())
+    pos = data_start + 1
+    while True:
+        ei = _EI.search(data, pos)
+        if ei is None:
+            return True, len(data)
+        if data[ei.start() - 1] in _WS_BYTES:
+            return True, ei.end()
+        pos = ei.start() + 1
 
 
 def count_inline_images(data: bytes) -> int:
@@ -112,8 +127,14 @@ def count_inline_images(data: bytes) -> int:
     comments are skipped (so `(BI)` shown as text never counts) and each
     image's data is skipped, never decoded.
     """
-    if _BI_CANDIDATE.search(data) is None:
-        return 0
+    pos = 0
+    while True:  # cheap pre-check: any `BI` operator candidate at all?
+        m = _BI.search(data, pos)
+        if m is None:
+            return 0
+        if _at_boundary(data, m.start()):
+            break
+        pos = m.start() + 1
     n = 0
     pos = 0
     while True:
@@ -125,6 +146,8 @@ def count_inline_images(data: bytes) -> int:
             pos = _skip_string(data, m.end())
         elif tok == b"%":
             pos = _skip_comment(data, m.end())
+        elif not _at_boundary(data, m.start()):
+            pos = m.start() + 1
         else:
             found, pos = _skip_inline_image(data, m.end())
             if found:
