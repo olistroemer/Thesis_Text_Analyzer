@@ -200,4 +200,6 @@ class Project:
             module_timeout_s=self.config.module_timeout_s,
             thesis_timeout_s=self.config.thesis_timeout_s,
             cancel_grace_s=self.config.cancel_grace_s,
+            recycle_after_theses=self.config.recycle_after_theses,
+            recycle_above_rss_mb=self.config.recycle_above_rss_mb,
         )

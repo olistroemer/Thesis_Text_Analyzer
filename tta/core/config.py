@@ -30,6 +30,10 @@ class Config:
     module_timeout_s: float | None = None
     thesis_timeout_s: float | None = None
     cancel_grace_s: float | None = None  # None -> runner default 2 s (#57)
+    # ADR-0013 "Recycling" (#86): None -> runner defaults (250 theses /
+    # 1024 MiB); 0 disables either safeguard
+    recycle_after_theses: int | None = None
+    recycle_above_rss_mb: float | None = None
     ui_mode: str = "basic"  # basic | extended (SDD Sec. 9.3)
     # UI locale (SDD Sec. 9.6, ADR-0020). None -> resolve from TTA_LOCALE, else
     # the German default. Deliberately NOT derived from the OS locale.
@@ -69,6 +73,8 @@ def load_config(project_dir: Path | str) -> Config:
         module_timeout_s=raw.get("runner", {}).get("module_timeout_s"),
         thesis_timeout_s=raw.get("runner", {}).get("thesis_timeout_s"),
         cancel_grace_s=raw.get("runner", {}).get("cancel_grace_s"),
+        recycle_after_theses=raw.get("runner", {}).get("recycle_after_theses"),
+        recycle_above_rss_mb=raw.get("runner", {}).get("recycle_above_rss_mb"),
         ui_mode=ui_mode,
         ui_locale=ui_locale,
         outlier_scheme=raw.get("ui", {}).get("outlier_scheme", "default"),
@@ -90,11 +96,16 @@ def save_config(project_dir: Path | str, config: Config) -> None:
         ("module_timeout_s", config.module_timeout_s),
         ("thesis_timeout_s", config.thesis_timeout_s),
         ("cancel_grace_s", config.cancel_grace_s),
+        ("recycle_above_rss_mb", config.recycle_above_rss_mb),
     ):
         if value is None:
             runner.pop(key, None)
         else:
             runner[key] = float(value)
+    if config.recycle_after_theses is None:
+        runner.pop("recycle_after_theses", None)
+    else:
+        runner["recycle_after_theses"] = int(config.recycle_after_theses)
     ui = dict(raw.get("ui", {}))
     ui["mode"] = config.ui_mode
     if config.ui_locale is None:
