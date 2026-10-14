@@ -124,7 +124,8 @@ def test_inline_images_in_flate_content(build_ctx, tmp_path):
 
 
 def test_nested_form_xobject(build_ctx, tmp_path):
-    # page -> form 5 -> form 6 -> image 4; form 6 also holds an inline image.
+    # page -> form 5 -> form 6 -> image 4. Form 6 also holds an inline image,
+    # which does not count: only the page's own content is scanned (SDD Sec. 7.4).
     objects = {
         3: _page(b"<< /XObject << /Fm1 5 0 R >> >>", 7),
         4: IMAGE,
@@ -132,7 +133,7 @@ def test_nested_form_xobject(build_ctx, tmp_path):
         6: _form(b"<< /XObject << /Im1 4 0 R >> >>", b"/Im1 Do " + GOOD_INLINE),
         7: (b"<< >>", b"/Fm1 Do"),
     }
-    assert _count(build_ctx, tmp_path, objects, [3]) == 2
+    assert _count(build_ctx, tmp_path, objects, [3]) == 1
 
 
 def test_same_xobject_counts_once_per_page(build_ctx, tmp_path):
