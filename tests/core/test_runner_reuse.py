@@ -143,7 +143,9 @@ def test_two_workers_share_the_batch(project, tmp_path, monkeypatch):
     "bad, settings, reason",
     [
         ("hang.pdf", {"module_timeout_s": 1.0}, "timeout"),
-        ("hang.pdf", {"thesis_timeout_s": 1.0}, "thesis deadline exceeded"),
+        # the first thesis on a fresh worker carries its start-up inside the
+        # deadline (measured from hand-over), so leave room for a slow import
+        ("hang.pdf", {"thesis_timeout_s": 6.0}, "thesis deadline exceeded"),
         ("die.pdf", {}, "worker died"),
     ],
     ids=["module-timeout", "thesis-deadline", "worker-death"],

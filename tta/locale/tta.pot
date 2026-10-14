@@ -1248,7 +1248,7 @@ msgstr ""
 msgid "err"
 msgstr ""
 
-#: tta/core/progress.py:337
+#: tta/core/progress.py:339
 #: tta/ui/tk/main_window.py:517
 msgid "estimating..."
 msgstr ""
