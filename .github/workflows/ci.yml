@@ -409,10 +409,9 @@ jobs:
     permissions:
       contents: write
 
+    # No checkout: nothing here reads the source. The artefacts come from
+    # the build job and `gh` takes the repository from GH_REPO below.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: Download every target's artefact
         uses: actions/download-artifact@v8
         with:
@@ -448,9 +447,12 @@ jobs:
           done
           ls -l upload
 
+      # Draft only; the release notes state why. GH_REPO stands in for the
+      # git remote `gh` would otherwise read from a checkout.
       - name: Open the draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" upload/* \

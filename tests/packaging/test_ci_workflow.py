@@ -404,3 +404,20 @@ def test_every_action_is_on_a_node24_major(workflow_source):
             "%s@v%s targets Node 20; use v%d or later"
             % (action, major, FIRST_NODE24_MAJOR[action])
         )
+
+
+def test_the_release_collects_files_below_the_artefact_root(workflow_source):
+    """upload-artifact roots a multi-path artefact at the paths' common
+    ancestor, so the binary arrives as dist/... and the manifest as
+    build/licenses/...: a one-level glob hands `cp` two directories (#35)."""
+    release = job(workflow_source, "release")
+    collect = release.split("name: Collect the release assets", 1)[1]
+    assert 'find "$dir" -type f' in collect
+    assert 'for path in "$dir"*' not in collect
+
+
+def test_the_release_job_names_its_repository_for_gh(workflow_source):
+    """Without a checkout `gh` has no git remote to read the repo from."""
+    release = job(workflow_source, "release")
+    if "actions/checkout" not in release:
+        assert "GH_REPO: ${{ github.repository }}" in release
