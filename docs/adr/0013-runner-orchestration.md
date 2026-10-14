@@ -47,7 +47,7 @@ The resident-set probe uses the **standard library only** (psutil is not a depen
 
 ### Effect on the ETA
 
-The cost of a run is now a **one-off start-up per worker plus a per-thesis cost**, not a per-thesis cost that contains the start-up. The estimator models it that way (SDD Sec. 5.5): workers start in parallel, so their start-up (~2.6 s, `WORKER_STARTUP_MS`) shifts the whole run once and counts down with the run's elapsed time; the per-module priors are re-seeded from the trial's warm-worker medians (~1.1 s per thesis in sum); and the in-run fit ignores each worker's first thesis, which carries the start-up. Replacements after a kill or a recycle pay the start-up again; they are rare and not modelled.
+The cost of a run is now a **one-off start-up per worker plus a per-thesis cost**, not a per-thesis cost that contains the start-up. The estimator models it that way (SDD Sec. 5.5): workers start in parallel, so their start-up (~2.6 s, `WORKER_STARTUP_MS`) shifts the whole run once and counts down with the run's elapsed time; the per-module priors are re-seeded from the trial's warm-worker means per module (~1.9 s per thesis in sum; the median thesis takes ~1.1-1.3 s, the mean is pulled up by `mod_count_images`' tail); and the in-run fit ignores the first `workers` theses of the plan, which go to fresh workers and carry the start-up. Replacements after a kill or a recycle pay the start-up again; they are rare and not modelled.
 
 ## Cancellation
 

@@ -43,7 +43,7 @@ The application must **run without crashing** on the lower-end machine. Headline
 
 Workers are long-lived since [ADR-0013](0013-runner-orchestration.md#worker-reuse) rev. 3, so library start-up (nltk/textstat/langdetect/PyMuPDF) is paid once per worker instead of once per thesis. On the exp-86 reference machine (i7-13700H, native Windows, 200-thesis sample) that is ~2.6 s per worker plus a median ~1.1 s per thesis, against ~3.0 s per thesis before; the per-module budgets above are unchanged and remain ceilings. Two consequences for this ADR:
 
-- **The ETA no longer takes its priors from the budget table.** The budgets are ceilings that contained the per-thesis start-up; the estimator's priors are the measured warm-worker medians plus a one-off start-up term (SDD Sec. 5.5).
+- **The ETA no longer takes its priors from the budget table.** The budgets are ceilings that contained the per-thesis start-up; the estimator's priors are the measured warm-worker means per module plus a one-off start-up term (SDD Sec. 5.5).
 - **The memory budget now applies to a long-lived worker.** Its steady state is ~330-350 MB once `mod_readability` clears its library caches; a large PDF's transient peak sits on that base. A worker still above the per-worker budget after a thesis is recycled (`[runner] recycle_above_rss_mb`, default 1024 MiB = the budget; the 4 GB tier lowers it by hand).
 
 ## Pause / resume — a free feature
