@@ -28,7 +28,7 @@ Dropped from the trial: fields, sample-vs-reference per field, the 2023 shift, c
 
 **Offline, no external resources.** The document opens no network connection and references no external resource of any kind: no CDN, no web font, no remote image or script. Enforced by tests: (a) outside the embedded library the document contains no `http://` or `https://` at all; (b) the embedded library is byte-identical to the pinned file; (c) every `src`/`href` in the document is either absent or a local `file:` link to a PDF. The library itself contains URL strings (SVG/XML namespaces, the Chart Studio endpoint, the topojson CDN of the geo traces, which this bundle does not contain); the report's plotly configuration switches off every feature that could use them (`showLink`, `showSendToCloud`, `showEditInChartStudio`, `topojsonURL` empty, no MathJax).
 
-**Size.** A report is ~1.7-2 MB (the library is 1.5 MB), against ~50 KB for rev. 2. The binary grows by the compressed library and the aggregates (~0.6 MB); measured in [ADR-0014](0014-distribution.md).
+**Size.** A report is ~1.65 MB for a handful of theses and ~1.9 MB for 150 (the library is 1.5 MB), against ~50 KB for rev. 2. Each binary grows by 0.53 MiB (the compressed library, the script and the aggregates); measured in [ADR-0014](0014-distribution.md).
 
 **Revisit when** a professor needs the report on a machine where scripts are disabled in local files (then: a static fallback), or plotly.js drops the partial bundles.
 

@@ -72,6 +72,14 @@ Why `tools/` and not a `tta` subcommand: the generator depends on the research t
 
 **10. Interim data (2026-11-18).** The first committed file is generated from the last complete reference run (`TTA-exp22/ref_tta.sqlite`, 2026-09), which predates the #81/#82 detectors and the #22 text views; it is marked `"status": "interim"` with that provenance in `source`, and the report says so in its reference caption. It is replaced by a file generated from a re-run of the HU+ETH corpus with the release's code (with the ETH cover ruleset, [ADR-0023](0023-researcher-cover-rulesets.md)) **before the next release**; the release file carries `"status": "release"`.
 
+Re-running is cheap: the HU+ETH re-run of 2026-11-18 (3,275 PDFs, main `fbe297c`, ETH cover ruleset) took 946 s on the development machine, and the generator reads the finished project in about 6 s:
+
+```
+python tools/reference_aggregates.py --project <TTA-ref-2026-11>/project     --harvest-root <harvester>/data --status release     --source "reference theses of HU Berlin (edoc) and ETH Zurich, re-run 2026-11-18, main fbe297c"
+```
+
+The `source` text is stored in the package, so it must not contain the repository-specific phrases that [ADR-0023](0023-researcher-cover-rulesets.md) keeps out of `tta/` (its guard test covers `.json` files): say "ETH Zurich", not the repository's own name.
+
 ## Alternatives considered
 
 - **Ship per-thesis reference values** (or a histogram per bucket). Would allow percentile ranks and tests in the report, but ships third-party thesis data and grows the file by orders of magnitude. Rejected by the owner.
