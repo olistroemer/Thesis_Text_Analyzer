@@ -5,6 +5,9 @@ With long-lived workers the run holds idle workers as well as busy ones, so
 this checks the end state a user sees and the one they do not: the toolbar is
 back, no worker process is left behind, and the database holds exactly what
 finished - an abandoned thesis leaves no row and is replanned as missing.
+
+It failed once, unexplained, under heavy machine load; recurrences are
+collected in #89 - post the assertion's state output there.
 """
 
 import multiprocessing
