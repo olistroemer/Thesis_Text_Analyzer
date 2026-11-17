@@ -72,6 +72,13 @@ the distributed binaries.
 the shipped product: `.github/workflows/ci.yml` installs `.[build,pymupdf]` for the release build.
 See [§8](#8-audit-findings) F2 for the AGPL reasoning and F5 for the packaging inconsistency.
 
+**Capped below 2 (2026-11-17).** The extra declares `pymupdf>=1.24,<2`. PyMuPDF 2.0/2.1 hard-require
+`networkx`, `numpy`, `onnxruntime`, `pyyaml`, `pymupdf-layout`, `pymupdf4llm`, `psutil` and
+`tabulate`, which would freeze numpy and onnxruntime into the binaries for a layout model `tta`
+does not use (rejected as variant C of Exp #22). None of those packages is in the inventory below
+because the 1.x line pulls in none of them. Reasoning of record:
+[ADR-0014](adr/0014-distribution.md) ("PyMuPDF is pinned below 2").
+
 ---
 
 ## 3. Runtime dependencies — transitive
