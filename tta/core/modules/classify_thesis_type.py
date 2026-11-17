@@ -18,13 +18,12 @@ v1"), ported from the #82 exploration:
   supervisor and examiner titles, study programmes or topics.
 - The earliest valid marker wins. A "Master of Advanced Studies / MAS"
   statement on the same page turns a master marker into `mas`. "Nachdiplom..."
-  is not "Diplom...". The ETH declaration of originality, which lists every
-  paper type, is excluded.
+  is not "Diplom...".
 - Tier 2: a bare "Bachelor/Master of <field>" counts only when no tier-1
   marker is in the window (it is also the author's previous degree).
-- Markers on a page that carries a repository metadata block (generic deposit
-  labels such as "Publication date:" / "Permanent link:") do not count; the
-  page itself is not skipped.
+- Nothing is excluded for a repository's layout on the default path. A
+  researcher ruleset (ADR-0023) may skip cover pages and mark pages or
+  passages (e.g. one institution's declaration form) as not evidence.
 
 Garbled/sparse or marker-free text returns `unspecified` (a valid answer),
 never `NotApplicable` - the type metric is always present so the grid/report
@@ -127,18 +126,8 @@ TIER2: dict[str, tuple[tuple[str, str], ...]] = {
     ),
 }
 
-#: Text spans whose markers do not count. The ETH declaration of originality
-#: lists every paper type ("component of every semester paper, bachelor's
-#: thesis, master's thesis ..."); the span runs 40 characters past the match.
-EXCLUSIONS = (
-    (
-        "declaration of originality",
-        re.compile(
-            r"(?:component of every|bestandteil jeder).{0,160}?(?:degree paper|abschlussarbeit|arbeit)"
-        ),
-    ),
-)
-_EXCLUSION_TAIL = 40
+#: Prefix of the exclusion reasons a researcher ruleset adds (ADR-0023).
+RULESET_EXCLUSION = "ruleset:"
 
 #: Tie-break for two markers starting at the same index (practically
 #: unreachable): the more specific class first.
@@ -160,21 +149,13 @@ class Marker:
     excluded: str | None
 
 
-#: Exclusion reason for markers on a page carrying a repository metadata
-#: block (`_titlepage.is_repository_metadata_page`): its type line is the
-#: repository's metadata, not the document's statement.
-REPOSITORY_PAGE = "repository metadata page"
-
-
-def _window(own_pages: tuple[str, ...]) -> tuple[str, list[int], list[bool]]:
-    """Normalised, letter-spacing-collapsed window, each page's start offset
-    and whether the page is a repository metadata page."""
-    text, starts, metadata = "", [], []
+def _window(own_pages: tuple[str, ...]) -> tuple[str, list[int]]:
+    """Normalised, letter-spacing-collapsed window and each page's start offset."""
+    text, starts = "", []
     for page in own_pages[:WINDOW_PAGES]:
         starts.append(len(text))
-        metadata.append(_titlepage.is_repository_metadata_page(page))
         text += _titlepage.collapse_letter_spacing(_titlepage.normalise(page)) + " "
-    return text, starts, metadata
+    return text, starts
 
 
 def _page_of(offset: int, starts: list[int]) -> int:
@@ -182,11 +163,21 @@ def _page_of(offset: int, starts: list[int]) -> int:
 
 
 def find_markers(
-    text: str, starts: list[int], tier: int, metadata: list[bool] | None = None
+    text: str,
+    starts: list[int],
+    tier: int,
+    not_evidence: list[str | None] | None = None,
+    passages: tuple[tuple[str, re.Pattern, int], ...] = (),
 ) -> list[Marker]:
+    """Every marker of ``tier`` in the window, with its exclusion reason.
+
+    ``not_evidence`` (per own page: a researcher rule id or ``None``) and
+    ``passages`` (``(rule id, pattern, tail)``) come from a researcher ruleset
+    and are empty on the default path (ADR-0023).
+    """
     spans = [
-        (m.start(), m.end() + _EXCLUSION_TAIL, name)
-        for name, rx in EXCLUSIONS
+        (m.start(), m.end() + tail, RULESET_EXCLUSION + rule_id)
+        for rule_id, rx, tail in passages
         for m in rx.finditer(text)
     ]
     table = _TIER1_RE if tier == 1 else _TIER2_RE
@@ -196,23 +187,32 @@ def find_markers(
             for m in rx.finditer(text):
                 page = _page_of(m.start(), starts)
                 excluded = next((n for s, e, n in spans if s <= m.start() < e), None)
-                if excluded is None and metadata and metadata[page]:
-                    excluded = REPOSITORY_PAGE
+                if excluded is None and not_evidence and not_evidence[page]:
+                    excluded = RULESET_EXCLUSION + not_evidence[page]
                 found.append(Marker(m.start(), page, cls, mid, tier, excluded))
     found.sort(key=lambda h: (h.offset, PRIORITY.index(h.cls)))
     return found
 
 
-def classify(own_pages: tuple[str, ...]) -> tuple[str, str | None, Marker | None, list[Marker]]:
+def compile_passages(rules) -> tuple[tuple[str, re.Pattern, int], ...]:
+    """Type-marker passages of a researcher ruleset (``PatternRule``s)."""
+    return tuple((r.id, re.compile(r.pattern), r.tail) for r in rules)
+
+
+def classify(
+    own_pages: tuple[str, ...],
+    not_evidence: list[str | None] | None = None,
+    passages: tuple[tuple[str, re.Pattern, int], ...] = (),
+) -> tuple[str, str | None, Marker | None, list[Marker]]:
     """``(class, rule, winning marker, all markers)`` for the document's own pages."""
-    text, starts, metadata = _window(own_pages)
+    text, starts = _window(own_pages)
     if not starts:
         return UNSPECIFIED, None, None, []
-    markers = find_markers(text, starts, tier=1, metadata=metadata)
+    markers = find_markers(text, starts, 1, not_evidence, passages)
     valid = [m for m in markers if m.excluded is None]
     rule = "earliest_marker"
     if not valid:
-        markers += find_markers(text, starts, tier=2, metadata=metadata)
+        markers += find_markers(text, starts, 2, not_evidence, passages)
         valid = [m for m in markers if m.excluded is None]
         rule = "earliest_marker_tier2"
     if not valid:
@@ -237,9 +237,11 @@ class ClassifyThesisType(Module):
     )
 
     def __init__(self, cover_rules: _titlepage.CoverRuleset | None = None):
-        # ADR-0023: no cover rules by default; a researcher ruleset changes
-        # the effective version so its runs are never mixed with default ones
+        # ADR-0023: no ruleset by default - the text is read unmodified; a
+        # researcher ruleset changes the effective version so its runs are
+        # never mixed with default ones
         self.cover_rules = cover_rules
+        self._passages = compile_passages(cover_rules.type_passages) if cover_rules else ()
         if cover_rules is not None:
             self.spec = replace(
                 type(self).spec, version=_titlepage.versioned(type(self).spec.version, cover_rules)
@@ -248,7 +250,12 @@ class ClassifyThesisType(Module):
     def run(self, ctx: RunContext) -> RunResult:
         text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
         front = _titlepage.front_matter(text, self.cover_rules)
-        decision, rule, winner, markers = classify(front.own_pages())
+        own = range(front.own_start, min(front.own_start + WINDOW_PAGES, len(front.pages)))
+        decision, rule, winner, markers = classify(
+            front.own_pages(),
+            not_evidence=[front.not_evidence_rule(i) for i in own],
+            passages=self._passages,
+        )
         diagnostics: dict[str, object] = {
             "thesis_type": decision,
             "rules": "type markers v1 (ADR-0019 rev. 3)",

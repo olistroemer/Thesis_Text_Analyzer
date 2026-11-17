@@ -62,9 +62,11 @@ class DeterminePublicationYear(Module):
     )
 
     def __init__(self, cover_rules: _titlepage.CoverRuleset | None = None):
-        # ADR-0023: no cover rules by default; a researcher ruleset changes
-        # the effective version so its runs are never mixed with default ones
+        # ADR-0023: no ruleset by default - the text is read unmodified; a
+        # researcher ruleset changes the effective version so its runs are
+        # never mixed with default ones
         self.cover_rules = cover_rules
+        self._extra_cues = _dates.compile_cues(cover_rules.date_cues) if cover_rules else ()
         if cover_rules is not None:
             self.spec = replace(
                 type(self).spec, version=_titlepage.versioned(type(self).spec.version, cover_rules)
@@ -79,8 +81,13 @@ class DeterminePublicationYear(Module):
         if title_page is None:
             decision = _dates.Decision(None, None, [])
         else:
-            window = list(front.pages[title_page : title_page + WINDOW_PAGES])
-            decision = _dates.pick(window, max_year)
+            indices = range(title_page, min(title_page + WINDOW_PAGES, len(front.pages)))
+            decision = _dates.pick(
+                [front.pages[i] for i in indices],
+                max_year,
+                not_evidence=[front.not_evidence_rule(i) for i in indices],
+                extra_cues=self._extra_cues,
+            )
 
         metadata = json.loads(
             ctx.artefacts[artefact_kinds.PDF_METADATA].read_text(encoding="utf-8")

@@ -11,7 +11,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 
-#: tta/cli/main.py:733
+#: tta/cli/main.py:736
 msgid " | cancelled"
 msgstr ""
 
@@ -357,7 +357,7 @@ msgstr ""
 msgid "Don't ask again"
 msgstr ""
 
-#: tta/cli/main.py:773
+#: tta/cli/main.py:776
 msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
 msgstr ""
 
@@ -514,7 +514,7 @@ msgstr ""
 msgid "Images"
 msgstr ""
 
-#: tta/cli/main.py:830
+#: tta/cli/main.py:833
 msgid "Import another installation's export as a new, read-only source."
 msgstr ""
 
@@ -861,11 +861,11 @@ msgid ""
 "The PDF itself is not touched. This cannot be undone."
 msgstr ""
 
-#: tta/cli/main.py:861
+#: tta/cli/main.py:864
 msgid "Render the data-protection statement."
 msgstr ""
 
-#: tta/cli/main.py:866
+#: tta/cli/main.py:869
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr ""
 
@@ -888,7 +888,7 @@ msgid "Report written to {path}"
 msgstr ""
 
 #: tta/cli/main.py:615
-msgid "Researcher option: skip leading repository cover pages that match the rules in this file before reading the title page. Theses analysed with and without a ruleset are kept apart: changing the choice re-analyses the title-page modules."
+msgid "Researcher option: apply the repository rules in this file (skip cover pages, ignore pages and passages that are no evidence) when reading the title page. Without it every thesis is read unmodified. Theses analysed with and without a ruleset are kept apart: changing the choice re-analyses the title-page modules."
 msgstr ""
 
 #: tta/cli/main.py:605
@@ -931,7 +931,7 @@ msgstr ""
 msgid "Scrub incomplete"
 msgstr ""
 
-#: tta/cli/main.py:949
+#: tta/cli/main.py:952
 #: tta/ui/tk/help_view.py:49
 msgid "See also"
 msgstr ""
@@ -956,7 +956,7 @@ msgstr ""
 msgid "Share of word types that occur exactly once."
 msgstr ""
 
-#: tta/cli/main.py:954
+#: tta/cli/main.py:957
 msgid "Show a help topic - a module, a metric or a concept - in the terminal."
 msgstr ""
 
@@ -981,7 +981,7 @@ msgstr ""
 msgid "Source code (GPL Sec. 6), copy the address to visit it:"
 msgstr ""
 
-#: tta/cli/main.py:835
+#: tta/cli/main.py:838
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr ""
 
@@ -1089,7 +1089,7 @@ msgstr ""
 msgid "Trends"
 msgstr ""
 
-#: tta/cli/main.py:771
+#: tta/cli/main.py:774
 msgid "Trim history to the latest run per (thesis, module)."
 msgstr ""
 
@@ -1129,7 +1129,7 @@ msgstr ""
 msgid "Vocabulary richness (Yule's K)"
 msgstr ""
 
-#: tta/cli/main.py:905
+#: tta/cli/main.py:908
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr ""
 
@@ -1149,22 +1149,22 @@ msgstr ""
 msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
 msgstr ""
 
-#: tta/cli/main.py:758
+#: tta/cli/main.py:761
 msgid "Write the researcher export, free of personal data."
 msgstr ""
 
-#: tta/cli/main.py:759
+#: tta/cli/main.py:762
 msgid ""
 "Write the researcher export: an SQLite file holding the metric values and no personal data.\n"
 "\n"
 "With --profiling, the flat per-run timing dataset is written instead: one CSV row per module run, with its duration and the size of the PDF it was measured on. Both obey the same rules - only data produced on this machine, and no identifying column."
 msgstr ""
 
-#: tta/cli/main.py:893
+#: tta/cli/main.py:896
 msgid "Write the stand-alone HTML report for the cohort."
 msgstr ""
 
-#: tta/cli/main.py:894
+#: tta/cli/main.py:897
 msgid ""
 "Write the stand-alone HTML report over the whole cohort.\n"
 "\n"
@@ -1196,7 +1196,7 @@ msgstr ""
 msgid "aborted; no changes made"
 msgstr ""
 
-#: tta/cli/main.py:657
+#: tta/cli/main.py:660
 msgid "added {count} theses from {paths} input path(s)"
 msgstr ""
 
@@ -1224,11 +1224,11 @@ msgstr ""
 msgid "audit trail, profiling"
 msgstr ""
 
-#: tta/cli/main.py:975
+#: tta/cli/main.py:978
 msgid "available topics:"
 msgstr ""
 
-#: tta/cli/main.py:700
+#: tta/cli/main.py:703
 msgid "cancelling - finishing in-flight theses (Ctrl-C again to force)..."
 msgstr ""
 
@@ -1264,7 +1264,7 @@ msgstr ""
 msgid "count embedded images in the PDF"
 msgstr ""
 
-#: tta/cli/main.py:642
+#: tta/cli/main.py:645
 msgid "cover rules: {id} version {version} ({fingerprint}), {count} rule(s)"
 msgstr ""
 
@@ -1321,11 +1321,11 @@ msgstr ""
 msgid "excluded thesis {thesis_id}; cached analysis scrubbed"
 msgstr ""
 
-#: tta/cli/main.py:805
+#: tta/cli/main.py:808
 msgid "exported {rows} module runs across {modules} modules ({policy}) -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:817
+#: tta/cli/main.py:820
 msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy}) -> {path}"
 msgstr ""
 
@@ -1377,7 +1377,7 @@ msgstr ""
 msgid "import compatibility check"
 msgstr ""
 
-#: tta/cli/main.py:845
+#: tta/cli/main.py:848
 msgid "imported source {source_id} ({name}): {theses} theses, {runs} runs, {metrics} metric values"
 msgstr ""
 
@@ -1452,11 +1452,11 @@ msgstr ""
 msgid "no"
 msgstr ""
 
-#: tta/cli/main.py:963
+#: tta/cli/main.py:966
 msgid "no help topic {topic}"
 msgstr ""
 
-#: tta/cli/main.py:979
+#: tta/cli/main.py:982
 #: tta/ui/tk/help_view.py:48
 msgid "no help topics installed yet"
 msgstr ""
@@ -1564,11 +1564,11 @@ msgstr ""
 msgid "repeated word-pair/triple rates"
 msgstr ""
 
-#: tta/cli/main.py:920
+#: tta/cli/main.py:923
 msgid "report over {theses} theses -> {path}"
 msgstr ""
 
-#: tta/cli/main.py:748
+#: tta/cli/main.py:751
 msgid "report written to {path}"
 msgstr ""
 
@@ -1689,7 +1689,7 @@ msgstr ""
 msgid "{bins} equal-width bins; series are overlaid, not stacked."
 msgstr ""
 
-#: tta/cli/main.py:686
+#: tta/cli/main.py:689
 msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
@@ -1760,7 +1760,7 @@ msgstr ""
 msgid "{ok} ok | {na} na | {error} err | {missing} todo"
 msgstr ""
 
-#: tta/cli/main.py:735
+#: tta/cli/main.py:738
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr ""
 

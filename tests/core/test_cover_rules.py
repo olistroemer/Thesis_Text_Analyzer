@@ -1,6 +1,6 @@
-"""Researcher cover-page rulesets (ADR-0023, #81, #82): loader, the ETH
-ruleset kept in research/, and the guarantees that the shipped app applies
-no cover rule and ships no ruleset.
+"""Researcher rulesets (ADR-0023, #81, #82): loader, the ETH ruleset kept in
+research/, and the guarantees that the shipped app applies no repository rule,
+contains none of the moved rules' text and ships no ruleset.
 """
 
 import ast
@@ -28,29 +28,65 @@ ETH_COVER_OLD = (
     "Collection. For more\ninformation please consult the Terms of use.\nETH Library\n"
 )
 
-MINIMAL = {"id": "x", "version": "1", "rules": [{"id": "r", "all_of": ["cover"]}]}
+MINIMAL = {"id": "x", "version": "1", "covers": [{"id": "r", "all_of": ["cover"]}]}
+# every repository- or institution-specific text the default path used to carry
+# (round 1 of the lane) and the ETH cover marker: none may live under tta/
+MOVED_TEXT = (
+    "generated automatically upon download",
+    "research collection",
+    "publication date:",
+    "permanent link",
+    "rights / license",
+    "component of every",
+    "bestandteil jeder",
+)
 
 
 def test_parse_minimal_ruleset():
     rules = parse_cover_ruleset(MINIMAL, source="x.toml")
     assert rules.id == "x" and rules.version == "1" and rules.max_pages == 3
-    assert rules.rules[0].all_of == ("cover",)
+    assert rules.covers[0].all_of == ("cover",)
+    assert rules.not_evidence_pages == rules.date_cues == rules.type_passages == ()
     assert rules.source == "x.toml"
+
+
+def test_parse_every_rule_kind():
+    rules = parse_cover_ruleset(
+        {
+            "id": "x",
+            "version": 2,
+            "not_evidence_pages": [{"id": "p", "any_of": ["a:", "b:", "c:"], "min_any": 2}],
+            "date_cues": [{"id": "d", "pattern": "deposited"}],
+            "type_passages": [{"id": "t", "pattern": "every (?:thesis|paper)", "tail": 40}],
+        }
+    )
+    assert rules.covers == ()
+    assert rules.not_evidence_pages[0].min_any == 2
+    assert rules.date_cues[0].pattern == "deposited"
+    assert rules.type_passages[0].tail == 40
+    assert rules.rule_ids() == ["p", "d", "t"]
 
 
 @pytest.mark.parametrize(
     "data, message",
     [
         ({**MINIMAL, "colour": "red"}, "unknown key"),
-        ({"version": "1", "rules": MINIMAL["rules"]}, "'id'"),
-        ({"id": "x", "rules": MINIMAL["rules"]}, "'version'"),
-        ({**MINIMAL, "rules": []}, "at least one"),
+        ({**MINIMAL, "rules": []}, "unknown key"),  # the round-1 key is gone
+        ({"version": "1", "covers": MINIMAL["covers"]}, "'id'"),
+        ({"id": "x", "covers": MINIMAL["covers"]}, "'version'"),
+        ({**MINIMAL, "covers": []}, "at least one rule"),
         ({**MINIMAL, "max_pages": 0}, "max_pages"),
-        ({**MINIMAL, "rules": [{"id": "r", "allof": ["cover"]}]}, "unknown key"),
-        ({**MINIMAL, "rules": [{"id": "r"}]}, "all_of"),
-        ({**MINIMAL, "rules": [{"id": "r", "all_of": "cover"}]}, "list of non-empty strings"),
-        ({**MINIMAL, "rules": [{"id": "r", "all_of": ["a"]}, {"id": "r", "all_of": ["b"]}]},
+        ({**MINIMAL, "covers": [{"id": "r", "allof": ["cover"]}]}, "unknown key"),
+        ({**MINIMAL, "covers": [{"id": "r"}]}, "all_of"),
+        ({**MINIMAL, "covers": [{"id": "r", "all_of": "cover"}]}, "list of non-empty strings"),
+        ({**MINIMAL, "covers": [{"id": "r", "any_of": ["a"], "min_any": 2}]}, "min_any"),
+        ({**MINIMAL, "covers": [{"id": "r", "all_of": ["a"]}, {"id": "r", "all_of": ["b"]}]},
          "duplicate"),
+        ({**MINIMAL, "date_cues": [{"id": "r"}]}, "duplicate"),
+        ({**MINIMAL, "date_cues": [{"id": "d"}]}, "'pattern'"),
+        ({**MINIMAL, "date_cues": [{"id": "d", "pattern": "(unclosed"}]}, "regular expression"),
+        ({**MINIMAL, "type_passages": [{"id": "t", "pattern": "x", "tail": -1}]}, "tail"),
+        ({**MINIMAL, "type_passages": "x"}, "list of"),
     ],
 )
 def test_invalid_rulesets_are_rejected(data, message):
@@ -71,6 +107,12 @@ def test_the_eth_research_ruleset_loads_and_matches_both_layouts():
     rules = load_cover_ruleset(ETH_FILE)
     assert rules.id == "eth-research-collection"
     assert rules.source == "eth_research_collection.toml"
+    assert rules.rule_ids() == [
+        "eth-rc-download-cover",
+        "eth-rc-metadata-block",
+        "eth-rc-publication-date-label",
+        "eth-declaration-of-originality",
+    ]
     for cover in (ETH_COVER, ETH_COVER_OLD):
         front = _titlepage.front_matter(cover + "\f" + cover + "\fMasterarbeit " + "x" * 30, rules)
         assert front.covers == ((0, "eth-rc-download-cover"), (1, "eth-rc-download-cover"))
@@ -100,16 +142,17 @@ def test_registry_with_a_ruleset_versions_both_title_page_modules():
     assert all("+" not in m.spec.version for m in others)
 
 
-def test_no_cover_rule_text_lives_in_the_package():
-    """The ETH rule is data in research/, not shipped code (owner decision on #81/#82)."""
-    marker = re.compile(r"generated automatically upon download", re.IGNORECASE)
-    offenders = [
-        str(path.relative_to(REPO_ROOT))
+def test_no_repository_specific_text_lives_in_the_package():
+    """Repository- and institution-specific rules are data in research/, not
+    shipped code or help (owner decisions on #81/#82): none of their text may
+    appear anywhere under tta/ - sources, help pages or catalogues."""
+    offenders = sorted(
+        (str(path.relative_to(REPO_ROOT)), phrase)
         for path in (REPO_ROOT / "tta").rglob("*")
-        if path.is_file()
-        and path.suffix in {".py", ".toml", ".json", ".txt"}
-        and marker.search(path.read_text(encoding="utf-8", errors="ignore"))
-    ]
+        if path.is_file() and path.suffix in {".py", ".md", ".po", ".pot", ".toml", ".json", ".txt"}
+        for phrase in MOVED_TEXT
+        if phrase in path.read_text(encoding="utf-8", errors="ignore").casefold()
+    )
     assert offenders == []
 
 

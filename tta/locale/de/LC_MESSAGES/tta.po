@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: tta/cli/main.py:733
+#: tta/cli/main.py:736
 msgid " | cancelled"
 msgstr " | abgebrochen"
 
@@ -386,7 +386,7 @@ msgstr "Dokumentinhalte (bleiben ausschließlich auf diesem Rechner)"
 msgid "Don't ask again"
 msgstr "Nicht mehr fragen"
 
-#: tta/cli/main.py:773
+#: tta/cli/main.py:776
 msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
 msgstr "Die Laufzeiten je Lauf als CSV ausgeben statt des Kohortenexports (QA-RES)."
 
@@ -555,7 +555,7 @@ msgstr "Wie genau das Datum hinter dem Veröffentlichungsjahr ist: Tag, Monat, S
 msgid "Images"
 msgstr "Abbildungen"
 
-#: tta/cli/main.py:830
+#: tta/cli/main.py:833
 msgid "Import another installation's export as a new, read-only source."
 msgstr "Den Export einer anderen Installation als neue, nur lesbare Quelle importieren."
 
@@ -915,11 +915,11 @@ msgstr ""
 "\n"
 "Die PDF-Datei selbst wird nicht angetastet. Dies kann nicht rückgängig gemacht werden."
 
-#: tta/cli/main.py:861
+#: tta/cli/main.py:864
 msgid "Render the data-protection statement."
 msgstr "Die Datenschutzerklärung ausgeben."
 
-#: tta/cli/main.py:866
+#: tta/cli/main.py:869
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr "Die Datenschutzerklärung ausgeben. Sie wird aus dem Datenschutzregister im Quellcode erzeugt und nie von Hand geschrieben, kann also nicht hinter dem zurückfallen, was die Anwendung tatsächlich speichert."
 
@@ -942,8 +942,8 @@ msgid "Report written to {path}"
 msgstr "Bericht geschrieben nach {path}"
 
 #: tta/cli/main.py:615
-msgid "Researcher option: skip leading repository cover pages that match the rules in this file before reading the title page. Theses analysed with and without a ruleset are kept apart: changing the choice re-analyses the title-page modules."
-msgstr "Option für Forschende: führende Deckblätter eines Repositoriums, auf die die Regeln dieser Datei passen, vor dem Lesen der Titelseite überspringen. Mit und ohne Regelsatz analysierte Arbeiten bleiben getrennt: Ein Wechsel analysiert die Titelseiten-Module neu."
+msgid "Researcher option: apply the repository rules in this file (skip cover pages, ignore pages and passages that are no evidence) when reading the title page. Without it every thesis is read unmodified. Theses analysed with and without a ruleset are kept apart: changing the choice re-analyses the title-page modules."
+msgstr "Option für Forschende: die Repositoriums-Regeln dieser Datei beim Lesen der Titelseite anwenden (Deckblätter überspringen, Seiten und Textstellen nicht als Beleg zählen). Ohne sie wird jede Arbeit unverändert gelesen. Mit und ohne Regelsatz analysierte Arbeiten bleiben getrennt: Ein Wechsel analysiert die Titelseiten-Module neu."
 
 #: tta/cli/main.py:605
 msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
@@ -985,7 +985,7 @@ msgstr "Streudiagramm der Wortzahl über dem Veröffentlichungsjahr."
 msgid "Scrub incomplete"
 msgstr "Löschung unvollständig"
 
-#: tta/cli/main.py:949
+#: tta/cli/main.py:952
 #: tta/ui/tk/help_view.py:49
 msgid "See also"
 msgstr "Siehe auch"
@@ -1010,7 +1010,7 @@ msgstr "Anteil der Tokens, die genau einmal vorkommen."
 msgid "Share of word types that occur exactly once."
 msgstr "Anteil der Worttypen, die genau einmal vorkommen."
 
-#: tta/cli/main.py:954
+#: tta/cli/main.py:957
 msgid "Show a help topic - a module, a metric or a concept - in the terminal."
 msgstr "Ein Hilfethema - ein Modul, eine Metrik oder ein Konzept - im Terminal anzeigen."
 
@@ -1035,7 +1035,7 @@ msgstr "Die Rückfrage überspringen (für Skripte)."
 msgid "Source code (GPL Sec. 6), copy the address to visit it:"
 msgstr "Quellcode (GPL Abschn. 6), Adresse zum Aufrufen kopieren:"
 
-#: tta/cli/main.py:835
+#: tta/cli/main.py:838
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr "Bezeichnung der Quelle, z. B. \"FH Wedel CS 2026\"."
 
@@ -1150,7 +1150,7 @@ msgstr "Die Trendlinie benötigt mindestens 5 datierte Arbeiten."
 msgid "Trends"
 msgstr "Trends"
 
-#: tta/cli/main.py:771
+#: tta/cli/main.py:774
 msgid "Trim history to the latest run per (thesis, module)."
 msgstr "Die Historie auf den letzten Lauf je (Arbeit, Modul) kürzen."
 
@@ -1190,7 +1190,7 @@ msgstr "Wortschatzreichtum (TTR)"
 msgid "Vocabulary richness (Yule's K)"
 msgstr "Wortschatzreichtum (Yules K)"
 
-#: tta/cli/main.py:905
+#: tta/cli/main.py:908
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr "Wohin geschrieben wird (Vorgabe: <Projekt>/reports/report-<Datum>.html)."
 
@@ -1210,11 +1210,11 @@ msgstr "Wörter"
 msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
 msgstr "Den HTML-Bericht schreiben und nach Ende der Analyse im Browser öffnen (standardmäßig aus; Abschn. 9.8.3, #70)."
 
-#: tta/cli/main.py:758
+#: tta/cli/main.py:761
 msgid "Write the researcher export, free of personal data."
 msgstr "Den Forschungsexport schreiben, frei von personenbezogenen Daten."
 
-#: tta/cli/main.py:759
+#: tta/cli/main.py:762
 msgid ""
 "Write the researcher export: an SQLite file holding the metric values and no personal data.\n"
 "\n"
@@ -1224,11 +1224,11 @@ msgstr ""
 "\n"
 "Mit --profiling wird stattdessen der flache Laufzeitdatensatz geschrieben: eine CSV-Zeile je Modullauf, mit seiner Dauer und der Größe der PDF-Datei, an der gemessen wurde. Für beide gelten dieselben Regeln - nur Daten, die auf diesem Rechner entstanden sind, und keine identifizierende Spalte."
 
-#: tta/cli/main.py:893
+#: tta/cli/main.py:896
 msgid "Write the stand-alone HTML report for the cohort."
 msgstr "Den eigenständigen HTML-Bericht für die Kohorte schreiben."
 
-#: tta/cli/main.py:894
+#: tta/cli/main.py:897
 msgid ""
 "Write the stand-alone HTML report over the whole cohort.\n"
 "\n"
@@ -1263,7 +1263,7 @@ msgstr "Yules K: Wortschatzreichtum, robust gegenüber der Textlänge."
 msgid "aborted; no changes made"
 msgstr "abgebrochen; keine Änderungen vorgenommen"
 
-#: tta/cli/main.py:657
+#: tta/cli/main.py:660
 msgid "added {count} theses from {paths} input path(s)"
 msgstr "{count} Arbeiten aus {paths} Eingabepfad(en) hinzugefügt"
 
@@ -1291,11 +1291,11 @@ msgstr "Nachweisspur (Export nur auf Tagesgenauigkeit)"
 msgid "audit trail, profiling"
 msgstr "Nachweisspur, Laufzeitmessung"
 
-#: tta/cli/main.py:975
+#: tta/cli/main.py:978
 msgid "available topics:"
 msgstr "verfügbare Themen:"
 
-#: tta/cli/main.py:700
+#: tta/cli/main.py:703
 msgid "cancelling - finishing in-flight theses (Ctrl-C again to force)..."
 msgstr "wird abgebrochen - laufende Arbeiten werden noch beendet (Strg-C erneut erzwingt den Abbruch)..."
 
@@ -1331,7 +1331,7 @@ msgstr "Inhaltsfingerabdruck der PDF-Datei, ausschließlich zum Erkennen doppelt
 msgid "count embedded images in the PDF"
 msgstr "eingebettete Bilder in der PDF-Datei zählen"
 
-#: tta/cli/main.py:642
+#: tta/cli/main.py:645
 msgid "cover rules: {id} version {version} ({fingerprint}), {count} rule(s)"
 msgstr "Deckblattregeln: {id} Version {version} ({fingerprint}), {count} Regel(n)"
 
@@ -1388,11 +1388,11 @@ msgstr "Arbeit {thesis_id} ausgeschlossen; die Analysedatensätze wurden entfern
 msgid "excluded thesis {thesis_id}; cached analysis scrubbed"
 msgstr "Arbeit {thesis_id} ausgeschlossen; zwischengespeicherte Analyse gelöscht"
 
-#: tta/cli/main.py:805
+#: tta/cli/main.py:808
 msgid "exported {rows} module runs across {modules} modules ({policy}) -> {path}"
 msgstr "{rows} Modulläufe über {modules} Module exportiert ({policy}) -> {path}"
 
-#: tta/cli/main.py:817
+#: tta/cli/main.py:820
 msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy}) -> {path}"
 msgstr "{theses} Arbeiten, {runs} Läufe, {metrics} Metrikwerte exportiert ({policy}) -> {path}"
 
@@ -1444,7 +1444,7 @@ msgstr "ID"
 msgid "import compatibility check"
 msgstr "Prüfung der Importkompatibilität"
 
-#: tta/cli/main.py:845
+#: tta/cli/main.py:848
 msgid "imported source {source_id} ({name}): {theses} theses, {runs} runs, {metrics} metric values"
 msgstr "Quelle {source_id} ({name}) importiert: {theses} Arbeiten, {runs} Läufe, {metrics} Metrikwerte"
 
@@ -1519,11 +1519,11 @@ msgstr "n"
 msgid "no"
 msgstr "nein"
 
-#: tta/cli/main.py:963
+#: tta/cli/main.py:966
 msgid "no help topic {topic}"
 msgstr "kein Hilfethema {topic}"
 
-#: tta/cli/main.py:979
+#: tta/cli/main.py:982
 #: tta/ui/tk/help_view.py:48
 msgid "no help topics installed yet"
 msgstr "noch keine Hilfethemen installiert"
@@ -1631,11 +1631,11 @@ msgstr "Arbeit {thesis_id} entfernt; die Datenbankzeilen wurden gelöscht, aber 
 msgid "repeated word-pair/triple rates"
 msgstr "Anteile wiederholter Wortpaare und Wortdrillinge"
 
-#: tta/cli/main.py:920
+#: tta/cli/main.py:923
 msgid "report over {theses} theses -> {path}"
 msgstr "Bericht über {theses} Arbeiten -> {path}"
 
-#: tta/cli/main.py:748
+#: tta/cli/main.py:751
 msgid "report written to {path}"
 msgstr "Bericht geschrieben nach {path}"
 
@@ -1756,7 +1756,7 @@ msgstr "ja"
 msgid "{bins} equal-width bins; series are overlaid, not stacked."
 msgstr "{bins} gleich breite Klassen; die Reihen sind überlagert, nicht gestapelt."
 
-#: tta/cli/main.py:686
+#: tta/cli/main.py:689
 msgid "{count} (thesis x module) pairs planned"
 msgstr "{count} Paare (Arbeit x Modul) geplant"
 
@@ -1832,7 +1832,7 @@ msgstr "{name}: n={n}, Median {median}, Q1 {q1}, Q3 {q3}"
 msgid "{ok} ok | {na} na | {error} err | {missing} todo"
 msgstr "{ok} ok | {na} n/a | {error} Fehler | {missing} offen"
 
-#: tta/cli/main.py:735
+#: tta/cli/main.py:738
 msgid "{theses} theses | {ok} ok | {na} na | {error} errors | {duration} s"
 msgstr "{theses} Arbeiten | {ok} ok | {na} n/a | {error} Fehler | {duration} s"
 

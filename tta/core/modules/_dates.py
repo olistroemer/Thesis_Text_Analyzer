@@ -227,17 +227,18 @@ CUES = {
     "revision": rf"({_U}berarbeitet|revised|revision|version with|korrigiert|corrected)",
     "defence": rf"(m{_U}ndlichen pr{_U}fung|disputation|defen[cs]e|verteidigung|"
     rf"pr{_U}fungstermin|akzeptiert|accepted|oral exam|colloquium|kolloquium|verteidigt|defended)",
-    # a repository metadata label ("Publication date:" on a repository cover
-    # page): the deposit date, not the thesis date (ADR-0022, ADR-0023)
-    "repository": r"(publication date)",
     # positive cues
     "submission": r"(eingereicht|submitted|submission|abgabe|abgegeben|vorgelegt|letzte version|"
     r"date:|datum:|handed in|thesis type and date)",
     "citation_open": r"[(\[]\s*$",
 }
 CUE_RE = {name: re.compile(rx, re.I) for name, rx in CUES.items()}
-#: Cues that make a candidate invalid wherever they appear before it.
-EXCLUSION_CUES = ("birth", "access", "copyright", "build", "revision", "defence", "repository")
+#: Cues that make a candidate invalid wherever they appear before it. Only
+#: linguistic cues tied to no repository; a researcher ruleset may add more
+#: (named ``ruleset:<id>``, ADR-0023).
+EXCLUSION_CUES = ("birth", "access", "copyright", "build", "revision", "defence")
+#: Prefix of the cue names a researcher ruleset adds.
+RULESET_CUE = "ruleset:"
 #: Cues read on the candidate's own line only (never from a label above).
 _SAME_LINE_ONLY = ("citation_open",)
 _CUE_WIDTH = 40
@@ -257,7 +258,12 @@ _PLACE_LINE_RE = re.compile(r"\s*[A-Z\u00c4\u00d6\u00dc][a-z\u00e4\u00f6\u00fc\u
 _CITE_AFTER_RE = re.compile(r"^[a-z]?[)\];:]")
 
 
-def cues_before(text: str, start: int, width: int = _CUE_WIDTH) -> set[str]:
+def cues_before(
+    text: str,
+    start: int,
+    width: int = _CUE_WIDTH,
+    extra: tuple[tuple[str, re.Pattern], ...] = (),
+) -> set[str]:
     """Cue names found on the same line before ``start``; a label line ending
     in ":" directly above (with nothing before the date on its own line)
     counts too ("eingereicht am:" / "Tag der m\u00fcndlichen Pr\u00fcfung:")."""
@@ -267,7 +273,7 @@ def cues_before(text: str, start: int, width: int = _CUE_WIDTH) -> set[str]:
     prev_line = text[text.rfind("\n", 0, max(prev_end, 0)) + 1 : prev_end] if prev_end > 0 else ""
     label_above = prev_line.rstrip().endswith(":") and not pre_line.strip()
     found = set()
-    for name, rx in CUE_RE.items():
+    for name, rx in (*CUE_RE.items(), *extra):
         if name in _SAME_LINE_ONLY or not label_above:
             target = pre_line
         else:
@@ -296,9 +302,11 @@ def _standalone(text: str, c: Candidate) -> bool:
     return not post_line and _PLACE_LINE_RE.fullmatch(pre_line) is not None
 
 
-def annotate(text: str, cands: list[Candidate]) -> list[Candidate]:
+def annotate(
+    text: str, cands: list[Candidate], extra: tuple[tuple[str, re.Pattern], ...] = ()
+) -> list[Candidate]:
     for i, c in enumerate(cands):
-        c.cues = cues_before(text, c.start)
+        c.cues = cues_before(text, c.start, extra=extra)
         if _THESIS_YEAR_CUE_RE.search(text[max(0, c.start - 30) : c.start]) and _THESIS_WORD_RE.search(
             text[max(0, c.start - 250) : c.start]
         ):
@@ -328,7 +336,9 @@ def rejection(c: Candidate, max_year: int) -> str | None:
     """Why ``c`` is not a thesis date, or ``None`` if it is a valid candidate."""
     if c.year > max_year or c.year < 1900:
         return "implausible_year"
-    excluded = sorted(c.cues & set(EXCLUSION_CUES))
+    excluded = sorted(
+        cue for cue in c.cues if cue in EXCLUSION_CUES or cue.startswith(RULESET_CUE)
+    )
     if excluded:
         return excluded[0]
     if c.range_start:
@@ -352,22 +362,30 @@ class Decision:
     considered: list[tuple[Candidate, str | None]]
 
 
-#: Rejection reason for every candidate on a page carrying a repository
-#: metadata block (`_titlepage.is_repository_metadata_page`).
-REPOSITORY_PAGE = "repository_metadata_page"
+def compile_cues(rules) -> tuple[tuple[str, re.Pattern], ...]:
+    """Extra negative cues of a researcher ruleset (``PatternRule``s)."""
+    return tuple((RULESET_CUE + r.id, re.compile(r.pattern, re.I)) for r in rules)
 
 
-def pick(pages: list[str], max_year: int) -> Decision:
-    """The thesis date from the window ``pages`` (title page first)."""
-    from tta.core.modules._titlepage import is_repository_metadata_page
+def pick(
+    pages: list[str],
+    max_year: int,
+    not_evidence: list[str | None] | None = None,
+    extra_cues: tuple[tuple[str, re.Pattern], ...] = (),
+) -> Decision:
+    """The thesis date from the window ``pages`` (title page first).
 
+    ``not_evidence`` holds, per page, the id of the researcher rule that marks
+    it as no evidence (or ``None``); ``extra_cues`` are a ruleset's extra
+    negative cues. Both are empty on the default path (ADR-0023).
+    """
     considered: list[tuple[Candidate, str | None]] = []
     for rel, page in enumerate(pages):
         valid: list[Candidate] = []
-        metadata_page = is_repository_metadata_page(page)
-        for c in annotate(page, candidates(page)):
+        marked = not_evidence[rel] if not_evidence and rel < len(not_evidence) else None
+        for c in annotate(page, candidates(page), extra_cues):
             c.page = rel
-            reason = REPOSITORY_PAGE if metadata_page else rejection(c, max_year)
+            reason = RULESET_CUE + marked if marked else rejection(c, max_year)
             considered.append((c, reason))
             if reason is None:
                 valid.append(c)

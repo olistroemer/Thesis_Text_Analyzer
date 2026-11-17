@@ -95,9 +95,10 @@ class ModuleRegistry:
 def default_registry(cover_rules: CoverRuleset | None = None) -> ModuleRegistry:
     """The MVP catalogue (SDD Sec. 7.1, ADR-0011).
 
-    ``cover_rules`` is the researcher cover-page ruleset of ADR-0023, handed
-    to the two title-page modules. ``None`` - the default, and the only value
-    the GUI ever passes - applies no cover rule at all.
+    ``cover_rules`` is the researcher ruleset of ADR-0023, handed to the two
+    title-page modules. ``None`` - the default, and the only value the GUI
+    ever passes - applies no repository rule at all: the text is read
+    unmodified.
     """
     from tta.core.modules.check_extraction_quality import CheckExtractionQuality
     from tta.core.modules.classify_language import ClassifyLanguage

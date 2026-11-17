@@ -7,10 +7,13 @@ modelled on the corpus examples of docs/titlepage-rules.md (no real names).
 Validation against a labelled holdout is #50.
 """
 
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
+from tta.core.cover_rules import load_cover_ruleset
 from tta.core.modules import _dates
-from tta.core.modules._titlepage import CoverRule, CoverRuleset
 from tta.core.modules.determine_publication_year import DeterminePublicationYear
 
 TITLE_WITH_YEAR = (
@@ -29,18 +32,9 @@ REPOSITORY_COVER = (
     "This page was generated automatically upon download from the ETH Zurich "
     "Research Collection.\nFor more information, please consult the Terms of use.\n"
 )
-ETH_RULES = CoverRuleset(
-    id="eth-research-collection",
-    version="1",
-    rules=(
-        CoverRule(
-            "eth-rc-download-cover",
-            all_of=(
-                "This page was generated automatically upon download from the ETH Zurich "
-                "Research Collection",
-            ),
-        ),
-    ),
+# the researcher ruleset kept in the repository (ADR-0023), never shipped
+ETH_RULES = load_cover_ruleset(
+    Path(__file__).resolve().parents[2] / "research" / "cover_rules" / "eth_research_collection.toml"
 )
 
 
@@ -310,31 +304,43 @@ def test_window_is_the_title_page_plus_three_pages(build_ctx):
     assert run(build_ctx, outside, creation=1999).metrics["publication_year"] == 1999
 
 
-# -- repository cover pages (ADR-0022 / ADR-0023) ----------------------------------------
+# -- repository pages: researcher rules only (ADR-0022 / ADR-0023) ------------------
 
 
-def test_default_path_applies_no_cover_rule(build_ctx):
+def test_default_path_reads_a_repository_cover_unmodified(build_ctx):
+    # no repository rule ships: the cover is the title page, and its labelled
+    # deposit year counts like any other date (the cost recorded in ADR-0023)
     text = REPOSITORY_COVER + "\f" + HEAD + "Zurich, 1. M\u00e4rz 2014\n"
     result = run(build_ctx, text, creation=2026)
+    assert result.diagnostics["title_page"] == 0
+    assert result.metrics["publication_year"] == 2015
+    assert result.diagnostics["title_page_date"]["rule"] == "submission_cue"
     assert result.diagnostics["cover_rules"] is None
     assert result.diagnostics["cover_pages"] == []
-    assert result.diagnostics["title_page"] == 0  # the cover page is not skipped
+    assert result.diagnostics["not_evidence_pages"] == []
+    assert not any(str(c["rejected"]).startswith("ruleset:") for c in result.diagnostics["candidates"])
 
 
-def test_default_path_ignores_the_repository_metadata_page(build_ctx):
-    # the deposit year on the metadata page never becomes the thesis year
-    text = REPOSITORY_COVER + "\f" + HEAD + "Zurich, 1. M\u00e4rz 2014\n"
-    result = run(build_ctx, text, creation=2026)
-    assert result.metrics["publication_year"] != 2015
-    rejected = {c["rejected"] for c in result.diagnostics["candidates"] if c["page"] == 0}
-    assert rejected == {"repository_metadata_page"}
-
-
-def test_publication_date_label_is_excluded_anywhere(build_ctx):
+def test_publication_date_label_is_a_researcher_cue_only(build_ctx):
     text = HEAD + "Publication date:\n2015\nBerlin, im Mai 2014\n"
-    result = run(build_ctx, text, creation=1999)
+    assert run(build_ctx, text, creation=1999).metrics["publication_year"] == 2015
+    cue_only = replace(ETH_RULES, covers=(), not_evidence_pages=(), type_passages=())
+    result = run(build_ctx, text, creation=1999, cover_rules=cue_only)
     assert result.metrics["publication_year"] == 2014
-    assert "repository" in {c["rejected"] for c in result.diagnostics["candidates"]}
+    rejected = {c["rejected"] for c in result.diagnostics["candidates"]}
+    assert "ruleset:eth-rc-publication-date-label" in rejected
+
+
+def test_not_evidence_page_is_kept_but_supplies_no_date(build_ctx):
+    pages_only = replace(ETH_RULES, covers=(), date_cues=(), type_passages=())
+    text = REPOSITORY_COVER + "\f" + HEAD + "Zurich, 1. M\u00e4rz 2014\n"
+    result = run(build_ctx, text, creation=2026, cover_rules=pages_only)
+    assert result.diagnostics["title_page"] == 0  # not skipped
+    assert result.metrics["publication_year"] == 2014
+    assert result.diagnostics["title_page_date"]["page"] == 1
+    assert result.diagnostics["not_evidence_pages"] == [{"page": 0, "rule": "eth-rc-metadata-block"}]
+    rejected = {c["rejected"] for c in result.diagnostics["candidates"] if c["page"] == 0}
+    assert rejected == {"ruleset:eth-rc-metadata-block"}
 
 
 def test_cover_ruleset_skips_the_cover_and_is_recorded(build_ctx):
@@ -351,6 +357,7 @@ def test_cover_ruleset_skips_the_cover_and_is_recorded(build_ctx):
         {"page": 1, "rule": "eth-rc-download-cover"},
     ]
     assert result.diagnostics["cover_rules"]["id"] == "eth-research-collection"
+    assert result.diagnostics["cover_rules"]["fingerprint"] == ETH_RULES.fingerprint()
 
 
 def test_cover_ruleset_changes_the_module_version():
@@ -358,6 +365,12 @@ def test_cover_ruleset_changes_the_module_version():
     with_rules = DeterminePublicationYear(ETH_RULES).spec.version
     assert base == DeterminePublicationYear.spec.version
     assert with_rules.startswith(base + "+covers.eth-research-collection.")
+
+
+def test_no_repository_cue_on_the_default_path():
+    # the shipped cues name no repository label (owner decision on #81/#82)
+    for name in _dates.EXCLUSION_CUES:
+        assert not _dates.CUE_RE[name].search("Publication date:"), name
 
 
 # -- the helper directly -------------------------------------------------------------

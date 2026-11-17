@@ -35,8 +35,6 @@ Bewusst **nie** als Hinweis gelten Abkürzungen wie „B.Sc.", „M.Sc.", „M.A
 - Der **zuerst genannte** gültige Hinweis entscheidet.
 - Steht auf derselben Seite wie ein Master-Hinweis „Master of Advanced Studies" oder „MAS-Programm", ist die Arbeit ein **MAS** (Weiterbildung, nicht der konsekutive Master).
 - „Nachdiplomarbeit" ist keine Diplomarbeit.
-- Die Liste aller Arbeitsarten in der ETH-Eigenständigkeitserklärung („Bestandteil jeder … Arbeit" / „component of every … degree paper") zählt nicht.
-- Hinweise auf einer Seite mit dem **Metadatenblock eines Repositoriums** (z. B. „Publication date:", „Permanent link:") zählen nicht: Dort steht die Art, unter der das Repositorium die Arbeit führt, nicht die Angabe der Arbeit. Die Seite selbst wird nicht übersprungen.
 - Nur wenn gar kein solcher Hinweis vorkommt, genügt ein bloßes „Bachelor of Science" oder „Master of Arts" (es kann sonst auch der frühere Abschluss der Autorin sein).
 - Fehlt jeder Hinweis – oder ist der Text unbrauchbar –, lautet das Ergebnis `unspecified`.
 
@@ -46,4 +44,4 @@ Das ist eine bewusst **leichtgewichtige Heuristik** (keine KI, kein Modell).
 
 Erzeugt die einzelne Metrik [thesis_type](metric:thesis_type). Es gibt bewusst **keine** separate Konfidenz-Metrik; die gefundenen Hinweise, ihre Seite und die entscheidende Regel werden als Beleg in den lokalen Lauf-Notizen abgelegt (verlassen das Gerät nie).
 
-Für Forschende bietet die Kommandozeile zusätzlich die Option `tta run --cover-rules`, mit der von einem Repositorium vorangestellte Deckblätter übersprungen werden (ADR-0023). Die grafische Oberfläche wendet keine solche Regel an.
+**Jede Arbeit wird so gelesen, wie sie ist.** Die App enthält keine Regeln, die auf den Aufbau eines bestimmten Repositoriums oder einer bestimmten Hochschule zugeschnitten sind – etwa ein beim Herunterladen vorangestelltes Deckblatt oder ein Formular. Liegt ein solches Deckblatt vor der eigentlichen Titelseite, wird es wie jede andere Seite gelesen. Für Forschende bietet die Kommandozeile zusätzlich die Option `tta run --cover-rules`, mit der ein Regelsatz aus einer Datei solche Seiten und Textstellen überspringt oder nicht als Beleg zählt (ADR-0023). Die grafische Oberfläche wendet keine solche Regel an.

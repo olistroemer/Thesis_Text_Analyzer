@@ -5,10 +5,13 @@ examples of docs/titlepage-rules.md ("type markers v1"; no real names).
 Validation against a labelled holdout is #50.
 """
 
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
+from tta.core.cover_rules import load_cover_ruleset
 from tta.core.modules import classify_thesis_type as ctt
-from tta.core.modules._titlepage import CoverRule, CoverRuleset
 from tta.core.modules.classify_thesis_type import ClassifyThesisType
 from tta.core.types import REFERENCE_THESIS_TYPES, THESIS_TYPES, thesis_type_label
 
@@ -79,15 +82,9 @@ REPOSITORY_COVER = (
     "This page was generated automatically upon download from the ETH Zurich "
     "Research Collection.\nFor more information, please consult the Terms of use.\n"
 )
-ETH_RULES = CoverRuleset(
-    id="eth-research-collection",
-    version="1",
-    rules=(
-        CoverRule(
-            "eth-rc-download-cover",
-            all_of=("generated automatically upon download from the ETH Zurich Research Collection",),
-        ),
-    ),
+# the researcher ruleset kept in the repository (ADR-0023), never shipped
+ETH_RULES = load_cover_ruleset(
+    Path(__file__).resolve().parents[2] / "research" / "cover_rules" / "eth_research_collection.toml"
 )
 
 
@@ -265,15 +262,27 @@ def test_letter_spaced_headings_are_collapsed(build_ctx):
     assert thesis_type(build_ctx, "A B S C H L U S S A R B E I T\nBachelor of Science\n") == "bachelor"
 
 
-def test_eth_declaration_of_originality_is_excluded(build_ctx):
-    text = (
-        "Declaration of originality\nThe signed declaration of originality is a component "
-        "of every semester paper, Bachelor's thesis, Master's thesis and any other degree "
-        "paper undertaken during the course of studies.\n"
-    )
-    result = run(build_ctx, text)
+DECLARATION = (
+    "Declaration of originality\nThe signed declaration of originality is a component "
+    "of every semester paper, Bachelor's thesis, Master's thesis and any other degree "
+    "paper undertaken during the course of studies.\n"
+)
+
+
+def test_declaration_list_counts_by_default(build_ctx):
+    # no institution's form is excluded on the default path: earliest marker wins
+    result = run(build_ctx, DECLARATION)
+    assert result.metrics["thesis_type"] == "semester"
+    assert {m["excluded"] for m in result.diagnostics["markers"]} == {None}
+
+
+def test_declaration_of_originality_is_a_researcher_passage(build_ctx):
+    passages_only = replace(ETH_RULES, covers=(), not_evidence_pages=(), date_cues=())
+    result = run(build_ctx, DECLARATION, cover_rules=passages_only)
     assert result.metrics["thesis_type"] == "unspecified"
-    assert {m["excluded"] for m in result.diagnostics["markers"]} == {"declaration of originality"}
+    assert {m["excluded"] for m in result.diagnostics["markers"]} == {
+        "ruleset:eth-declaration-of-originality"
+    }
 
 
 # -- tier 2 ----------------------------------------------------------------------
@@ -292,19 +301,29 @@ def test_tier1_beats_an_earlier_tier2_field_degree(build_ctx):
     assert thesis_type(build_ctx, text) == "master"
 
 
-# -- repository cover pages (ADR-0019 rev. 3 / ADR-0023) ------------------------------
+# -- repository pages: researcher rules only (ADR-0019 rev. 3 / ADR-0023) ----------
 
 
-def test_default_path_applies_no_cover_rule_but_ignores_the_metadata_page(build_ctx):
+def test_default_path_reads_a_repository_cover_unmodified(build_ctx):
+    # no repository rule ships: the cover's type line is the earliest marker
+    # (the cost recorded in ADR-0023)
     text = REPOSITORY_COVER + "\fDiplomarbeit\nam Institut f\u00fcr Widgets\n"
     result = run(build_ctx, text)
-    # the cover's "Master Thesis" type line is repository metadata
-    assert result.metrics["thesis_type"] == "diploma"
+    assert result.metrics["thesis_type"] == "master"
+    assert result.diagnostics["winner"]["page"] == 0
     assert result.diagnostics["cover_rules"] is None
     assert result.diagnostics["cover_pages"] == []
-    assert result.diagnostics["winner"]["page"] == 1  # the cover still counts as a page
+    assert result.diagnostics["not_evidence_pages"] == []
+
+
+def test_not_evidence_page_is_kept_but_supplies_no_marker(build_ctx):
+    pages_only = replace(ETH_RULES, covers=(), date_cues=(), type_passages=())
+    text = REPOSITORY_COVER + "\fDiplomarbeit\nam Institut f\u00fcr Widgets\n"
+    result = run(build_ctx, text, cover_rules=pages_only)
+    assert result.metrics["thesis_type"] == "diploma"
+    assert result.diagnostics["winner"]["page"] == 1  # the page still counts
     assert {m["excluded"] for m in result.diagnostics["markers"] if m["page"] == 0} == {
-        "repository metadata page"
+        "ruleset:eth-rc-metadata-block"
     }
 
 

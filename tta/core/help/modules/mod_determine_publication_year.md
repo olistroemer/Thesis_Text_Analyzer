@@ -40,12 +40,9 @@ Ein Datum zählt nicht, wenn auf derselben Zeile davor – oder in einer Beschri
 - **Copyright** („©", „Copyright"),
 - **Abrufdatum** („abgerufen", „accessed", „Stand"),
 - **Überarbeitung** („überarbeitet", „revised", „Version with minor changes"),
-- **Erstellungsvermerk** („compiled on"),
-- **Repository-Angabe** („Publication date:" – das Ablagedatum eines Repositoriums, nicht das Datum der Arbeit).
+- **Erstellungsvermerk** („compiled on").
 
 Außerdem zählen nicht: Jahreszahlen in Klammern oder Literaturangaben, der **Anfang eines Zeitraums** („September 2011 – März 2012" ergibt März 2012), Jahreszahlen im Titel („seit 1945") und Jahre außerhalb von 1900 bis zum Folgejahr. Die Hinweise wirken nur auf ihrer eigenen Zeile – ein Geburtsdatum auf der Zeile darüber verdrängt das Abgabedatum nicht.
-
-Eine Seite mit dem **Metadatenblock eines Repositoriums** (mindestens zwei der Angaben „Publication date:", „Permanent link:", „Rights / license:") liefert kein Datum; sie zählt aber weiterhin als Seite.
 
 **Nach der Titelseite** zählt ein Datum nur mit Abgabe-Hinweis („eingereicht am", „submitted", „Abgabedatum"), in der Form „Ort, (den) Datum" oder allein auf seiner Zeile – Daten im Fließtext („Im Juli 2005 gründete …") zählen nicht.
 
@@ -66,4 +63,4 @@ Eine Seite mit dem **Metadatenblock eines Repositoriums** (mindestens zwei der A
 
 Drei Metriken: [publication_year](metric:publication_year) (Zahl, ggf. leer), [publication_year_source](metric:publication_year_source) (welches Signal gewann) und [publication_date_precision](metric:publication_date_precision) (wie genau die Angabe war). Tag und Monat selbst werden **nicht** als Metrik gespeichert und nie exportiert; sie stehen zusammen mit der erkannten Form, der entscheidenden Regel, der Seite und den verworfenen Kandidaten nur in den lokalen Lauf-Notizen.
 
-Für Forschende bietet die Kommandozeile zusätzlich die Option `tta run --cover-rules`, mit der von einem Repositorium vorangestellte Deckblätter übersprungen werden (ADR-0023). Die grafische Oberfläche wendet keine solche Regel an.
+**Jede Arbeit wird so gelesen, wie sie ist.** Die App enthält keine Regeln, die auf den Aufbau eines bestimmten Repositoriums oder einer bestimmten Hochschule zugeschnitten sind – etwa ein beim Herunterladen vorangestelltes Deckblatt oder ein Formular. Liegt ein solches Deckblatt vor der eigentlichen Titelseite, wird es wie jede andere Seite gelesen. Für Forschende bietet die Kommandozeile zusätzlich die Option `tta run --cover-rules`, mit der ein Regelsatz aus einer Datei solche Seiten und Textstellen überspringt oder nicht als Beleg zählt (ADR-0023). Die grafische Oberfläche wendet keine solche Regel an.
