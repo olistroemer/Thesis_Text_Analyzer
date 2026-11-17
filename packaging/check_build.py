@@ -51,7 +51,12 @@ import sys
 # (ADR-0016 rev. 2) nothing under tta/ imports it, so it belongs in neither
 # binary. It is checked rather than merely undeclared because nltk reaches
 # for it from inside method bodies, which PyInstaller follows.
-FORBIDDEN = ("pandas", "numba", "llvmlite", "scipy", "matplotlib", "mpl_toolkits")
+# PIL joined in #85: pypdf needs Pillow only to decode images, which
+# mod_count_images no longer does (ADR-0021); see packaging/tta.spec.
+# "pillow" catches its vendored native libraries (pillow.libs/ on Linux).
+FORBIDDEN = (
+    "pandas", "numba", "llvmlite", "scipy", "matplotlib", "mpl_toolkits", "PIL", "pillow",
+)
 
 # Packages the GUI binary legitimately needs and the CLI binary must never
 # carry. The hexagonal boundary (SDD 5.2, ADR-0002) is what makes this
