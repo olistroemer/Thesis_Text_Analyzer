@@ -62,17 +62,18 @@ the distributed binaries.
 | `tomli-w` | 1.2.0 | MIT | Writing `tta.toml`. (Reading uses stdlib `tomllib` — no dependency.) | ✅ compatible |
 | `tksheet` | 7.6.0 | MIT | The data grid with per-cell styling ([ADR-0001](adr/0001-ui-toolkit.md)). | ✅ compatible |
 
-### 2.1 The PDF extractor (optional extra, but shipped)
+### 2.1 The PDF extractor
 
 | Package | Version | Licence | Purpose | Verdict |
 |---|---|---|---|---|
-| `pymupdf` | 1.27.2.3 (audited); 1.28.2 (CI/release builds since the `<2` cap, re-checked 2026-11-17: same licence, no dependencies) | **AGPL-3.0-or-later** OR Artifex commercial | `mod_extract_pymupdf` — the `raw_text` producer, i.e. the head of the whole pipeline. Declared in the `pymupdf` optional extra, but installed by the release job and named in `packaging/tta.spec` `hiddenimports`. | ✅ compatible under GPLv3 §13 (see F2) |
+| `pymupdf` | 1.27.2.3 (audited); 1.28.2 (CI/release builds since the `<2` cap, re-checked 2026-11-17: same licence, no dependencies) | **AGPL-3.0-or-later** OR Artifex commercial | `mod_extract_pymupdf` — the `raw_text` producer, i.e. the head of the whole pipeline. A regular dependency in `pyproject.toml` since 2026-11-17 (before: the `pymupdf` optional extra), named in `packaging/tta.spec` `hiddenimports`. | ✅ compatible under GPLv3 §13 (see F2) |
 
-`pymupdf` sits in an extra for historical reasons (the retired AGPL gate). It is **not** optional in
-the shipped product: `.github/workflows/ci.yml` installs `.[build,pymupdf]` for the release build.
-See [§8](#8-audit-findings) F2 for the AGPL reasoning and F5 for the packaging inconsistency.
+Until 2026-11-17 `pymupdf` sat in an optional extra for historical reasons (the retired AGPL gate),
+although it was never optional in the shipped product. It is now a regular dependency, so a plain
+`pip install -e .` gives a working installation (F5, resolved). See [§8](#8-audit-findings) F2 for
+the AGPL reasoning.
 
-**Capped below 2 (2026-11-17).** The extra declares `pymupdf>=1.24,<2`. PyMuPDF 2.0/2.1 hard-require
+**Capped below 2 (2026-11-17).** The dependency is declared as `pymupdf>=1.24,<2`. PyMuPDF 2.0/2.1 hard-require
 `networkx`, `numpy`, `onnxruntime`, `pyyaml`, `pymupdf-layout`, `pymupdf4llm`, `psutil` and
 `tabulate`, which would freeze numpy and onnxruntime into the binaries for a layout model `tta`
 does not use (rejected as variant C of Exp #22). None of those packages is in the inventory below
@@ -228,8 +229,8 @@ that PyMuPDF is a "development-phase extractor only" and that "the release gate 
 distributed build that imports it under `tta/core/`". ADR-0017 retired that gate, and the release
 job installs `.[build,pymupdf]` and lists `fitz` in `hiddenimports`. The comment is stale and the
 default extractor's library is not in the default dependency set. Not this lane's file to fix.
-*Comment fixed 2026-11-17 (with the `<2` cap):* it now states that PyMuPDF is the default extractor
-and ships under ADR-0017. The extra itself stays an extra; moving it into the default set is open.
+*Resolved 2026-11-17:* the comment was fixed with the `<2` cap, and the same day `pymupdf` moved from
+the extra into the regular dependencies (the extra is gone; CI installs `.[build]`).
 
 **F6 — the bundled punkt models carry no licence statement.** `nltk_data/tokenizers/punkt_tab/`
 ships a README with provenance and a citation, and no licence; there is no licence file anywhere in

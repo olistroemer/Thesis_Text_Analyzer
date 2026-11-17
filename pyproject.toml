@@ -20,6 +20,10 @@ dependencies = [
     "rich>=13",           # cli tables + markdown help rendering (ADR-0012)
     "tomli-w>=1.0",       # tta.toml writer (reading uses stdlib tomllib)
     "tksheet>=7.5",       # data grid with per-cell styling (ADR-0001)
+    # PyMuPDF (AGPL, shipped under ADR-0017): the default extractor
+    # (mod_extract_pymupdf). <2: 2.x hard-requires numpy/onnxruntime/
+    # pymupdf4llm (ADR-0014).
+    "pymupdf>=1.24,<2",
 ]
 
 # Source-availability pointer for the copyleft licence (ADR-0017, #71);
@@ -36,13 +40,7 @@ tta = "tta.cli.main:main"
 tta-gui = "tta.ui.tk.app:main"
 
 [project.optional-dependencies]
-# PyMuPDF (AGPL) is the default extractor (mod_extract_pymupdf) and ships in
-# the release builds under the project's copyleft licence (ADR-0017, which
-# retired the old AGPL release gate). It is an extra only for historical
-# reasons; CI and the release job install it (docs/dependencies.md F5).
-# <2: PyMuPDF 2.x hard-requires numpy/onnxruntime/pymupdf4llm (ADR-0014).
-pymupdf = ["pymupdf>=1.24,<2"]
-dev = ["pytest>=8", "tta[pymupdf]"]
+dev = ["pytest>=8"]
 # Frozen single-file binaries (ADR-0014). PyInstaller --onefile; punkt_tab
 # NLTK data + SQL migrations bundled via the committed packaging/tta.spec.
 # pip-licenses inventories the build environment for THIRD_PARTY_LICENSES.txt,

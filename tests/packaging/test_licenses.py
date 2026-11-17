@@ -205,9 +205,20 @@ def test_declared_closure_covers_the_declared_dependencies(generator):
     assert "tta" not in closure
 
 
-def test_declared_closure_honours_the_pymupdf_extra(generator):
-    assert "pymupdf" in generator.declared_closure(extras=("pymupdf",))
-    assert "pymupdf" not in generator.declared_closure(extras=())
+def test_pymupdf_is_a_regular_dependency():
+    """The default extractor ships in every build, so it is declared in
+    `dependencies`, not behind an extra (ADR-0014, dependencies.md F5).
+
+    Read from pyproject.toml itself, not from installed metadata: a stale
+    editable install would otherwise decide the outcome."""
+    import tomllib
+
+    pyproject = REPO_ROOT / "pyproject.toml"
+    project = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]
+    names = [dep.split(">")[0].split("<")[0].split("=")[0].strip()
+             for dep in project["dependencies"]]
+    assert "pymupdf" in names
+    assert "pymupdf" not in project.get("optional-dependencies", {})
 
 
 def test_declared_closure_is_transitive(generator):
