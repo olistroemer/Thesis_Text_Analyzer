@@ -499,6 +499,8 @@ Four kinds in MVP. The vocabulary file (`core/artefact_kinds.py`) is the documen
 
 Artefact files are stored under the filesystem layout in [§5.4](#54-persistence) and never travel in exports ([ADR-007](adr/0007-export-format.md)).
 
+**Encoding rule (#95).** Every text and JSON artefact is written as strict UTF-8. A PDF text layer or Info dict can yield **lone surrogates** (code points U+D800-U+DFFF without a partner, e.g. `\udc5b`), which UTF-8 cannot encode: the write failed with `UnicodeEncodeError`, and the module's `error` cascaded to `na` for every dependent. One helper (`core/modules/_textio.py`) therefore replaces each lone surrogate with U+FFFD (the Unicode replacement character) in the final string immediately before it is written and returns how many it replaced; the producing module records the count as `surrogates_replaced` in its `diagnostics`. The rule applies to `raw_text`, `pdf_metadata` and `tokens`. One code point becomes one code point, so character counts do not move, and a thesis without lone surrogates produces byte-identical artefacts.
+
 ---
 
 # 7. Module Catalogue
