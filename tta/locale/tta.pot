@@ -28,32 +28,72 @@ msgstr ""
 msgid "- (reads the PDF directly)"
 msgstr ""
 
+#: tta/core/reference.py:51
+msgid "000 Computer science, information, general works"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:252
 msgid "1. What we process"
+msgstr ""
+
+#: tta/core/reference.py:52
+msgid "100 Philosophy and psychology"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:278
 msgid "2. Module-level processing"
 msgstr ""
 
+#: tta/core/reference.py:53
+msgid "200 Religion"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:291
 msgid "3. Cached files (never exported)"
+msgstr ""
+
+#: tta/core/reference.py:54
+msgid "300 Social sciences"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:301
 msgid "4. Storage and retention"
 msgstr ""
 
+#: tta/core/reference.py:55
+msgid "400 Language"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:309
 msgid "5. What leaves your machine"
+msgstr ""
+
+#: tta/core/reference.py:56
+msgid "500 Natural sciences and mathematics"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:328
 msgid "6. Responsibility and your rights under GDPR"
 msgstr ""
 
+#: tta/core/reference.py:57
+msgid "600 Technology, medicine, applied sciences"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:333
 msgid "7. Publisher and contact"
+msgstr ""
+
+#: tta/core/reference.py:58
+msgid "700 Arts and recreation"
+msgstr ""
+
+#: tta/core/reference.py:59
+msgid "800 Literature"
+msgstr ""
+
+#: tta/core/reference.py:60
+msgid "900 History and geography"
 msgstr ""
 
 #: tta/ui/tk/main_window.py:59
@@ -1215,6 +1255,10 @@ msgstr ""
 msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
 msgstr ""
 
+#: tta/core/reference.py:107
+msgid "Yule's K"
+msgstr ""
+
 #: tta/ui/tk/columns.py:186
 msgid "Yule's K: vocabulary richness, robust to text length."
 msgstr ""
@@ -1254,6 +1298,18 @@ msgstr ""
 
 #: tta/cli/main.py:1008
 msgid "available topics:"
+msgstr ""
+
+#: tta/core/reference.py:101
+msgid "average sentence length (words)"
+msgstr ""
+
+#: tta/core/reference.py:108
+msgid "average word length (characters)"
+msgstr ""
+
+#: tta/core/reference.py:110
+msgid "bigram repetition rate"
 msgstr ""
 
 #: tta/cli/main.py:707
@@ -1361,6 +1417,10 @@ msgstr ""
 msgid "extract the plain text from the PDF, once unfiltered and once without code and formulas; count pages and characters"
 msgstr ""
 
+#: tta/core/reference.py:98
+msgid "extracted characters"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:149
 msgid "extracted thesis text without code and formulas, input of the text metrics (UTF-8 file)"
 msgstr ""
@@ -1371,6 +1431,10 @@ msgstr ""
 
 #: tta/core/modules/extract_filesystem_metadata.py:65
 msgid "file not found"
+msgstr ""
+
+#: tta/core/reference.py:102
+msgid "file size (MB)"
 msgstr ""
 
 #: tta/cli/main.py:298
@@ -1397,12 +1461,28 @@ msgstr ""
 msgid "fuse the title-page year and PDF metadata dates into a best-estimate publication year"
 msgstr ""
 
+#: tta/core/reference.py:114
+msgid "hapax share of tokens"
+msgstr ""
+
+#: tta/core/reference.py:115
+msgid "hapax share of types"
+msgstr ""
+
 #: tta/core/report.py:616
 msgid "high whisker"
 msgstr ""
 
 #: tta/cli/main.py:298
 msgid "id"
+msgstr ""
+
+#: tta/core/reference.py:100
+msgid "images"
+msgstr ""
+
+#: tta/core/reference.py:104
+msgid "images per page"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:79
@@ -1424,6 +1504,10 @@ msgstr ""
 msgid "internal key"
 msgstr ""
 
+#: tta/core/reference.py:105
+msgid "kB per page"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:74
 msgid "key for grouping data by origin"
 msgstr ""
@@ -1438,6 +1522,10 @@ msgstr ""
 
 #: tta/core/report.py:818
 msgid "left out of every aggregate"
+msgstr ""
+
+#: tta/core/reference.py:97
+msgid "letters"
 msgstr ""
 
 #: tta/core/report.py:507
@@ -1543,6 +1631,10 @@ msgstr ""
 msgid "overall: {status}"
 msgstr ""
 
+#: tta/core/reference.py:96
+msgid "pages"
+msgstr ""
+
 #: tta/core/doctor.py:233
 msgid "pending migrations {versions} - run 'tta db migrate'"
 msgstr ""
@@ -1584,6 +1676,10 @@ msgstr ""
 msgid "reading ease"
 msgstr ""
 
+#: tta/core/reference.py:106
+msgid "reading ease (Flesch / Amstad)"
+msgstr ""
+
 #: tta/cli/main.py:481
 msgid "removed thesis {thesis_id}"
 msgstr ""
@@ -1612,12 +1708,24 @@ msgstr ""
 msgid "reproducibility: which modules ran"
 msgstr ""
 
+#: tta/core/reference.py:113
+msgid "root TTR"
+msgstr ""
+
 #: tta/cli/main.py:235
 msgid "schema is up to date"
 msgstr ""
 
+#: tta/core/reference.py:109
+msgid "sentence length spread (std. dev.)"
+msgstr ""
+
 #: tta/core/privacy_metadata.py:151
 msgid "sentence/word tokenisation of the full text (JSON)"
+msgstr ""
+
+#: tta/core/reference.py:99
+msgid "sentences"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:127
@@ -1659,10 +1767,18 @@ msgstr ""
 msgid "track applied DB migrations"
 msgstr ""
 
+#: tta/core/reference.py:111
+msgid "trigram repetition rate"
+msgstr ""
+
 #: tta/cli/main.py:298
 #: tta/core/report.py:523
 #: tta/core/report.py:610
 msgid "type"
+msgstr ""
+
+#: tta/core/reference.py:112
+msgid "type-token ratio"
 msgstr ""
 
 #: tta/core/privacy_metadata.py:36
@@ -1705,11 +1821,16 @@ msgstr ""
 msgid "word/sentence/character counts and length statistics"
 msgstr ""
 
+#: tta/core/reference.py:95
 #: tta/core/report.py:486
 #: tta/core/report.py:523
 #: tta/core/report.py:544
 #: tta/core/report.py:821
 msgid "words"
+msgstr ""
+
+#: tta/core/reference.py:103
+msgid "words per page"
 msgstr ""
 
 #: tta/cli/main.py:307
