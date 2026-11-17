@@ -3,10 +3,11 @@
 Counts images from the PDF structure via pypdf's object model and never
 decodes one (#85): per page, the distinct image XObjects reachable from the
 page's resources (recursing into Form XObjects) plus the inline images
-(`BI ... ID ... EI`) in the page's own content. Only the page content
-streams are decompressed; image data is skipped, so neither
-Pillow nor pypdf's image-decoding path (`page.images`, `_xobj_to_image`) is
-ever touched.
+(`BI ... ID ... EI`) in the page's own content, each only if both its pixel
+sides are at least `MIN_IMAGE_SIDE_PX` (ADR-0021). Only the page content
+streams are decompressed; image data is skipped and sizes come from the
+image dictionaries, so neither Pillow nor pypdf's image-decoding path
+(`page.images`, `_xobj_to_image`) is ever touched.
 
 A POC for smarter figure analysis (SDD Sec. 12): fragments are not
 clustered, so vector-heavy theses under-count and tiled rasters over-count.
@@ -48,6 +49,22 @@ _EI = re.compile(rb"EI" + _AFTER)
 _STRING_SPECIAL = re.compile(rb"[()\\]")
 _EOL = re.compile(rb"[\r\n]")
 _LENGTH = re.compile(rb"/L(?:ength)?[" + _WS + rb"]+(\d+)")
+# Pixel size in an inline-image dictionary: abbreviated or full key names.
+_INLINE_W = re.compile(rb"/(?:Width|W)(?![A-Za-z])[" + _WS + rb"]*(\d+)")
+_INLINE_H = re.compile(rb"/(?:Height|H)(?![A-Za-z])[" + _WS + rb"]*(\d+)")
+
+# Images with a pixel side below this do not count (ADR-0021, #85): on the
+# exp-22 corpus the 1 px spike and its 2 px tail (35.8 % of all counted
+# images) were rules, dotted lines, 1x1 masks and 1-2 px slices of logos.
+# Deliberately a constant, not a setting.
+MIN_IMAGE_SIDE_PX = 3
+
+
+def _big_enough(width: Any, height: Any) -> bool:
+    """True if both sides are integers >= MIN_IMAGE_SIDE_PX (unreadable -> False)."""
+    return (isinstance(width, int) and isinstance(height, int)
+            and not isinstance(width, bool) and not isinstance(height, bool)
+            and width >= MIN_IMAGE_SIDE_PX and height >= MIN_IMAGE_SIDE_PX)
 
 
 def _at_boundary(data: bytes, start: int) -> bool:
@@ -79,18 +96,19 @@ def _skip_comment(data: bytes, pos: int) -> int:
     return len(data) if m is None else m.end()
 
 
-def _skip_inline_image(data: bytes, pos: int) -> tuple[bool, int]:
+def _skip_inline_image(data: bytes, pos: int) -> tuple[int, int]:
     """Skip the inline image whose `BI` ends at `pos`, without decoding it.
 
-    Returns (an `ID` was found, index after the image). The data after `ID`
-    is skipped by its `/L`/`/Length` when that lands on `EI`, else up to the
+    Returns (index of its `ID` operator, i.e. the end of its dictionary, or
+    -1 if there is none; index after the image). The data after `ID` is
+    skipped by its `/L`/`/Length` when that lands on `EI`, else up to the
     next whitespace-delimited `EI`.
     """
     dict_start = pos
     while True:
         m = _ID_SCAN.search(data, pos)
         if m is None:
-            return False, len(data)
+            return -1, len(data)
         tok = m.group()
         if tok == b"(":
             pos = _skip_string(data, m.end())
@@ -100,6 +118,7 @@ def _skip_inline_image(data: bytes, pos: int) -> tuple[bool, int]:
             break
         else:
             pos = m.start() + 1
+    dict_end = m.start()
     data_start = m.end()
     length = _LENGTH.search(data, dict_start, m.start())
     if length is not None:
@@ -108,14 +127,14 @@ def _skip_inline_image(data: bytes, pos: int) -> tuple[bool, int]:
         while j < limit and data[j] in _WS_BYTES:
             j += 1
         if data.startswith(b"EI", j):
-            return True, j + 2
+            return dict_end, j + 2
     pos = data_start + 1
     while True:
         ei = _EI.search(data, pos)
         if ei is None:
-            return True, len(data)
+            return dict_end, len(data)
         if data[ei.start() - 1] in _WS_BYTES:
-            return True, ei.end()
+            return dict_end, ei.end()
         pos = ei.start() + 1
 
 
@@ -125,7 +144,9 @@ def count_inline_images(data: bytes) -> int:
     Byte-level, not pypdf's `ContentStream` parser: a cheap regex pre-check
     rejects content without a candidate `BI` token; otherwise strings and
     comments are skipped (so `(BI)` shown as text never counts) and each
-    image's data is skipped, never decoded.
+    image's data is skipped, never decoded. An image counts only if its
+    dictionary gives both `/W` and `/H` (or `/Width`, `/Height`) of at least
+    MIN_IMAGE_SIDE_PX.
     """
     pos = 0
     while True:  # cheap pre-check: any `BI` operator candidate at all?
@@ -149,9 +170,16 @@ def count_inline_images(data: bytes) -> int:
         elif not _at_boundary(data, m.start()):
             pos = m.start() + 1
         else:
-            found, pos = _skip_inline_image(data, m.end())
-            if found:
+            start = m.end()
+            dict_end, pos = _skip_inline_image(data, start)
+            if dict_end >= 0 and _inline_big_enough(data[start:dict_end]):
                 n += 1
+
+
+def _inline_big_enough(head: bytes) -> bool:
+    w = _INLINE_W.search(head)
+    h = _INLINE_H.search(head)
+    return w is not None and h is not None and _big_enough(int(w.group(1)), int(h.group(1)))
 
 
 def _resolve(obj: Any) -> Any:
@@ -198,14 +226,18 @@ def _collect_image_xobjects(owner: DictionaryObject, images: set[Any], forms: se
         subtype = xobj.get("/Subtype")
         key = _key(xobj)
         if subtype == "/Image":
-            images.add(key)
+            if _big_enough(_resolve(xobj.get("/Width")), _resolve(xobj.get("/Height"))):
+                images.add(key)
         elif subtype == "/Form" and key not in forms:
             forms.add(key)
             _collect_image_xobjects(xobj, images, forms)
 
 
 def count_page_images(page: DictionaryObject) -> int:
-    """Distinct image XObjects reachable from the page plus inline images in its content."""
+    """Distinct image XObjects reachable from the page plus inline images in its content.
+
+    Both only if at least MIN_IMAGE_SIDE_PX on each side (ADR-0021).
+    """
     images: set[Any] = set()
     _collect_image_xobjects(page, images, set())
     return len(images) + count_inline_images(_content_bytes(page.get("/Contents")))

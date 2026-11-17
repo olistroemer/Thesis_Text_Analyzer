@@ -110,6 +110,17 @@ def test_matplotlib_is_excluded_from_both_graphs(spec_source):
     assert "matplotlib" not in list_literal(spec_source, "gui_hiddenimports")
 
 
+def test_pillow_is_excluded_from_both_graphs(spec_source):
+    """#85: pypdf needs Pillow only to decode images, which mod_count_images
+    no longer does (ADR-0021), and Pillow was never declared - so a build env
+    that happens to have it must not ship it (#52)."""
+    shared = list_literal(spec_source, "EXCLUDES")
+    cli = list_literal(spec_source, "CLI_EXCLUDES")
+    assert "PIL" in shared and "PIL" in cli
+    assert "PIL" not in list_literal(spec_source, "gui_hiddenimports")
+    assert "PIL" not in list_literal(spec_source, "shared_hiddenimports")
+
+
 def test_hiddenimports_are_scoped_per_binary(spec_source):
     """Sharing one list is why the CLI binary was larger than the GUI (#52)."""
     calls = analysis_calls(spec_source)

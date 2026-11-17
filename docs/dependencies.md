@@ -118,8 +118,15 @@ even though no `pyproject.toml` line mentions them.
 | Vendored in | Libraries (as shipped on Linux x86-64) | Licences | Verdict |
 |---|---|---|---|
 | `numpy` (`numpy.libs/`) | `libscipy_openblas64_`, `libgfortran.so.5`, `libquadmath.so.0` | OpenBLAS: BSD-3-Clause. libgfortran/libquadmath: **GPL-3.0-or-later WITH GCC-exception-3.1** | ✅ compatible — and doubly so: GPL-3.0-or-later is our own licence, so the runtime exception is not even load-bearing here. |
-| `pillow` (`pillow.libs/`) | freetype, harfbuzz, libjpeg-turbo, libpng16, libtiff, libwebp(+demux/mux), libavif, libsharpyuv, openjp2, lcms2, brotli(common/dec), zstd, liblzma, libxcb, libXau | freetype: **FTL OR GPL-2.0-or-later** (we take FTL). harfbuzz: Old-MIT. libjpeg-turbo: IJG/BSD-3/Zlib. libpng: PNG Reference Library License. libtiff: libtiff (BSD-like). libwebp/libavif/libsharpyuv/openjp2/zstd/brotli: BSD-2/BSD-3/MIT. lcms2: MIT. liblzma: 0BSD. libxcb/libXau: MIT. | ✅ all permissive or GPL-compatible dual |
 | CPython itself (bundled by PyInstaller) | libpython3.12, `_sqlite3` → SQLite, `_tkinter` → Tcl/Tk 8.6, zlib, bz2, lzma, libffi | Python: **PSF-2.0** (GPL-compatible). SQLite 3.51.2: **public domain**. Tcl/Tk: TCL licence (BSD-style). zlib/bzip2/xz/libffi: permissive. | ✅ compatible |
+
+**Pillow is no longer shipped (2026-10-14, #52, #85).** Earlier builds carried `pillow`
+(`pillow.libs/`: freetype, harfbuzz, libjpeg-turbo, libpng16, libtiff, libwebp, libavif, openjp2,
+lcms2, brotli, zstd, liblzma, libxcb, libXau; all permissive or GPL-compatible dual, freetype taken
+under FTL). It was never a declared dependency, only pulled in from the build environment; since
+`mod_count_images` stopped decoding images ([ADR-0021](adr/0021-image-counting.md)) nothing needs
+it, so the spec excludes `PIL` and the build check rejects it
+([ADR-0014](adr/0014-distribution.md)).
 
 `sqlite3` and `tkinter` are stdlib modules but real redistributed third-party code — SQLite backs
 the entire persistence layer (`tta/core/db`) and Tk backs the whole GUI. They belong in
@@ -309,7 +316,7 @@ PY
 # 3. Bundled data and vendored native libraries.
 python -c "import nltk; print(nltk.data.find('tokenizers/punkt_tab'))"
 python -c "import pyphen, os; print(len(os.listdir(os.path.dirname(pyphen.LANGUAGES['de']))))"
-python -c "import sysconfig, os; sp=sysconfig.get_paths()['purelib']; print(os.listdir(sp+'/numpy.libs'), os.listdir(sp+'/pillow.libs'))"
+python -c "import sysconfig, os; sp=sysconfig.get_paths()['purelib']; print(os.listdir(sp+'/numpy.libs'))"
 python -c "import sys, sqlite3, tkinter; print(sys.version, sqlite3.sqlite_version, tkinter.TkVersion)"
 ```
 

@@ -181,6 +181,13 @@ EXCLUDES = [
     # dropping it from pyproject.toml is not enough to keep it out.
     "matplotlib",
     "mpl_toolkits",
+    # Pillow was never declared. pypdf imports it only to decode images,
+    # which mod_count_images no longer does since #85 (ADR-0021); PyMuPDF
+    # only inside Pixmap.pil_*, which tta never calls. Without this entry it
+    # would land in both binaries whenever the build env happens to have
+    # Pillow installed (#52). Both import sites are guarded: excluding it is
+    # runtime-safe, not merely build-safe.
+    "PIL",
 ]
 
 # ---- additionally kept out of the CLI graph (ADR-0014) --------------------

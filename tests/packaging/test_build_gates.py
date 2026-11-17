@@ -392,6 +392,19 @@ def test_forbidden_and_gui_only_lists_do_not_overlap(check_build):
     assert not set(check_build.FORBIDDEN) & set(check_build.GUI_ONLY)
 
 
+def test_pillow_is_forbidden_outright(check_build):
+    """#85: no binary decodes images any more (ADR-0021), so PIL is banned."""
+    assert "PIL" in check_build.FORBIDDEN
+    assert "PIL" not in check_build.GUI_ONLY
+    assert "PIL" not in check_build.GUI_REQUIRED
+    found = check_build.offenders(
+        [("PIL/Image.py", "src", "PYMODULE"), ("pillow.libs/libjpeg.so.62", "src", "BINARY"),
+         ("PIL.Image", "src", "PYMODULE")],
+        check_build.FORBIDDEN,
+    )
+    assert set(found) == {"PIL", "pillow"}
+
+
 def test_matplotlib_is_forbidden_outright(check_build):
     """#53 moved it from GUI-only to forbidden: the report is inline SVG now
     (ADR-0016 rev. 2), so no binary has any use for the plotting stack."""

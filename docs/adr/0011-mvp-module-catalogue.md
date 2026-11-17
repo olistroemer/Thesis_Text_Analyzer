@@ -1,7 +1,7 @@
 # ADR-0011: MVP module catalogue — 13 modules / 31 metrics
 
-**Status:** Accepted (revision 4 — `mod_extract_filesystem_metadata` added (#18, +2 metrics `file_size_bytes`, `fs_modified_year`); 12 → 13 modules, 29 → 31 metrics). Rev. 3 — two title-page modules added: `mod_classify_thesis_type` (#9, +1 metric `thesis_type`) and `mod_determine_publication_year` (#17, +2 metrics `publication_year`, `publication_year_source`); the `theses.type`/`theses.language_hint` override columns are dropped in favour of the detected `thesis_type` metric and the existing `language_code` metric — see [ADR-0019](0019-thesis-type-by-detection.md). 10 → 12 modules, 26 → 29 metrics). Rev. 2 measured hapax as both token-ratio V1/N and type-ratio V1/V (25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
-**Date:** 2026-06-03 (rev. 2: 2026-06-10; rev. 3: 2026-07-22; rev. 4: 2026-08-26)
+**Status:** Accepted (revision 5 — `mod_count_images` 0.2.0 counts images from the PDF structure without decoding them, with a minimum image size of 3 px per side; the counting rule, the data behind the threshold and the timing evidence are in [ADR-0021](0021-image-counting.md) (#85). Rev. 4 — `mod_extract_filesystem_metadata` added (#18, +2 metrics `file_size_bytes`, `fs_modified_year`); 12 → 13 modules, 29 → 31 metrics). Rev. 3 — two title-page modules added: `mod_classify_thesis_type` (#9, +1 metric `thesis_type`) and `mod_determine_publication_year` (#17, +2 metrics `publication_year`, `publication_year_source`); the `theses.type`/`theses.language_hint` override columns are dropped in favour of the detected `thesis_type` metric and the existing `language_code` metric — see [ADR-0019](0019-thesis-type-by-detection.md). 10 → 12 modules, 26 → 29 metrics). Rev. 2 measured hapax as both token-ratio V1/N and type-ratio V1/V (25 → 26 metrics). The **AGPL release gate** below is **partially superseded by [ADR-0017](0017-license.md)** (the project adopts copyleft; PyMuPDF may ship).
+**Date:** 2026-06-03 (rev. 2: 2026-06-10; rev. 3: 2026-07-22; rev. 4: 2026-08-26; rev. 5: 2026-10-14)
 **Drivers:** Exploration findings on trustworthy metrics (memory: `project_eth_text_analysis_findings`); garbled-extraction finding (memory: `project_eth_text_analysis_findings` caveat); AGPL constraint (no PyMuPDF in distribution); primary research goal (SDD §2.1 — length over publication date, #17); US-PROF-ATTRS / US-PROF-COMPARE (#9); user stories US-RES-CLI, US-PROF-QUALITY, US-RES-LANG.
 
 ## Decision
@@ -26,7 +26,7 @@ Flesch reading ease is **language-aware**: Flesch's formula for English [@flesch
 | Module | Initial library | Why initial | Comparison candidates |
 |---|---|---|---|
 | `mod_extract_pymupdf` | PyMuPDF | what worked in exploration | pdfminer.six, pypdf, pdfplumber, poppler `pdftotext` |
-| `mod_count_images` | pypdf | non-AGPL, simple API | pikepdf, pdfminer.six |
+| `mod_count_images` | pypdf (object model only; never decodes an image, rev. 5 / [ADR-0021](0021-image-counting.md)) | non-AGPL, simple API | pikepdf, pdfminer.six |
 | `mod_extract_pdf_metadata` | pypdf | non-AGPL, basic Info dict access | pikepdf, pdfplumber |
 | `mod_classify_language` | langdetect | lightweight, no model file needed | fasttext, lingua, polyglot |
 | `mod_tokenize` | NLTK punkt_tab | language-aware sentence + word tokenisation | spaCy, stanza |
@@ -50,7 +50,7 @@ The library-comparison study (SDD §2.1.1) produces a contracted research output
 - **Citation/quotation validity** — separate researcher's modules.
 - **Word-list-based vocabulary metrics** — word-list licensing unresolved.
 - **Multivariate outlier detection** — extended-mode v2.
-- **Smarter figure module** — `mod_count_images` is the POC; full figure analysis is post-MVP.
+- **Smarter figure module** — `mod_count_images` is the POC; full figure analysis is post-MVP. Rev. 5: the POC counts from the PDF structure, never decodes, and ignores images under 3 px per side ([ADR-0021](0021-image-counting.md)); fragments of sliced images and glyph bitmaps remain over-counted.
 
 ## Consequences
 
