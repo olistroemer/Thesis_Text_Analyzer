@@ -11,8 +11,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from typing import TYPE_CHECKING
+
 from tta.core import artefact_kinds
 from tta.core.modules.base import Module
+
+if TYPE_CHECKING:
+    from tta.core.modules._titlepage import CoverRuleset
 
 
 class ModuleRegistry:
@@ -87,8 +92,13 @@ class ModuleRegistry:
         return [m for m in self._topo if m.spec.name in wanted]
 
 
-def default_registry() -> ModuleRegistry:
-    """The MVP catalogue (SDD Sec. 7.1, ADR-0011)."""
+def default_registry(cover_rules: CoverRuleset | None = None) -> ModuleRegistry:
+    """The MVP catalogue (SDD Sec. 7.1, ADR-0011).
+
+    ``cover_rules`` is the researcher cover-page ruleset of ADR-0023, handed
+    to the two title-page modules. ``None`` - the default, and the only value
+    the GUI ever passes - applies no cover rule at all.
+    """
     from tta.core.modules.check_extraction_quality import CheckExtractionQuality
     from tta.core.modules.classify_language import ClassifyLanguage
     from tta.core.modules.classify_thesis_type import ClassifyThesisType
@@ -108,7 +118,7 @@ def default_registry() -> ModuleRegistry:
             ExtractPymupdf(),
             CheckExtractionQuality(),
             ClassifyLanguage(),
-            ClassifyThesisType(),
+            ClassifyThesisType(cover_rules),
             Tokenize(),
             SurfaceCounts(),
             Vocabulary(),
@@ -116,7 +126,7 @@ def default_registry() -> ModuleRegistry:
             Redundancy(),
             CountImages(),
             ExtractPdfMetadata(),
-            DeterminePublicationYear(),
+            DeterminePublicationYear(cover_rules),
             ExtractFilesystemMetadata(),
         ]
     )
