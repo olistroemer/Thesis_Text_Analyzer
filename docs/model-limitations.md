@@ -451,12 +451,16 @@ since they belong to their own tickets:
   - *Over-removed:* everything in a monospaced font, including URLs and DOIs that LaTeX's `\url`
     sets in a typewriter font (mostly bibliography), file names and command names in running text.
     Isolated punctuation and slashes in a math font disappear too (`AdS3/CFT2` loses the `/`).
-  - *Whole-document false positives:* a thesis set **entirely** in a monospaced font, or a Word
-    document whose body text is set in **Cambria Math**, loses nearly all of its prose. In the
-    Exp #22 corpus that was 2 of 3,233 theses (93 % Courier New, 96 % Cambria Math); 5 lost more
-    than half. `prose_text` can then be empty, which makes tokenisation and everything after it
-    `na`. The two counts `removed_monospace_chars` / `removed_math_chars` make such theses visible:
-    compare them with `text_chars`.
+  - *Whole-document fonts:* a thesis set **entirely** in a monospaced font, or a Word document
+    whose body text is set in **Cambria Math**, would lose nearly all of its prose. In the Exp #22
+    corpus that was 2 of 3,233 theses (93 % Courier New, 96 % Cambria Math). A guard prevents
+    it: a category holding more than 80 % of a document's characters is not filtered for that
+    document (ADR-0024 decision 2a). The price is that such a document keeps its code or math in
+    `prose_text`, and its `removed_*_chars` is 0. A body-font document below 80 % (a typewriter
+    body with a large appendix in another font) is still filtered; the two counts
+    `removed_monospace_chars` / `removed_math_chars` make it visible against `text_chars`.
+    Theses with a long listing appendix are filtered as intended: up to 63 % of a thesis was
+    monospace in Exp #22.
   - Text the PDF stores as a picture (formula images, Type3 bitmap fonts) is not text at all and is
     never seen by the filter.
 - **`mod_check_extraction_quality`** thresholds the ratio of common English/German function words at
