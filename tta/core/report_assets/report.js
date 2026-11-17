@@ -74,6 +74,19 @@
     return base;
   }
 
+  // A year axis with whole-year ticks: one per year for short spans, every
+  // 5 or 10 years for long ones (plotly's auto ticks would repeat a year).
+  function yearAxis(years) {
+    var lo = Math.min.apply(null, years), hi = Math.max.apply(null, years), span = hi - lo;
+    var axis = {
+      type: "linear", title: { text: S.year }, tickformat: "d", gridcolor: C.grid,
+      linecolor: C.line, zeroline: false, tick0: 0,
+      dtick: span <= 12 ? 1 : (span <= 30 ? 5 : 10)
+    };
+    if (span < 2) { axis.range = [lo - 1.5, hi + 1.5]; }
+    return axis;
+  }
+
   function empty(div) {
     if (window.Plotly) { Plotly.purge(div); }
     div.ttaClick = false;  // purge drops the event handlers too
@@ -120,21 +133,43 @@
     var series = (D.bands[sel.bandKey] || {})[metric];
     if (!series || !series.some(function (s) { return s; })) { return []; }
     function column(i) { return series.map(function (s) { return s ? s[i] : null; }); }
-    var edge = { mode: "lines", line: { width: 0 }, hoverinfo: "skip", connectgaps: false, type: "scatter" };
-    function with_(extra) { var t = {}; var k; for (k in edge) { t[k] = edge[k]; } for (k in extra) { t[k] = extra[k]; } return t; }
-    return [
-      with_({ x: D.years, y: column(P05), showlegend: false }),
-      with_({ x: D.years, y: column(P95), fill: "tonexty", fillcolor: C.bandOuter, name: S.outer }),
-      with_({ x: D.years, y: column(P25), showlegend: false }),
-      with_({ x: D.years, y: column(P75), fill: "tonexty", fillcolor: C.bandInner, name: S.inner }),
+    // Each run of consecutive years with a bucket gets its own band, so a
+    // band is never filled across a year without reference data; a lone
+    // year is drawn as a short block around it.
+    var runs = [], current = null;
+    series.forEach(function (s, i) {
+      if (s) { if (!current) { current = []; runs.push(current); } current.push(i); }
+      else { current = null; }
+    });
+    var traces = [];
+    function edge(xs, ys, extra) {
+      var t = { type: "scatter", mode: "lines", line: { width: 0 }, hoverinfo: "skip", x: xs, y: ys,
+        showlegend: false };
+      for (var k in extra) { t[k] = extra[k]; }
+      traces.push(t);
+    }
+    runs.forEach(function (run, n) {
+      var xs = [], idx = [];
+      if (run.length === 1) { xs = [D.years[run[0]] - 0.35, D.years[run[0]] + 0.35]; idx = [run[0], run[0]]; }
+      else { run.forEach(function (i) { xs.push(D.years[i]); idx.push(i); }); }
+      function at(stat) { return idx.map(function (i) { return series[i][stat]; }); }
+      edge(xs, at(P05), { legendgroup: "outer" });
+      edge(xs, at(P95), { fill: "tonexty", fillcolor: C.bandOuter, name: S.outer, legendgroup: "outer",
+        showlegend: n === 0 });
+      edge(xs, at(P25), { legendgroup: "inner" });
+      edge(xs, at(P75), { fill: "tonexty", fillcolor: C.bandInner, name: S.inner, legendgroup: "inner",
+        showlegend: n === 0 });
+    });
+    return traces.concat([
       {
-        x: D.years, y: column(MEDIAN), type: "scatter", mode: "lines", connectgaps: false,
+        x: D.years, y: column(MEDIAN), type: "scatter", mode: "lines+markers", connectgaps: false,
+        marker: { size: 4, color: C.ink2 },
         line: { color: C.ink2, width: 2 }, name: S.median,
         customdata: series.map(function (s) { return s ? [null, fmt(s[P05]), fmt(s[P25]), fmt(s[P75]), fmt(s[P95]), fmt(s[MEAN])] : null; }),
         hovertemplate: "%{x}: " + S.median + " %{y:.4~g}<br>P25-P75: %{customdata[2]} - %{customdata[3]}" +
           "<br>P5-P95: %{customdata[1]} - %{customdata[4]}<extra></extra>"
       }
-    ];
+    ]);
   }
 
   function drawGroup(name, sel) {
@@ -160,8 +195,10 @@
       });
     });
     var points = byLevel["0"].length + byLevel["1"].length + byLevel["2"].length + byLevel["-"].length;
+    var axisYears = [];
+    traces.forEach(function (t) { t.x.forEach(function (x, i) { if (t.y[i] !== null) { axisYears.push(Math.round(x)); } }); });
     if (!points && traces.length === 0) { empty(div); } else {
-      draw(div, traces, layout({ yaxis: { type: "linear", title: { text: label }, gridcolor: C.grid, linecolor: C.line, zeroline: false } }));
+      draw(div, traces, layout({ xaxis: yearAxis(axisYears), yaxis: { type: "linear", title: { text: label }, gridcolor: C.grid, linecolor: C.line, zeroline: false } }));
     }
     outsideList(name, sel, metric, byLevel);
   }
@@ -229,7 +266,7 @@
       type: "bar", x: years, y: years.map(function (y) { return counts[y]; }),
       marker: { color: C.series[0] }, hovertemplate: "%{x}: %{y}<extra></extra>"
     }], layout({
-      showlegend: false, bargap: 0.25,
+      showlegend: false, bargap: 0.25, xaxis: yearAxis(years),
       yaxis: { type: "linear", title: { text: S.theses }, rangemode: "tozero", gridcolor: C.grid,
         linecolor: C.line, zeroline: false, dtick: peak <= 10 ? 1 : null, tickformat: "d" }
     }));
@@ -252,7 +289,7 @@
       marker: { color: C.series[0], size: 6 }, line: { color: C.series[0], width: 1.5 },
       name: S.theses
     }], layout({
-      showlegend: false,
+      showlegend: false, xaxis: yearAxis(xs),
       yaxis: { type: "linear", title: { text: D.labels[metric] }, gridcolor: C.grid, linecolor: C.line, zeroline: false }
     }));
   }
@@ -284,7 +321,7 @@
     });
     var peak = Math.max.apply(null, xs.map(function (y) { return years[y]; }));
     draw(div, traces, layout({
-      barmode: "stack", bargap: 0.25,
+      barmode: "stack", bargap: 0.25, xaxis: yearAxis(xs),
       yaxis: { type: "linear", title: { text: S.theses }, rangemode: "tozero", gridcolor: C.grid,
         linecolor: C.line, zeroline: false, dtick: peak <= 10 ? 1 : null, tickformat: "d" }
     }));
