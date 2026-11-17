@@ -716,7 +716,6 @@ def run_gui(project, out: Path, wanted: set, log) -> None:
     """Drive MainWindow through a run and its dialogs; capture what's wanted."""
     from tta.core.i18n import _
     from tta.ui.tk import dialogs
-    from tta.ui.tk.help_view import open_help
     from tta.ui.tk.main_window import BTN_CANCEL, MainWindow
 
     win32 = Win32()
@@ -770,20 +769,20 @@ def run_gui(project, out: Path, wanted: set, log) -> None:
             panel[0].destroy()
             grid.sheet.deselect("all")
 
-        # -- help viewer on a metric page ----------------------------------------
+        # -- help viewer on its cover page (the Help button, #92) ------------------
         if "app-hilfe" in wanted:
-            help_window = open_help(root, topic="metric:yules_k")
+            window._show_help()
+            help_window = window._help_window
             help_window.geometry("1000x680+80+60")
             pump(root, 0.3)
             shot("app-hilfe", help_window)
             help_window.destroy()
 
-        # -- privacy statement --------------------------------------------------
+        # -- privacy statement: the help viewer's privacy page (#92) ------------
         if "app-datenschutz" in wanted:
-            before = toplevel_names(root)
             window._show_privacy()
-            privacy = new_toplevels(root, before)[0]
-            privacy.geometry("+80+60")
+            privacy = window._help_window
+            privacy.geometry("1000x680+80+60")
             pump(root, 0.3)
             shot("app-datenschutz", privacy)
             privacy.destroy()
