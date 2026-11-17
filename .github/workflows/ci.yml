@@ -1,3 +1,11 @@
+# The comment above each job and step below is the reference for what it is
+# for (SDD 5.6.4); the SDD gives the overview and does not repeat it.
+#
+# Actions: GitHub's own JavaScript actions only, pinned to a major tag whose
+# action.yml declares `runs.using: node24` (#35). Node 20 is deprecated on
+# the runners: an action on a node20 major still runs, but forced onto
+# Node 24 and with a warning on every job. Check `runs.using` and the release
+# notes of a new major before bumping; tests/packaging rejects a node20 major.
 name: CI
 
 on:
@@ -38,11 +46,14 @@ jobs:
         shell: bash
 
     steps:
+      # The pushed commit, and the CPython the binaries embed and the dev
+      # env uses (SDD 5.6.3). No pip cache is configured, so every run
+      # installs the declared dependencies afresh.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -59,7 +70,9 @@ jobs:
       # pytest-cov is installed here rather than declared in the dev extra:
       # it is a property of how CI measures the suite, not of the package.
       # pip-licenses (the build extra) comes along so tests/packaging can
-      # exercise the real manifest generator instead of skipping it.
+      # exercise the real manifest generator instead of skipping it. The NLTK
+      # data is what the modules load at run time (punkt_tab: sentences,
+      # cmudict: English syllables for textstat).
       - name: Install package (dev extras + coverage)
         run: |
           pip install -e '.[dev,build]' 'pytest-cov>=5'
@@ -210,11 +223,14 @@ jobs:
         shell: bash
 
     steps:
+      # The pushed commit, and the CPython the binaries embed and the dev
+      # env uses (SDD 5.6.3). No pip cache is configured, so every run
+      # installs the declared dependencies afresh.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -233,7 +249,9 @@ jobs:
       - name: Install build dependencies
         run: pip install -e '.[build,pymupdf]'
 
-      - name: Download NLTK punkt_tab (bundled into the binary)
+      # Both are collected into the binary's nltk_data/ by the spec; a
+      # missing cmudict made the binary download it at run time (#75).
+      - name: Download NLTK data (punkt_tab, cmudict; bundled into the binary)
         run: python -m nltk.downloader punkt_tab cmudict
 
       # ADR-0014 licence manifest (#4). Must run BEFORE PyInstaller and in
@@ -245,6 +263,8 @@ jobs:
           python packaging/gen_third_party_licenses.py \
             --output build/licenses/THIRD_PARTY_LICENSES.txt
 
+      # Both executables (tta, tta-gui) from the one spec. dist/ receives the
+      # binaries; build/ keeps the Analysis TOCs the gates below inspect.
       - name: Build onefile binaries
         run: pyinstaller packaging/tta.spec --noconfirm --distpath dist --workpath build
 
@@ -380,7 +400,7 @@ jobs:
       # from source (ADR-0003 / ADR-0014 revisions 2026-10-12).
       - name: Upload binaries
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           retention-days: 3
           name: tta-${{ matrix.target }}
@@ -400,18 +420,24 @@ jobs:
     permissions:
       contents: write
 
+    # No checkout: nothing here reads the source. The artefacts come from
+    # the build job and `gh` takes the repository from GH_REPO below.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      # No `name`: every artefact of this run, one directory per target
+      # (artifacts/tta-<target>/).
       - name: Download every target's artefact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
       # The artefacts all carry the same file names, so flatten them into one
       # directory with the target in the name - that is what somebody
       # downloading a single binary from the release page needs to see.
+      # `find`, not a `$dir*` glob: upload-artifact roots an artefact at the
+      # least common ancestor of its paths, which for dist/ + build/licenses/
+      # is the checkout, so each artefact holds dist/tta-gui[.exe] and
+      # build/licenses/THIRD_PARTY_LICENSES.txt, not two top-level files.
+      # The glob saw the two directories and `cp` failed on them (#35).
       - name: Collect the release assets
         run: |
           set -euo pipefail
@@ -419,7 +445,7 @@ jobs:
           for dir in artifacts/*/; do
             target="$(basename "$dir")"      # tta-linux-x86_64
             target="${target#tta-}"          # linux-x86_64
-            for path in "$dir"*; do
+            find "$dir" -type f -print0 | while IFS= read -r -d '' path; do
               name="$(basename "$path")"
               case "$name" in
                 THIRD_PARTY_LICENSES.txt)
@@ -434,9 +460,12 @@ jobs:
           done
           ls -l upload
 
+      # Draft only; the release notes state why. GH_REPO stands in for the
+      # git remote `gh` would otherwise read from a checkout.
       - name: Open the draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           gh release create "$GITHUB_REF_NAME" upload/* \

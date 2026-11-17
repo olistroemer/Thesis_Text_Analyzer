@@ -344,6 +344,20 @@ Development happens on Linux and on **native Windows** — the platform the GUI 
 - **OS-neutral tests.** Paths are compared as `Path` objects or via `as_posix()`, never as `str` with `/`; files are read and written with an explicit encoding; a test that reads a subprocess's output pins the pipe encoding on *both* ends; nothing relies on symlinks (Windows refuses them without Developer Mode) or on POSIX permission bits. A test that is inherently POSIX-only skips with a reason string. Two Windows/Tk specifics are handled once, in `tests/ui/conftest.py`: the display gate only consults `$DISPLAY` on X11 platforms, and Tcl's standard channels are created on private handles before the first interpreter, because pytest's fd-level capture closes the process std handles under Tcl on Windows.
 - **Local frozen builds** follow ADR-014 in a throwaway environment with `PYTHONNOUSERSITE=1`. A conda environment must be **activated** (or driven through `conda run -n <env> pyinstaller ...`) while PyInstaller runs: it resolves the DLLs an extension module links against through `PATH`, and with only a base Miniconda on `PATH` it bundled the base installation's `libexpat.dll` beside the build env's `pyexpat.pyd`. That binary built and passed every size and graph gate, then failed on launch with "DLL load failed while importing pyexpat". CI's setup-python interpreter links expat statically and is not exposed to this.
 
+### 5.6.4 CI pipeline
+
+One GitHub Actions workflow, `.github/workflows/ci.yml`, runs on every push, every pull request, every `v*` tag and on demand (`workflow_dispatch`). It has three jobs:
+
+| job | runs | for |
+|---|---|---|
+| `lint-and-test` | Linux + native Windows (§5.6.3) | source invariants (boundary, [ADR-002](adr/0002-ui-core-boundary.md); ASCII, [ADR-018](adr/0018-ascii-source.md)), the full suite with the QA-TEST coverage gate, the GUI tests under Xvfb on Linux |
+| `build` | four targets, after `lint-and-test` | clean-environment freeze, size/graph/licence gates, packaged-binary acceptance ([ADR-014](adr/0014-distribution.md)); uploads `tta-gui` for tags and manual runs only |
+| `release` | `v*` tags only | collects the four artefacts into a **draft** release |
+
+**The reference for what each step does and why is the comment above that step in `ci.yml`**, next to the code it explains; this section does not repeat it. `tests/packaging/test_ci_workflow.py` pins the gates themselves, so removing one fails the fast suite.
+
+**Action runtimes.** Only GitHub's own JavaScript actions are used (`checkout`, `setup-python`, `upload-artifact`, `download-artifact`), each pinned to a major tag whose `action.yml` declares `runs.using: node24`. GitHub deprecated the Node 20 runtime in 2025 and forces Node 20 actions onto Node 24 with a warning on every job; a major that still declares `node20` is therefore not used, and the suite rejects one (#35). To bump: read `runs.using` in the new major's `action.yml` and its release notes for breaking changes, before changing the tag.
+
 ---
 
 # 6. Domain Model

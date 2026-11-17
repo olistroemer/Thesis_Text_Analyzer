@@ -374,3 +374,50 @@ def test_the_ascii_gate_runs_grep_in_a_utf8_locale(workflow_source):
     test_job = build_job(workflow_source)
     body = test_job.split("name: ASCII-source invariant", 1)[1].split("- name:", 1)[0]
     assert "LC_ALL: C.UTF-8" in body
+
+
+# ------------------------------------------------ action runtimes (#35)
+
+# The first major of each action whose action.yml declares
+# `runs.using: node24` (checked with `gh api` against the action's repo,
+# 2026-10-14). Anything older targets Node 20, which the runners deprecate:
+# it is forced onto Node 24 and warns on every job.
+FIRST_NODE24_MAJOR = {
+    "actions/checkout": 5,
+    "actions/setup-python": 6,
+    "actions/upload-artifact": 6,
+    "actions/download-artifact": 7,
+}
+
+
+def test_every_action_is_on_a_node24_major(workflow_source):
+    """SDD 5.6.4: no action may target the deprecated Node 20 runtime."""
+    uses = re.findall(r"^\s*(?:-\s*)?uses:\s*(\S+)@v(\d+)\s*$",
+                      workflow_source, re.M)
+    assert uses, "the workflow uses no actions at all?"
+    for action, major in uses:
+        assert action in FIRST_NODE24_MAJOR, (
+            "%s is not one of the vetted actions; check its runs.using and "
+            "add it here (SDD 5.6.4)" % action
+        )
+        assert int(major) >= FIRST_NODE24_MAJOR[action], (
+            "%s@v%s targets Node 20; use v%d or later"
+            % (action, major, FIRST_NODE24_MAJOR[action])
+        )
+
+
+def test_the_release_collects_files_below_the_artefact_root(workflow_source):
+    """upload-artifact roots a multi-path artefact at the paths' common
+    ancestor, so the binary arrives as dist/... and the manifest as
+    build/licenses/...: a one-level glob hands `cp` two directories (#35)."""
+    release = job(workflow_source, "release")
+    collect = release.split("name: Collect the release assets", 1)[1]
+    assert 'find "$dir" -type f' in collect
+    assert 'for path in "$dir"*' not in collect
+
+
+def test_the_release_job_names_its_repository_for_gh(workflow_source):
+    """Without a checkout `gh` has no git remote to read the repo from."""
+    release = job(workflow_source, "release")
+    if "actions/checkout" not in release:
+        assert "GH_REPO: ${{ github.repository }}" in release
