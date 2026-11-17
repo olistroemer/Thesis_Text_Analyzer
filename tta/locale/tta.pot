@@ -134,19 +134,19 @@ msgstr ""
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr ""
 
-#: tta/ui/tk/columns.py:155
+#: tta/ui/tk/columns.py:160
 msgid "Average sentence length, in words."
 msgstr ""
 
-#: tta/ui/tk/columns.py:154
+#: tta/ui/tk/columns.py:159
 msgid "Average word length, in characters."
 msgstr ""
 
-#: tta/ui/tk/columns.py:87
+#: tta/ui/tk/columns.py:88
 msgid "Avg. sentence length"
 msgstr ""
 
-#: tta/ui/tk/columns.py:86
+#: tta/ui/tk/columns.py:87
 msgid "Avg. word length"
 msgstr ""
 
@@ -154,11 +154,11 @@ msgstr ""
 msgid "Bar chart of thesis counts per detected language."
 msgstr ""
 
-#: tta/ui/tk/columns.py:135
+#: tta/ui/tk/columns.py:136
 msgid "Best-estimate publication year (title-page year, else PDF dates)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:77
+#: tta/ui/tk/columns.py:78
 msgid "Bookmarks"
 msgstr ""
 
@@ -174,11 +174,11 @@ msgstr ""
 msgid "Cached PDF metadata"
 msgstr ""
 
-#: tta/ui/tk/columns.py:122
+#: tta/ui/tk/columns.py:123
 msgid "Cached extracted plain text. Double-click to open it."
 msgstr ""
 
-#: tta/ui/tk/columns.py:125
+#: tta/ui/tk/columns.py:126
 msgid "Cached full PDF metadata artefact. Double-click to open it."
 msgstr ""
 
@@ -186,7 +186,7 @@ msgstr ""
 msgid "Cached language"
 msgstr ""
 
-#: tta/ui/tk/columns.py:123
+#: tta/ui/tk/columns.py:124
 msgid "Cached language-detection artefact. Double-click to open it."
 msgstr ""
 
@@ -194,7 +194,7 @@ msgstr ""
 msgid "Cached text"
 msgstr ""
 
-#: tta/ui/tk/columns.py:124
+#: tta/ui/tk/columns.py:125
 msgid "Cached tokenisation artefact. Double-click to open it."
 msgstr ""
 
@@ -214,11 +214,11 @@ msgstr ""
 msgid "Category"
 msgstr ""
 
-#: tta/ui/tk/columns.py:132
+#: tta/ui/tk/columns.py:133
 msgid "Category of the PDF 'Creator' tool (e.g. LaTeX, Word)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:131
+#: tta/ui/tk/columns.py:132
 msgid "Category of the PDF 'Producer' tool (e.g. LaTeX, Word)."
 msgstr ""
 
@@ -265,7 +265,7 @@ msgstr ""
 msgid "Concurrent theses (default: cores - 1)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:149
+#: tta/ui/tk/columns.py:154
 msgid "Confidence of the language detection, from 0 to 1."
 msgstr ""
 
@@ -317,15 +317,15 @@ msgstr ""
 msgid "Description"
 msgstr ""
 
-#: tta/ui/tk/columns.py:145
+#: tta/ui/tk/columns.py:150
 msgid "Detected degree from the title page: bachelor, master, or unspecified."
 msgstr ""
 
-#: tta/ui/tk/columns.py:148
+#: tta/ui/tk/columns.py:153
 msgid "Detected primary language as an ISO 639 code."
 msgstr ""
 
-#: tta/ui/tk/columns.py:118
+#: tta/ui/tk/columns.py:119
 msgid "Detected thesis type (bachelor / master / unspecified); blank until analysed."
 msgstr ""
 
@@ -379,7 +379,7 @@ msgstr ""
 msgid "Exclude thesis {thesis_id} and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? This is destructive and cannot be undone. The source PDF is not touched."
 msgstr ""
 
-#: tta/ui/tk/columns.py:107
+#: tta/ui/tk/columns.py:108
 msgid "Exclude this thesis from analysis and exports. Excluding an already-analysed thesis deletes its cached analysis (artefacts + metrics) from this machine after a confirmation; the source PDF is not touched."
 msgstr ""
 
@@ -424,7 +424,7 @@ msgstr ""
 msgid "Extended mode"
 msgstr ""
 
-#: tta/ui/tk/columns.py:78
+#: tta/ui/tk/columns.py:79
 msgid "Extraction quality"
 msgstr ""
 
@@ -433,15 +433,15 @@ msgstr ""
 msgid "File"
 msgstr ""
 
-#: tta/ui/tk/columns.py:97
+#: tta/ui/tk/columns.py:98
 msgid "File modified (year)"
 msgstr ""
 
-#: tta/ui/tk/columns.py:117
+#: tta/ui/tk/columns.py:118
 msgid "File name of the thesis PDF. Double-click to open the PDF."
 msgstr ""
 
-#: tta/ui/tk/columns.py:96
+#: tta/ui/tk/columns.py:97
 msgid "File size"
 msgstr ""
 
@@ -453,7 +453,7 @@ msgstr ""
 msgid "Flesch (en) / Amstad (de) reading-ease score"
 msgstr ""
 
-#: tta/ui/tk/columns.py:150
+#: tta/ui/tk/columns.py:155
 msgid "Flesch Reading Ease; higher scores read more easily."
 msgstr ""
 
@@ -461,11 +461,11 @@ msgstr ""
 msgid "Flesch reading ease"
 msgstr ""
 
-#: tta/ui/tk/columns.py:162
+#: tta/ui/tk/columns.py:167
 msgid "Fraction of repeated word bigrams (two-word runs)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:163
+#: tta/ui/tk/columns.py:168
 msgid "Fraction of repeated word trigrams (three-word runs)."
 msgstr ""
 
@@ -494,6 +494,10 @@ msgstr ""
 msgid "Histogram of Flesch reading-ease scores, one series per language."
 msgstr ""
 
+#: tta/ui/tk/columns.py:142
+msgid "How precise the date behind the publication year is: day, month, semester, year or year range."
+msgstr ""
+
 #: tta/ui/tk/columns.py:69
 msgid "Images"
 msgstr ""
@@ -518,11 +522,11 @@ msgstr ""
 msgid "Kind"
 msgstr ""
 
-#: tta/ui/tk/columns.py:80
+#: tta/ui/tk/columns.py:81
 msgid "Language"
 msgstr ""
 
-#: tta/ui/tk/columns.py:81
+#: tta/ui/tk/columns.py:82
 msgid "Language confidence"
 msgstr ""
 
@@ -546,7 +550,7 @@ msgstr ""
 msgid "Length over time"
 msgstr ""
 
-#: tta/ui/tk/columns.py:84
+#: tta/ui/tk/columns.py:85
 msgid "Letters"
 msgstr ""
 
@@ -628,23 +632,23 @@ msgstr ""
 msgid "Nothing to export yet - add and analyse theses first."
 msgstr ""
 
-#: tta/ui/tk/columns.py:152
+#: tta/ui/tk/columns.py:157
 msgid "Number of alphabetic characters in the text."
 msgstr ""
 
-#: tta/ui/tk/columns.py:127
+#: tta/ui/tk/columns.py:128
 msgid "Number of characters in the text extracted from the PDF."
 msgstr ""
 
-#: tta/ui/tk/columns.py:129
+#: tta/ui/tk/columns.py:130
 msgid "Number of embedded images detected in the PDF."
 msgstr ""
 
-#: tta/ui/tk/columns.py:91
+#: tta/ui/tk/columns.py:92
 msgid "Once-only words (of tokens)"
 msgstr ""
 
-#: tta/ui/tk/columns.py:92
+#: tta/ui/tk/columns.py:93
 msgid "Once-only words (of types)"
 msgstr ""
 
@@ -677,11 +681,11 @@ msgstr ""
 msgid "PDF files"
 msgstr ""
 
-#: tta/ui/tk/columns.py:128
+#: tta/ui/tk/columns.py:129
 msgid "Page count from the PDF text layer."
 msgstr ""
 
-#: tta/ui/tk/columns.py:130
+#: tta/ui/tk/columns.py:131
 msgid "Page count reported by the PDF's own metadata."
 msgstr ""
 
@@ -693,7 +697,7 @@ msgstr ""
 msgid "Pages (PDF metadata)"
 msgstr ""
 
-#: tta/ui/tk/columns.py:112
+#: tta/ui/tk/columns.py:113
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr ""
 
@@ -725,6 +729,10 @@ msgstr ""
 
 #: tta/cli/main.py:85
 msgid "Project directory (default: current directory)."
+msgstr ""
+
+#: tta/ui/tk/columns.py:77
+msgid "Publication date precision"
 msgstr ""
 
 #: tta/ui/tk/columns.py:75
@@ -775,7 +783,7 @@ msgstr ""
 msgid "Re-run everything regardless of state."
 msgstr ""
 
-#: tta/ui/tk/columns.py:82
+#: tta/ui/tk/columns.py:83
 msgid "Readability (Flesch)"
 msgstr ""
 
@@ -833,11 +841,11 @@ msgstr ""
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr ""
 
-#: tta/ui/tk/columns.py:94
+#: tta/ui/tk/columns.py:95
 msgid "Repeated word pairs"
 msgstr ""
 
-#: tta/ui/tk/columns.py:95
+#: tta/ui/tk/columns.py:96
 msgid "Repeated word triples"
 msgstr ""
 
@@ -855,7 +863,7 @@ msgstr ""
 msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:158
+#: tta/ui/tk/columns.py:163
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr ""
 
@@ -896,19 +904,19 @@ msgstr ""
 msgid "See also"
 msgstr ""
 
-#: tta/ui/tk/columns.py:88
+#: tta/ui/tk/columns.py:89
 msgid "Sentence length variation"
 msgstr ""
 
-#: tta/ui/tk/columns.py:85
+#: tta/ui/tk/columns.py:86
 msgid "Sentences"
 msgstr ""
 
-#: tta/ui/tk/columns.py:159
+#: tta/ui/tk/columns.py:164
 msgid "Share of tokens that occur exactly once."
 msgstr ""
 
-#: tta/ui/tk/columns.py:160
+#: tta/ui/tk/columns.py:165
 msgid "Share of word types that occur exactly once."
 msgstr ""
 
@@ -924,7 +932,7 @@ msgstr ""
 msgid "Show what one module reads and what it produces."
 msgstr ""
 
-#: tta/ui/tk/columns.py:168
+#: tta/ui/tk/columns.py:173
 msgid "Size of the PDF file on disk, in bytes."
 msgstr ""
 
@@ -941,7 +949,7 @@ msgstr ""
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr ""
 
-#: tta/ui/tk/columns.py:156
+#: tta/ui/tk/columns.py:161
 msgid "Standard deviation of sentence length, in words."
 msgstr ""
 
@@ -1001,7 +1009,7 @@ msgstr ""
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr ""
 
-#: tta/ui/tk/columns.py:79
+#: tta/ui/tk/columns.py:80
 msgid "Thesis type"
 msgstr ""
 
@@ -1029,11 +1037,11 @@ msgid ""
 "The repository's docs/dependencies.md lists every component with its purpose and licence."
 msgstr ""
 
-#: tta/ui/tk/columns.py:153
+#: tta/ui/tk/columns.py:158
 msgid "Total number of sentences detected."
 msgstr ""
 
-#: tta/ui/tk/columns.py:151
+#: tta/ui/tk/columns.py:156
 msgid "Total number of words in the extracted text."
 msgstr ""
 
@@ -1053,7 +1061,7 @@ msgstr ""
 msgid "Type"
 msgstr ""
 
-#: tta/ui/tk/columns.py:157
+#: tta/ui/tk/columns.py:162
 msgid "Type-token ratio: distinct words divided by total words."
 msgstr ""
 
@@ -1061,7 +1069,7 @@ msgstr ""
 msgid "Update stale"
 msgstr ""
 
-#: tta/ui/tk/columns.py:142
+#: tta/ui/tk/columns.py:147
 msgid "Verdict on how reliable the extracted text is (ok vs garbled)."
 msgstr ""
 
@@ -1069,15 +1077,15 @@ msgstr ""
 msgid "View"
 msgstr ""
 
-#: tta/ui/tk/columns.py:90
+#: tta/ui/tk/columns.py:91
 msgid "Vocabulary richness (Guiraud)"
 msgstr ""
 
-#: tta/ui/tk/columns.py:89
+#: tta/ui/tk/columns.py:90
 msgid "Vocabulary richness (TTR)"
 msgstr ""
 
-#: tta/ui/tk/columns.py:93
+#: tta/ui/tk/columns.py:94
 msgid "Vocabulary richness (Yule's K)"
 msgstr ""
 
@@ -1085,15 +1093,15 @@ msgstr ""
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:141
+#: tta/ui/tk/columns.py:146
 msgid "Whether the PDF carries a bookmarks/outline tree."
 msgstr ""
 
-#: tta/ui/tk/columns.py:138
+#: tta/ui/tk/columns.py:139
 msgid "Which signal set the publication year (title page vs PDF metadata)."
 msgstr ""
 
-#: tta/ui/tk/columns.py:83
+#: tta/ui/tk/columns.py:84
 msgid "Words"
 msgstr ""
 
@@ -1123,15 +1131,15 @@ msgid ""
 "One self-contained file: every style rule and every chart is inline, it makes no request to the network, and it contains no file names, paths, notes or document text. The file is written, not opened - a command-line tool must not start a browser unasked. Use `tta run --open-report` to have it opened."
 msgstr ""
 
-#: tta/ui/tk/columns.py:133
+#: tta/ui/tk/columns.py:134
 msgid "Year the PDF was created, from its metadata."
 msgstr ""
 
-#: tta/ui/tk/columns.py:134
+#: tta/ui/tk/columns.py:135
 msgid "Year the PDF was last modified, from its metadata."
 msgstr ""
 
-#: tta/ui/tk/columns.py:169
+#: tta/ui/tk/columns.py:174
 msgid "Year the file was last modified on disk. A weak signal: copying or downloading a file resets it, so it is not used for the publication year."
 msgstr ""
 
@@ -1139,7 +1147,7 @@ msgstr ""
 msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
 msgstr ""
 
-#: tta/ui/tk/columns.py:161
+#: tta/ui/tk/columns.py:166
 msgid "Yule's K: vocabulary richness, robust to text length."
 msgstr ""
 

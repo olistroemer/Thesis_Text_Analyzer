@@ -74,6 +74,7 @@ COLUMN_LABELS: dict[str, str] = {
     "modification_year": N_("Modified (year)"),
     "publication_year": N_("Publication year"),
     "publication_year_source": N_("Publication year source"),
+    "publication_date_precision": N_("Publication date precision"),
     "has_outline": N_("Bookmarks"),
     "extraction_quality": N_("Extraction quality"),
     "thesis_type": N_("Thesis type"),
@@ -137,6 +138,10 @@ COLUMN_HELP: dict[str, str] = {
     ),
     "publication_year_source": N_(
         "Which signal set the publication year (title page vs PDF metadata)."
+    ),
+    "publication_date_precision": N_(
+        "How precise the date behind the publication year is: day, month, "
+        "semester, year or year range."
     ),
     "has_outline": N_("Whether the PDF carries a bookmarks/outline tree."),
     "extraction_quality": N_(

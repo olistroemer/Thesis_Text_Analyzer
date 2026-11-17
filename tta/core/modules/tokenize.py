@@ -14,7 +14,7 @@ in every spawned worker. Same pattern as `mod_extract_pymupdf`'s lazy
 unsupported language never pays it at all.
 
 Both failure modes are deliberately loud (#34, SDD Sec. 7.4): three
-modules and thirteen of the thirty-one metrics read `tokens`, so an
+modules and thirteen of the thirty-two metrics read `tokens`, so an
 empty-but-successful artefact would zero out nearly half the catalogue
 with no visible cause.
 """
