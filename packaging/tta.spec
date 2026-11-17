@@ -16,6 +16,8 @@ Bundled data (must survive freezing - verified by the CLI smoke test):
     the build fails if none are present, since a silent English fallback
     would break the German-first posture without erroring.
   * Help markdown ``tta/core/help/**/*.md`` (CLI ``help`` / ``privacy``).
+  * Report assets ``tta/core/report_assets/*`` (plotly.js, report script,
+    reference aggregates; ADR-0016 rev. 3, ADR-0025).
   * ``THIRD_PARTY_LICENSES.txt`` (ADR-0014, #4) - generated BEFORE this spec
     runs; the build is refused without it, because a --onefile binary
     redistributes every library inside it.
@@ -126,6 +128,11 @@ datas = [
      os.path.join("tta", "core", "db", "migrations")),
     (_root("tta", "core", "help"),
      os.path.join("tta", "core", "help")),
+    # The professor report's assets (ADR-0016 rev. 3, ADR-0025): the vendored
+    # plotly.js bundle and its licence, the report script and the shipped
+    # reference aggregates. Both binaries write the report.
+    (_root("tta", "core", "report_assets"),
+     os.path.join("tta", "core", "report_assets")),
     # Compiled gettext catalogs (#28, #29). Only the .mo files: the .po is
     # source, and tta.core.i18n resolves the root as a Traversable via
     # importlib.resources.files("tta") / "locale", so the dest layout below
@@ -188,6 +195,9 @@ EXCLUDES = [
     # Pillow installed (#52). Both import sites are guarded: excluding it is
     # runtime-safe, not merely build-safe.
     "PIL",
+    # The report embeds plotly.js (ADR-0016 rev. 3); the Python plotly package
+    # is never needed (#84). Kept out like the rest of the plotting stack.
+    "plotly",
 ]
 
 # ---- additionally kept out of the CLI graph (ADR-0014) --------------------

@@ -54,8 +54,11 @@ import sys
 # PIL joined in #85: pypdf needs Pillow only to decode images, which
 # mod_count_images no longer does (ADR-0021); see packaging/tta.spec.
 # "pillow" catches its vendored native libraries (pillow.libs/ on Linux).
+# plotly joined in #84: the report embeds the plotly.js bundle (ADR-0016
+# rev. 3); the Python package in either graph is contamination.
 FORBIDDEN = (
     "pandas", "numba", "llvmlite", "scipy", "matplotlib", "mpl_toolkits", "PIL", "pillow",
+    "plotly",
 )
 
 # Packages the GUI binary legitimately needs and the CLI binary must never

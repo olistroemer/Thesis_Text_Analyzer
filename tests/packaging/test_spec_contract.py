@@ -316,3 +316,24 @@ def test_compiled_catalogs_are_bundled(spec_source):
     assert 'glob("*/LC_MESSAGES/*.mo")' in spec_source
     assert '"tta", "locale"' in spec_source
     assert "no compiled catalogs" in spec_source  # the build-time guard
+
+
+def test_report_assets_are_bundled(spec_source):
+    """#84: the report embeds the vendored plotly.js and the shipped reference
+    aggregates (ADR-0016 rev. 3, ADR-0025); a binary without them would write
+    a report without charts or without a comparison."""
+    assert '_root("tta", "core", "report_assets")' in spec_source
+    assert 'os.path.join("tta", "core", "report_assets")' in spec_source
+
+
+def test_report_assets_are_package_data():
+    import tomllib
+
+    pyproject = tomllib.loads((SPEC_PATH.parents[1] / "pyproject.toml").read_text("utf-8"))
+    assert "report_assets/*" in pyproject["tool"]["setuptools"]["package-data"]["tta.core"]
+
+
+def test_the_reference_generator_is_never_frozen(spec_source):
+    """tools/reference_aggregates.py is researcher tooling (ADR-0025)."""
+    assert "reference_aggregates.py" not in spec_source
+    assert '"tools"' not in spec_source

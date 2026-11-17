@@ -43,6 +43,20 @@ import sys
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 AGPL_TEXT_PATH = REPO_ROOT / "packaging" / "licenses" / "AGPL-3.0.txt"
 
+# Components that are not Python distributions, so pip-licenses cannot see
+# them, but that are bundled all the same (docs/dependencies.md 4.1). Each is
+# (name, version, licence, project URL, licence file relative to the repo).
+# plotly.js is embedded inline in every generated report (ADR-0016 rev. 3).
+VENDORED = (
+    (
+        "plotly.js (cartesian partial bundle)",
+        "4.3.0",
+        "MIT",
+        "https://github.com/plotly/plotly.js",
+        "tta/core/report_assets/plotly.js-LICENSE.txt",
+    ),
+)
+
 # The public repository is the Corresponding Source under GPL-3.0-or-later
 # (ADR-0017 section 3): distributing the binary alongside a pointer to the
 # tagged commit satisfies the obligation. Overridable with --source-url.
@@ -214,6 +228,7 @@ def render(
     agpl_text,
     generated_at,
     closure=None,
+    vendored=(),
 ):
     """Compose the manifest. Pure function of its inputs, so it is testable.
 
@@ -305,6 +320,25 @@ def render(
     else:
         add("(none)")
     add("")
+
+    # ---- 3b. vendored, non-Python components ------------------------------
+    if vendored:
+        add(RULE)
+        add("3b. VENDORED NON-PYTHON COMPONENTS (%d)" % len(vendored))
+        add(RULE)
+        add("")
+        add("Not Python distributions, so not in the inventory above, but bundled")
+        add("in the executables all the same (docs/dependencies.md section 4.1).")
+        add("")
+        for name, version, licence, url, text in vendored:
+            add(THIN)
+            add("%s %s" % (name, version))
+            add(THIN)
+            add("Licence: %s" % licence)
+            add("URL:     %s" % url)
+            add("")
+            add(text.strip())
+            add("")
 
     # ---- 4. per-package detail + licence texts -----------------------------
     add(RULE)
@@ -454,8 +488,19 @@ def main(argv=None):
             file=sys.stderr,
         )
 
+    vendored = []
+    for name, version, licence, url, relative in VENDORED:
+        path = REPO_ROOT / relative
+        if not path.is_file():
+            raise SystemExit(
+                "gen_third_party_licenses: missing licence of the vendored %s at %s."
+                % (name, path)
+            )
+        vendored.append((name, version, licence, url, path.read_text(encoding="utf-8")))
+
     manifest = render(
         packages,
+        vendored=vendored,
         app_version=app_version,
         source_url=args.source_url,
         source_ref=resolve_source_ref(args.source_ref),
