@@ -422,11 +422,17 @@ Even with perfect inputs the output would need caution:
 
 ### 4.6 Formulas, tables and references contaminate the input
 
-`mod_readability` runs on the whole `raw_text` — bibliography, table contents, formula fragments,
-page headers and footers, table of contents included. Those regions have extreme word and "sentence"
+`mod_readability` runs on the whole extracted text — bibliography, table contents, page headers
+and footers, table of contents included. Those regions have extreme word and "sentence"
 lengths and are counted at full weight. A thesis with 40 pages of appendix tables is partly
 measuring its tables. This affects theses unevenly by discipline and by whether the appendix was in
 the PDF at all, which makes it a subject-area-correlated bias.
+
+Since #22 the text metrics read `prose_text`, from which code (monospaced spans) and math
+(math-font spans) are removed ([§5](#5-adjacent-corpus-derived-heuristics), SDD §7.4). That takes
+out most formula fragments and code listings, but **not** tables, tables of contents, headers and
+footers or the bibliography; in Exp #22 table regions alone held ~10 % of all characters. A line
+heuristic for them is a separate experiment (#97).
 
 ---
 
@@ -435,6 +441,24 @@ the PDF at all, which makes it a subject-area-correlated bias.
 Not "models", but also judgements learned from a corpus, carrying the same kind of bias. Brief,
 since they belong to their own tickets:
 
+- **The font filter of `mod_extract_pymupdf`** ("font filter v1", #22, SDD §7.4) decides what is
+  code or math from the **font** a span is set in, not from its content: monospaced fonts count as
+  code, a name list of math fonts as math. It inherits the blind spots of that proxy:
+  - *Missed:* code set in a proportional font (a listing in Arial, a screenshot-like box in the body
+    font), math typed as ordinary characters in the body font (`x = 2y + 1` in Word without the
+    equation editor, digits and operators that TeX takes from the roman font: `O(g^4)` keeps
+    `(4)`), math in fonts outside the list. All of it stays in `prose_text`.
+  - *Over-removed:* everything in a monospaced font, including URLs and DOIs that LaTeX's `\url`
+    sets in a typewriter font (mostly bibliography), file names and command names in running text.
+    Isolated punctuation and slashes in a math font disappear too (`AdS3/CFT2` loses the `/`).
+  - *Whole-document false positives:* a thesis set **entirely** in a monospaced font, or a Word
+    document whose body text is set in **Cambria Math**, loses nearly all of its prose. In the
+    Exp #22 corpus that was 2 of 3,233 theses (93 % Courier New, 96 % Cambria Math); 5 lost more
+    than half. `prose_text` can then be empty, which makes tokenisation and everything after it
+    `na`. The two counts `removed_monospace_chars` / `removed_math_chars` make such theses visible:
+    compare them with `text_chars`.
+  - Text the PDF stores as a picture (formula images, Type3 bitmap fonts) is not text at all and is
+    never seen by the filter.
 - **`mod_check_extraction_quality`** thresholds the ratio of common English/German function words at
   `0.10`, a value derived from the exploration corpus (`harvester/GARBLED_EXTRACTIONS.md`). It is
   therefore **English/German-specific**: a clean thesis in another language looks garbled. It also
@@ -487,6 +511,8 @@ any publication.
 | `bigram_/trigram_repetition_rate` | comparing citation-dense with citation-light theses | §2.5 — over-splitting removes n-grams |
 | `flesch_reading_ease` | always, for the absolute value; English on a machine without CMUdict; any German document whose `language_code` might be wrong | §4.1–§4.5 |
 | `extraction_quality` | the document is neither English nor German, or is very short | §5 |
+| `text_chars` and every text metric | `removed_monospace_chars` or `removed_math_chars` is a large part of `text_chars` (the font filter may have removed body text) | §5, font filter |
+| `removed_monospace_chars`, `removed_math_chars` | reading them as exact code/formula volume | §5 — font-based proxy; URLs count as code, math in the body font is missed |
 | `thesis_type` = `unspecified` | reading it as a fact about the thesis | §5 |
 | `publication_year` | `publication_year_source != 'title_page'` | §5 |
 

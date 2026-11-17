@@ -1,6 +1,6 @@
 # ADR-0015: Performance budget
 
-**Status:** Accepted (note 2026-10-14: [worker reuse](#worker-reuse-2026-10-14-86), #86)
+**Status:** Accepted (note 2026-10-14: [worker reuse](#worker-reuse-2026-10-14-86), #86; note 2026-11-17: [two text views](#two-text-views-2026-11-17-22), #22)
 **Date:** 2026-06-03
 **Drivers:** QA-RES, US-RES-LOW-FRICTION (step 3 of the contribute loop must finish in reasonable time), US-PROF-INSIGHTS (Report needs current data fast); running on a 10-year-old laptop is a hard requirement, not a stretch goal.
 
@@ -45,6 +45,10 @@ Workers are long-lived since [ADR-0013](0013-runner-orchestration.md#worker-reus
 
 - **The ETA no longer takes its priors from the budget table.** The budgets are ceilings that contained the per-thesis start-up; the estimator's priors are the measured warm-worker means per module plus a one-off start-up term (SDD Sec. 5.5).
 - **The memory budget now applies to a long-lived worker.** Its steady state is ~330-350 MB once `mod_readability` clears its library caches; a large PDF's transient peak sits on that base. A worker still above the per-worker budget after a thesis is recycled (`[runner] recycle_above_rss_mb`, default 1024 MiB = the budget; the 4 GB tier lowers it by hand).
+
+## Two text views (2026-11-17, #22)
+
+`mod_extract_pymupdf` 0.2.0 serialises each page's `TextPage` twice, as plain text (`raw_text`) and as a span `dict` that the font filter rebuilds into `prose_text` ([ADR-0024](0024-two-text-views.md)). Exp #22 measured the filter (arm B, `dict` only) at +18 % over the plain extraction: median 1.0 s per 100 pages on the full reference corpus with 19 parallel workers on 20 logical cores, 1.6 % of theses over 6 s per 100 pages (plain extraction: 0.8 s, 1 %). The extra plain-text serialisation is measured in this lane's sample (see the lane report); both stay far inside the unchanged **≤ 6 s** budget. `mod_tokenize` and `mod_readability` read a slightly shorter text, so their budgets are unaffected.
 
 ## Pause / resume — a free feature
 
