@@ -405,7 +405,12 @@ class HelpWindow(tk.Toplevel):
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         right = ttk.Frame(panes)
-        self.text = tk.Text(right, wrap="word", padx=12, pady=8, cursor="arrow")
+        # Body text in the proportional UI font: a bare tk.Text defaults to
+        # TkFixedFont, which made every page read like source code. Fixed
+        # pitch stays for code spans and blocks ("mono", "pre").
+        self.text = tk.Text(
+            right, wrap="word", padx=12, pady=8, cursor="arrow", font="TkTextFont"
+        )
         text_bar = ttk.Scrollbar(right, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=text_bar.set)
         text_bar.pack(side="right", fill="y")
@@ -481,7 +486,10 @@ class HelpWindow(tk.Toplevel):
         self._write(document_blocks(topic, self.index))
         if self.tree.exists(topic.uri) and self.tree.selection() != (topic.uri,):
             self.tree.selection_set(topic.uri)
-        if self.tree.exists(topic.uri):
+        if topic.kind == GUIDE_KIND:
+            # The guide pages head the tree; keep the whole head in view.
+            self.tree.yview_moveto(0.0)
+        elif self.tree.exists(topic.uri):
             self.tree.see(topic.uri)
 
     def _on_tree_select(self, _event=None) -> None:
