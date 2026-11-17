@@ -214,10 +214,12 @@ def test_declared_closure_is_transitive(generator):
     """markdown-it-py is nobody's direct dependency - it arrives via rich.
 
     Was numpy-via-matplotlib until #53 dropped matplotlib, which took numpy
-    out of the closure with it."""
+    out of the closure with it. PyMuPDF 2.x would bring numpy back together
+    with onnxruntime, hence the <2 cap on the pymupdf extra (ADR-0014)."""
     closure = generator.declared_closure()
     assert "markdown-it-py" in closure
     assert "numpy" not in closure
+    assert "onnxruntime" not in closure
 
 
 # ------------------------------------------------- the generator's hard stops

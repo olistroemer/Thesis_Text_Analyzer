@@ -39,7 +39,8 @@ tta-gui = "tta.ui.tk.app:main"
 # PyMuPDF is AGPL — development-phase extractor only. The release gate
 # (ADR-0011 / ADR-0014) fails any distributed build that imports it under
 # tta/core/. Kept out of the default dependency set on purpose.
-pymupdf = ["pymupdf>=1.24"]
+# <2: PyMuPDF 2.x hard-requires numpy/onnxruntime/pymupdf4llm (ADR-0014).
+pymupdf = ["pymupdf>=1.24,<2"]
 dev = ["pytest>=8", "tta[pymupdf]"]
 # Frozen single-file binaries (ADR-0014). PyInstaller --onefile; punkt_tab
 # NLTK data + SQL migrations bundled via the committed packaging/tta.spec.
