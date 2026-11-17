@@ -935,7 +935,7 @@ One document, top to bottom:
 │                                                                    │
 │  Filters (sticky):  Thesis type [all|Bachelor|Master]              │
 │                     Language [all|de|en]   Field (reference) [...] │
-│  Reference caption (interim data / which comparison is shown)      │
+│  Reference caption (source, bands; an interim file says so)        │
 │                                                                    │
 │  Coverage: the professor's theses per publication year (bars)      │
 │  Length metrics over time     [metric picker]                      │
@@ -958,7 +958,7 @@ Charts are plotly.js figures (zoom, hover, legend toggling); the panels stack in
 
 **The reference.** Only the shipped aggregates ([ADR-0025](adr/0025-reference-aggregates.md)): per bucket (type × language × field × year, `all` fields per type × language × year, and a yearly summary) and metric the mean, median, 5th, 25th, 75th and 95th percentile; no counts. **The report is generated from these aggregates plus the professor's own project data and nothing else.**
 
-**Interim data (2026-11-18).** The committed `reference_aggregates.json` is generated from the last complete reference run (2026-09, `TTA-exp22`), which predates the #81/#82 detectors and the #22 text views. It is marked `"status": "interim"`, and the report says so in its reference caption. It is regenerated from a re-run of the HU+ETH reference corpus with the release's code before the next release (`"status": "release"`):
+**Shipped data (2026-11-18).** The committed `reference_aggregates.json` is the **release** file (`"status": "release"`), generated from the re-run of the HU+ETH reference corpus with main `fbe297c` and the ETH cover ruleset (`TTA-ref-2026-11`); its `source` and `analysed_with` fields record the run and the module versions. (A first interim file from the 2026-09 run, before #81/#82 and #22, was replaced the same day.) An `"interim"` file would make the report say so in its reference caption. Regenerated when a module change moves a reference metric:
 
 ```
 python tools/reference_aggregates.py --project <reference project> \

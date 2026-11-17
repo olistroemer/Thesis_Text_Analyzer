@@ -335,6 +335,15 @@ def test_render_html_marks_interim_reference_data(project, reference):
     assert "Interim reference values" in out
 
 
+def test_the_shipped_reference_is_the_release_file(project):
+    """Owner decision 2026-11-18: the re-run's values ship (ADR-0025 decision
+    10), with their provenance and without the interim notice."""
+    shipped = ref.load_shipped()
+    assert shipped.status == "release"
+    assert shipped.document["source"] and shipped.document["analysed_with"]
+    assert "Interim reference values" not in report.render_html(report.collect(project.repo))
+
+
 def test_render_html_timestamp_is_injectable(project):
     from datetime import datetime
 

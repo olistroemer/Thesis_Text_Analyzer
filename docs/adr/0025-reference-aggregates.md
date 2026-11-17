@@ -39,7 +39,7 @@ The professor report ([ADR-0016](0016-report-view.md) rev. 3) compares the profe
   "_comment": "...",
   "format": "tta-reference-aggregates",
   "format_version": 1,
-  "status": "interim",
+  "status": "release",
   "source": "free text: which corpus, which analysis run",
   "generated": "2026-11-18",
   "generator": "tools/reference_aggregates.py (tta 0.x)",
@@ -70,13 +70,15 @@ It opens the project database **read-only** (an SQLite `mode=ro` URI, never thro
 
 Why `tools/` and not a `tta` subcommand: the generator depends on the research team's private harvest layout, which is not a contract of the app; it runs when a release is prepared, never at run time; and its output is a committed package file. Under [ADR-0003](0003-cli-first-class.md) a `tta` subcommand would put harvest-specific code into every professor's binary for nothing. `tools/` is never frozen (SDD §5.6.5), like `tools/screenshots.py`.
 
-**10. Interim data (2026-11-18).** The first committed file is generated from the last complete reference run (`TTA-exp22/ref_tta.sqlite`, 2026-09), which predates the #81/#82 detectors and the #22 text views; it is marked `"status": "interim"` with that provenance in `source`, and the report says so in its reference caption. It is replaced by a file generated from a re-run of the HU+ETH corpus with the release's code (with the ETH cover ruleset, [ADR-0023](0023-researcher-cover-rulesets.md)) **before the next release**; the release file carries `"status": "release"`.
-
-Re-running is cheap: the HU+ETH re-run of 2026-11-18 (3,275 PDFs, main `fbe297c`, ETH cover ruleset) took 946 s on the development machine, and the generator reads the finished project in about 6 s:
+**10. Shipped data: released (2026-11-18).** The first committed file was interim: generated from the last complete reference run of 2026-09 (`TTA-exp22/ref_tta.sqlite`), which predated the #81/#82 detectors and the #22 text views, marked `"status": "interim"` and announced as such in the report's reference caption. The same day it was **replaced** (owner decision) by a file generated from the re-run of the HU+ETH reference corpus (`TTA-ref-2026-11`: 3,275 PDFs, code snapshot of main `fbe297c`, ETH cover ruleset [ADR-0023](0023-researcher-cover-rulesets.md), 946 s on the development machine). It carries `"status": "release"`, its `source` names that run and `analysed_with` its module versions (`mod_extract_pymupdf 0.2.0`, `mod_classify_thesis_type 0.3.0+covers...`, `mod_determine_publication_year 0.2.0+covers...`, `mod_count_images 0.2.0`, `mod_vocabulary 0.3.0`, ...). The report shows no interim notice for it. Regenerating it reads the finished project in about 6 s:
 
 ```
-python tools/reference_aggregates.py --project <TTA-ref-2026-11>/project     --harvest-root <harvester>/data --status release     --source "reference theses of HU Berlin (edoc) and ETH Zurich, re-run 2026-11-18, main fbe297c"
+python tools/reference_aggregates.py --project <TTA-ref-2026-11>/project \
+    --harvest-root <harvester>/data --status release \
+    --source "Reference theses of HU Berlin (edoc) and ETH Zurich, ... re-run of <date> ..."
 ```
+
+A module change that moves a reference metric means a new re-run and a regenerated file before the next release (Revisit when).
 
 The `source` text is stored in the package, so it must not contain the repository-specific phrases that [ADR-0023](0023-researcher-cover-rulesets.md) keeps out of `tta/` (its guard test covers `.json` files): say "ETH Zurich", not the repository's own name.
 
