@@ -10,11 +10,14 @@ the real-corpus tests key on slugs and URIs, never on rendered titles.
 
 import ast
 import inspect
+import pathlib
+import re
 import tkinter
 
 import pytest
 
 from tta.core import help_corpus
+from tta.core.help_corpus import COVER_URI, PRIVACY_URI
 from tta.core.project import Project
 from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk import help_view
@@ -22,8 +25,10 @@ from tta.ui.tk.help_view import (
     Block,
     Run,
     Topic,
+    all_topics,
     cross_refs,
     document_blocks,
+    guide_topics,
     index_topics,
     load_topics,
     parse_inline,
@@ -59,6 +64,7 @@ literal   spacing
 
 | a | b |
 |---|---|
+| 1 | 2 |
 """
 
 
@@ -153,17 +159,148 @@ def test_shipped_corpus_loads_from_package_resources():
 
 
 def test_shipped_body_cross_references_all_resolve():
-    topics = load_topics()
+    topics = all_topics()
     index = index_topics(topics)
     dangling = [
         run.target
         for topic in topics
-        for block in render_blocks(topic.body)
+        for block in render_blocks(topic.markdown())
         for run in block.runs
         if run.target and run.target not in index
         and run.target != LICENSES_URI  # the in-app target, not a page (#36)
     ]
     assert dangling == []
+
+
+# -- guide pages: cover and privacy (#92) ---------------------------------------
+
+
+def _write_guide(root, locales=("de", "en")):
+    for locale in locales:
+        page = root / "guide" / locale / "cover.md"
+        page.parent.mkdir(parents=True)
+        page.write_text(
+            f"---\nslug: cover\ntitle: Cover {locale}\nkind: guide\n---\n\n"
+            f"# Tool\n\nText {locale}. See the [statement](guide:privacy).\n",
+            encoding="utf-8",
+        )
+    return root
+
+
+def test_guide_topics_are_the_cover_then_the_generated_privacy_page(tmp_path):
+    topics = guide_topics(_write_guide(tmp_path / "help"))
+    assert [topic.uri for topic in topics] == [COVER_URI, PRIVACY_URI]
+    cover, privacy = topics
+    assert cover.title == "Cover en"  # the active locale's page (tests run en)
+    assert privacy.title == "Privacy statement" and privacy.body == ""
+
+
+def test_the_cover_page_follows_the_locale_and_falls_back_to_german(tmp_path):
+    from tta.core import i18n
+
+    root = _write_guide(tmp_path / "both")
+    i18n.install("de")
+    assert guide_topics(root)[0].title == "Cover de"
+    i18n.install("en")
+    german_only = _write_guide(tmp_path / "de-only", locales=("de",))
+    assert guide_topics(german_only)[0].title == "Cover de"
+
+
+def test_without_a_cover_page_the_privacy_page_still_exists(tmp_path):
+    root = tmp_path / "help"
+    root.mkdir()
+    assert [topic.uri for topic in guide_topics(root)] == [PRIVACY_URI]
+
+
+def test_the_privacy_page_is_generated_on_every_display(monkeypatch):
+    """No stored copy: each display calls the generator again (ADR-0009)."""
+    calls = []
+
+    def fake():
+        calls.append(1)
+        return f"# Statement {len(calls)}\n"
+
+    monkeypatch.setattr(help_view, "render_statement_md", fake)
+    (privacy,) = [t for t in guide_topics() if t.uri == PRIVACY_URI]
+    assert document_blocks(privacy)[0].text == "Statement 1"
+    assert document_blocks(privacy)[0].text == "Statement 2"
+
+
+def test_all_topics_put_the_guide_pages_before_the_corpus():
+    uris = [topic.uri for topic in all_topics()]
+    assert uris[:2] == [COVER_URI, PRIVACY_URI]
+    assert "metric:yules_k" in uris
+
+
+_MARKERS = ("**", "`", "|", "](")
+_WORD = re.compile(r"[^\W_]+")
+_TIMESTAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d")
+
+
+def _privacy_page():
+    (privacy,) = [topic for topic in all_topics() if topic.uri == PRIVACY_URI]
+    return privacy
+
+
+@pytest.mark.parametrize("locale", ["de", "en"])
+def test_the_privacy_page_renders_without_raw_markdown_markers(locale):
+    """#92: the statement used to show `#`, `**` and `|` tables verbatim."""
+    from tta.core import i18n
+
+    i18n.install(locale)
+    blocks = document_blocks(_privacy_page())
+    leftovers = [
+        block.text
+        for block in blocks
+        if block.text.lstrip().startswith(("#", "- ", "* ", "> "))
+        or any(marker in block.text for marker in _MARKERS)
+    ]
+    assert leftovers == []
+    assert "pre" not in {block.kind for block in blocks}  # no fixed-pitch source
+    # every markdown heading became a heading block, sections 1-7 included
+    markdown = _privacy_page().markdown()
+    headings = [line for line in markdown.splitlines() if line.startswith("#")]
+    assert len([b for b in blocks if b.kind in ("h1", "h2", "h3")]) == len(headings)
+    assert sum(1 for line in headings if re.match(r"## [1-7]\. ", line)) == 7
+
+
+def _words(text):
+    return set(_WORD.findall(text))
+
+
+@pytest.mark.parametrize("locale", ["de", "en"])
+def test_the_privacy_page_says_what_tta_privacy_report_says(locale, tmp_path):
+    """#92: content identical to `tta privacy report`. The markdown is the
+    CLI's output byte for byte (generation timestamp aside), and rendering
+    loses no word of it except the first column's header label, which the
+    row items do not repeat."""
+    import os
+    import subprocess
+    import sys
+
+    from tta.core import i18n
+
+    repo = pathlib.Path(__file__).resolve().parents[2]
+    env = dict(os.environ, TTA_LOCALE=locale, PYTHONPATH=str(repo), PYTHONIOENCODING="utf-8")
+    cli = subprocess.run(
+        [sys.executable, "-m", "tta.cli.main", "privacy", "report"],
+        capture_output=True, encoding="utf-8", check=True, cwd=str(tmp_path), env=env,
+    ).stdout
+    i18n.install(locale)
+    page = _privacy_page()
+    markdown = page.markdown()
+    assert _TIMESTAMP.sub("T", cli).rstrip("\n") == _TIMESTAMP.sub("T", markdown).rstrip("\n")
+
+    rendered = " ".join(block.text for block in document_blocks(page))
+    lines = markdown.splitlines()
+    first_column_headers = {
+        lines[i].strip("|").split("|")[0]
+        for i in range(len(lines) - 1)
+        if lines[i].startswith("|") and lines[i + 1].startswith("|---")
+    }
+    allowed = set().union(*(_words(header) for header in first_column_headers))
+    assert _words(markdown) - _words(rendered) <= allowed
+    assert _words(rendered) <= _words(markdown)
 
 
 # -- markdown subset ----------------------------------------------------------
@@ -177,9 +314,54 @@ def test_headings_paragraphs_bullets_quotes_and_code():
     # consecutive paragraph lines join into one wrapped block
     assert blocks[1].text.count("\n") == 0
     assert "see tokens and" in blocks[1].text
-    # fenced content keeps its literal spacing, table rows survive as source
+    # fenced content keeps its literal spacing; a table row becomes an item
+    # that names its columns (#92), and no pipe survives
     assert "literal   spacing" in [block.text for block in blocks]
-    assert "| a | b |" in [block.text for block in blocks]
+    assert Block("li", (Run("1"), Run(" - "), Run("b: "), Run("2"))) in blocks
+    assert not any("|" in block.text for block in blocks)
+
+
+def test_a_table_renders_one_item_per_row_with_its_header_labels():
+    """Sec. 9.4.1 (#92): no column alignment, no pipes, inline-rendered
+    cells - a link in a cell stays a link, an escaped pipe is a pipe."""
+    blocks = render_blocks(
+        "intro line\n"
+        "| Metric | German | English |\n"
+        "|:---|---:|---|\n"
+        "| [ttr](metric:ttr) | 0,20 | `a\\|b` |\n"
+        "| plain |  | 0,12 |\n"
+        "after\n"
+    )
+    assert [block.kind for block in blocks] == ["p", "li", "li", "p"]
+    first, second = blocks[1], blocks[2]
+    assert first.runs == (
+        Run("ttr", target="metric:ttr"),
+        Run(" - "),
+        Run("German: "),
+        Run("0,20"),
+        Run("; "),
+        Run("English: "),
+        Run("a|b", "mono"),
+    )
+    # an empty cell is skipped, the separator follows the cells shown
+    assert second.text == "plain - English: 0,12"
+
+
+def test_a_table_without_a_delimiter_row_has_no_header_labels():
+    (block,) = render_blocks("| x | y |\n")
+    assert block == Block("li", (Run("x"), Run(" - "), Run("y")))
+
+
+def test_code_inside_emphasis_keeps_its_own_form():
+    """The statement's generation line is italic around a code span (#92)."""
+    runs = parse_inline("*Generated by `core/privacy_metadata.py`.*")
+    assert runs == (
+        Run("Generated by ", "italic"),
+        Run("core/privacy_metadata.py", "mono"),
+        Run(".", "italic"),
+    )
+    (link,) = parse_inline("**[ttr](metric:ttr)**")
+    assert link == Run("ttr", "bold", "metric:ttr")
 
 
 def test_deep_headings_clamp_to_h3():
@@ -351,9 +533,31 @@ def test_toolbar_help_button_opens_help_not_the_privacy_statement(tmp_path):
             assert isinstance(opened, help_view.HelpWindow)
             assert opened.title() == "Help"
             assert opened.topics, "the shipped corpus must be reachable from the GUI"
+            # #92: it opens on the cover page, which heads the tree
+            assert opened.current.uri == COVER_URI
+            assert opened.tree.get_children("")[:2] == (COVER_URI, PRIVACY_URI)
+            assert opened.tree.selection() == (COVER_URI,)
             opened.destroy()
         finally:
             window.root.destroy()
+
+
+@display_only
+def test_the_cover_page_links_to_the_privacy_page(root):
+    window = help_view.HelpWindow(root)
+    try:
+        root.update_idletasks()
+        assert window.current.uri == COVER_URI
+        assert PRIVACY_URI in window._link_targets.values()
+        window._follow(PRIVACY_URI)
+        root.update()
+        assert window.current.uri == PRIVACY_URI
+        assert window.tree.selection() == (PRIVACY_URI,)
+        shown = window.text.get("1.0", "end")
+        assert "7. Publisher and contact" in shown
+        assert "## " not in shown and "|" not in shown
+    finally:
+        window.destroy()
 
 
 def test_the_in_app_licence_link_is_clickable_and_no_other_app_target_is():

@@ -25,11 +25,27 @@ from __future__ import annotations
 import re
 from importlib import resources
 
+from tta.core.i18n import DEFAULT_LOCALE, active_locale, normalise_locale
+
 #: Corpus layout (ADR-0012), in display order. "privacy" is deliberately
 #: absent: the legal stubs under ``help/privacy/`` are not help pages.
 SECTIONS = ("modules", "metrics", "concepts")
 SECTION_KINDS = {"modules": "module", "metrics": "metric", "concepts": "concept"}
 KIND_SECTIONS = {kind: section for section, kind in SECTION_KINDS.items()}
+
+#: Guide pages (ADR-0012 rev. 6, #92): the GUI viewer's front pages, above
+#: the three sections. An authored guide page exists per locale, as
+#: ``help/guide/<locale>/<slug>.md`` - unlike the German-only sections - so
+#: the cover page follows the UI language. ``privacy`` has no file: the
+#: viewer generates it at view time from the ADR-0009 registry.
+GUIDE_DIRECTORY = "guide"
+GUIDE_KIND = "guide"
+COVER_SLUG = "cover"
+PRIVACY_SLUG = "privacy"
+COVER_URI = f"{GUIDE_KIND}:{COVER_SLUG}"
+PRIVACY_URI = f"{GUIDE_KIND}:{PRIVACY_SLUG}"
+#: Guide slugs with no file: valid link targets, rendered by code.
+GENERATED_GUIDE_SLUGS = (PRIVACY_SLUG,)
 
 #: A front-matter block: ``---`` on the file's FIRST line, then everything up
 #: to the next line that is ``---``. Anchored with ``\A``, so a ``---``
@@ -116,6 +132,22 @@ def find_page(slug: str, kind: str | None = None, root=None):
 def read_page(entry) -> tuple[Metadata, str]:
     """Read one page file (a Traversable or path) and split it."""
     return split_front_matter(entry.read_text(encoding="utf-8"))
+
+
+def find_guide_page(slug: str, locale: str | None = None, root=None):
+    """The guide page file for ``slug`` in ``locale`` (default: the active
+    one), else the German page; None if neither is installed.
+
+    The fallback is the privacy stubs' (ADR-0009): a page in the default
+    language beats a missing one.
+    """
+    root = help_root() if root is None else root
+    tag = normalise_locale(locale) or active_locale()
+    for candidate in (tag, DEFAULT_LOCALE):
+        page = root / GUIDE_DIRECTORY / candidate / f"{slug}.md"
+        if page.is_file():
+            return page
+    return None
 
 
 def opens_with_title(body: str) -> bool:

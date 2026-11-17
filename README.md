@@ -1,5 +1,11 @@
 # Thesis Text Analyzer (`tta`)
 
+<!-- Der einleitende Absatz und die Abschnitte "Hintergrund" und "Datenschutz"
+     stehen in einfacherer Sprache auch auf der Startseite der Hilfe:
+     tta/core/help/guide/de/cover.md (Deutsch) und .../en/cover.md (Englisch).
+     Bei Änderungen beide anpassen; tests/core/test_help_corpus.py prüft, dass
+     die Abkürzungen und Jahreszahlen übereinstimmen (#92). -->
+
 Eine portable Desktop-Anwendung, die Abschlussarbeiten (PDF) lokal und offline analysiert: Sie berechnet Textmerkmale wie Länge, Satz- und Wortstatistiken, Lesbarkeit und Wortschatz, zeigt sie in einer Tabelle und einem Bericht an und erzeugt auf Wunsch einen anonymen Export für das Forschungsteam. Die Anwendung gibt es als grafische Oberfläche (`tta-gui`) für Lehrende und als Kommandozeile (`tta`) für das Forschungsteam.
 
 ## Hintergrund

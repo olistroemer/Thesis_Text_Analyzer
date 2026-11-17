@@ -33,8 +33,11 @@ def _labels(menu) -> list[str]:
 
 
 @display_only
-def test_the_privacy_window_shows_the_legal_sections_too(tmp_path):
-    """#6: the GUI rendered sections 1-5 only; it must show 6 and 7."""
+def test_the_privacy_entry_opens_the_help_viewer_on_the_rendered_statement(tmp_path):
+    """#92: the menu entry opens the help viewer on its privacy page, with
+    all seven sections (#6) - rendered, so no markdown source shows."""
+    from tta.core.help_corpus import PRIVACY_URI
+    from tta.ui.tk.help_view import HelpWindow
     from tta.ui.tk.main_window import MainWindow
 
     with Project.open(tmp_path / "proj", create=True) as project:
@@ -43,19 +46,62 @@ def test_the_privacy_window_shows_the_legal_sections_too(tmp_path):
             menu = _help_menu(window)
             menu.invoke(_labels(menu).index("Privacy statement"))
             window.root.update_idletasks()
-            texts = [
-                child
+            viewer = window._help_window
+            assert isinstance(viewer, HelpWindow)
+            assert viewer.current.uri == PRIVACY_URI
+            assert viewer.tree.selection() == (PRIVACY_URI,)
+            statement = viewer.text.get("1.0", "end")
+            assert "In brief" in statement
+            assert "6. Responsibility and your rights under GDPR" in statement
+            assert "7. Publisher and contact" in statement
+            assert "Fachhochschule Wedel gGmbH" in statement
+            assert "## " not in statement and "**" not in statement
+            assert "|" not in statement
+        finally:
+            window.root.destroy()
+
+
+@display_only
+def test_the_help_entries_share_one_viewer(tmp_path, monkeypatch):
+    """Sec. 9.4.1 (#92, owner decision 2026-11-17): a fresh viewer starts on
+    the cover page; with one open, Help topics and the ? Help button only
+    raise and focus it and keep its page, while Privacy statement always
+    navigates to the privacy page. Never a second window."""
+    from tta.core.help_corpus import COVER_URI, PRIVACY_URI
+    from tta.ui.tk.main_window import MainWindow
+
+    with Project.open(tmp_path / "proj", create=True) as project:
+        window = MainWindow(project)
+        try:
+            menu = _help_menu(window)
+            labels = _labels(menu)
+            menu.invoke(labels.index("Help topics"))
+            window.root.update_idletasks()
+            viewer = window._help_window
+            assert viewer.current.uri == COVER_URI
+            focused = []
+            monkeypatch.setattr(viewer, "focus_force", lambda: focused.append(1))
+            # the reader moves on; Help must not pull them back to the cover
+            viewer.show_topic("metric:yules_k")
+            window._toolbar_buttons["? Help"].invoke()
+            window.root.update_idletasks()
+            assert window._help_window is viewer
+            assert viewer.current.uri == "metric:yules_k"
+            menu.invoke(labels.index("Help topics"))
+            window.root.update_idletasks()
+            assert viewer.current.uri == "metric:yules_k"
+            assert len(focused) == 2
+            menu.invoke(labels.index("Privacy statement"))
+            window.root.update_idletasks()
+            assert window._help_window is viewer
+            assert viewer.current.uri == PRIVACY_URI
+            assert len(focused) == 3
+            helps = [
+                top
                 for top in window.root.winfo_children()
                 if isinstance(top, tkinter.Toplevel)
-                for child in top.winfo_children()
-                if isinstance(child, tkinter.Text)
             ]
-            assert texts, "the privacy window did not open"
-            statement = texts[-1].get("1.0", "end")
-            assert "## In brief" in statement
-            assert "## 6. Responsibility and your rights under GDPR" in statement
-            assert "## 7. Publisher and contact" in statement
-            assert "Fachhochschule Wedel gGmbH" in statement
+            assert helps == [viewer]
         finally:
             window.root.destroy()
 

@@ -1,22 +1,28 @@
 """Help viewer over the core help corpus (Sec. 9.4.1, ADR-0012).
 
 Two panes: a topic tree grouped by kind on the left, the rendered page in a
-read-only ``tk.Text`` on the right - the same read-only text-window pattern
-the privacy statement uses. Pages are read from ``tta.core/help`` through
-``importlib.resources``, so the frozen single-file build works unchanged
-(the PyInstaller spec bundles ``help/**/*.md``). Front matter is split off by
-``core.help_corpus``, the one parser every consumer shares (ADR-0012 rev. 5);
-this module only renders.
+read-only ``tk.Text`` on the right. Pages are read from ``tta.core/help``
+through ``importlib.resources``, so the frozen single-file build works
+unchanged (the PyInstaller spec bundles ``help/**/*.md``). Front matter is
+split off by ``core.help_corpus``, the one parser every consumer shares
+(ADR-0012 rev. 5); this module only renders.
+
+Above the corpus sections sit two guide pages (ADR-0012 rev. 6, #92): the
+cover page, authored per locale, which the viewer opens on, and the privacy
+statement, generated at view time by ``core.privacy_metadata.
+render_statement_md`` - the text ``tta privacy report`` prints, never a
+stored copy (ADR-0009).
 
 The renderer handles the documented markdown *subset* of Sec. 9.4.1 and
 carries no extra runtime dependency (QA-RES; ADR-0012 rev. 2): headings,
-paragraphs, bullets, quotes, code blocks, and the inline forms bold,
-italic, code and link. Tables, footnotes and math fall through as plain
-source lines. Underscore emphasis is deliberately unsupported - identifiers
-like ``publication_year_source`` are pervasive here and would emphasise
-their own middles.
+paragraphs, bullets, quotes, code blocks, tables (one item per row, #92),
+and the inline forms bold, italic, code and link. Footnotes and math fall
+through as plain source lines. Underscore emphasis is deliberately
+unsupported - identifiers like ``publication_year_source`` are pervasive
+here and would emphasise their own middles.
 
-Cross-references (``module:`` / ``metric:`` / ``concept:`` + slug) are
+Cross-references (``module:`` / ``metric:`` / ``concept:`` / ``guide:`` +
+slug) are
 clickable and navigate in place; a target with no installed page renders as
 inert text, so a contributed module's page may point at a page this
 installation does not have without raising. ``http`` links render as text and are never handed to a
@@ -28,35 +34,43 @@ from __future__ import annotations
 
 import re
 import tkinter as tk
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from tkinter import font as tkfont
 from tkinter import ttk
 
 from tta.core.help_corpus import (
+    COVER_SLUG,
+    GUIDE_KIND,
+    PRIVACY_SLUG,
     SECTION_KINDS,
     SECTIONS,
+    find_guide_page,
     help_root,
     list_field,
     read_page,
     text_field,
 )
 from tta.core.i18n import N_, _
+from tta.core.privacy_metadata import render_statement_md
 from tta.core.third_party_licenses import LICENSES_URI
 from tta.ui.tk.columns import column_label
 
 WINDOW_TITLE = N_("Help")
 EMPTY_MESSAGE = N_("no help topics installed yet")
 SEE_ALSO_HEADING = N_("See also")
+# The generated guide page's tree label: the msgid of the menu entry.
+PRIVACY_TITLE = N_("Privacy statement")
 
-# Tree labels for the corpus sections (core.help_corpus.SECTIONS). The privacy
-# statement is not help content and keeps its own menu entry.
+# Tree labels for the corpus sections (core.help_corpus.SECTIONS). The guide
+# pages (cover, privacy) sit above them, at the top level of the tree.
 SECTION_LABELS = {
     "modules": N_("Modules"),
     "metrics": N_("Metrics"),
     "concepts": N_("Concepts"),
 }
 
-CROSS_REF = re.compile(r"(?:module|metric|concept):[A-Za-z0-9_.-]+\Z")
+CROSS_REF = re.compile(r"(?:module|metric|concept|guide):[A-Za-z0-9_.-]+\Z")
 
 
 # -- content model ------------------------------------------------------------
@@ -85,17 +99,27 @@ class Block:
 
 @dataclass(frozen=True)
 class Topic:
-    """One help page: front-matter metadata plus the markdown body."""
+    """One help page: front-matter metadata plus the markdown body.
+
+    A generated page (the privacy statement, #92) carries ``generate``
+    instead of a body. It is called on every display, so the page is never
+    a stale copy of what it renders.
+    """
 
     kind: str
     slug: str
     title: str
     body: str
     see_also: tuple[str, ...] = ()
+    generate: Callable[[], str] | None = field(default=None, compare=False)
 
     @property
     def uri(self) -> str:
         return f"{self.kind}:{self.slug}"
+
+    def markdown(self) -> str:
+        """The page's markdown: generated now, or the authored body."""
+        return self.generate() if self.generate is not None else self.body
 
 
 # -- loading ------------------------------------------------------------------
@@ -139,6 +163,39 @@ def load_topics(root=None) -> list[Topic]:
     return topics
 
 
+def guide_topics(root=None) -> list[Topic]:
+    """The guide pages in tree order: the cover page in the active locale
+    (German fallback), if installed, then the generated privacy statement."""
+    topics: list[Topic] = []
+    cover = find_guide_page(COVER_SLUG, root=root)
+    if cover is not None:
+        fields, body = read_page(cover)
+        topics.append(
+            Topic(
+                kind=GUIDE_KIND,
+                slug=COVER_SLUG,
+                title=text_field(fields, "title") or COVER_SLUG,
+                body=body,
+                see_also=cross_refs(list_field(fields, "see_also")),
+            )
+        )
+    topics.append(
+        Topic(
+            kind=GUIDE_KIND,
+            slug=PRIVACY_SLUG,
+            title=_(PRIVACY_TITLE),
+            body="",
+            generate=render_statement_md,
+        )
+    )
+    return topics
+
+
+def all_topics(root=None) -> list[Topic]:
+    """What the viewer shows by default: the guide pages, then the corpus."""
+    return guide_topics(root) + load_topics(root)
+
+
 def index_topics(topics) -> dict[str, Topic]:
     return {topic.uri: topic for topic in topics}
 
@@ -154,10 +211,18 @@ _INLINE = re.compile(
 _HEADING = re.compile(r"(#{1,6})\s+(.*)")
 _BULLET = re.compile(r"[-*+]\s+(.*)")
 _FENCE = re.compile(r"\s*(```|~~~)")
+#: A GFM table cell separator: a pipe not escaped as ``\|``.
+_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+_DELIMITER_CELL = re.compile(r":?-+:?\Z")
 
 
 def parse_inline(line: str) -> tuple[Run, ...]:
-    """Split one line into styled runs (bold, italic, code, links)."""
+    """Split one line into styled runs (bold, italic, code, links).
+
+    Bold and italic are parsed again inside, so a code span or a link in an
+    emphasised stretch keeps its own form instead of showing its backticks
+    or brackets (the privacy statement's generation line, #92).
+    """
     runs: list[Run] = []
     position = 0
     for match in _INLINE.finditer(line):
@@ -168,10 +233,10 @@ def parse_inline(line: str) -> tuple[Run, ...]:
             runs.append(_link_run(match.group("label"), match.group("target")))
         elif match.group("mono") is not None:
             runs.append(Run(match.group("mono"), "mono"))
-        elif match.group("bold") is not None:
-            runs.append(Run(match.group("bold"), "bold"))
         else:
-            runs.append(Run(match.group("italic"), "italic"))
+            style = "bold" if match.group("bold") is not None else "italic"
+            for inner in parse_inline(match.group(style)):
+                runs.append(Run(inner.text, inner.style or style, inner.target))
     if position < len(line):
         runs.append(Run(line[position:]))
     return tuple(runs) or (Run(""),)
@@ -190,15 +255,60 @@ def _link_run(label: str, target: str) -> Run:
     return Run(label)
 
 
+def _table_cells(line: str) -> list[str]:
+    """The stripped cells of one GFM table row, with ``\\|`` unescaped."""
+    inner = line.strip()
+    if inner.startswith("|"):
+        inner = inner[1:]
+    if inner.endswith("|") and not inner.endswith("\\|"):
+        inner = inner[:-1]
+    return [cell.strip().replace("\\|", "|") for cell in _CELL_SPLIT.split(inner)]
+
+
+def table_blocks(lines: list[str]) -> list[Block]:
+    """A GFM table as one list item per body row (Sec. 9.4.1, #92).
+
+    A row reads ``first cell - header: cell; header: cell``. Nothing needs
+    aligning, the item word-wraps like prose, and every cell is
+    inline-rendered, so a link in a cell stays clickable. The header and
+    delimiter rows are not shown on their own: the header labels reappear
+    in every row.
+    """
+    rows = [_table_cells(line) for line in lines]
+    header: list[str] = []
+    if len(rows) >= 2 and all(_DELIMITER_CELL.match(cell) for cell in rows[1] if cell):
+        header, rows = rows[0], rows[2:]
+    blocks: list[Block] = []
+    for cells in rows:
+        runs = list(parse_inline(cells[0])) if cells[0] else []
+        separator = " - "
+        for index, cell in enumerate(cells[1:], start=1):
+            if not cell:
+                continue
+            runs.append(Run(separator))
+            separator = "; "
+            if index < len(header) and header[index]:
+                label = "".join(run.text for run in parse_inline(header[index]))
+                runs.append(Run(f"{label}: "))
+            runs.extend(parse_inline(cell))
+        if runs:
+            blocks.append(Block("li", tuple(runs)))
+    return blocks
+
+
 def render_blocks(body: str) -> list[Block]:
     """Render the markdown subset of Sec. 9.4.1 into display blocks."""
     blocks: list[Block] = []
     paragraph: list[str] = []
+    table: list[str] = []
 
     def flush() -> None:
         if paragraph:
             blocks.append(Block("p", parse_inline(" ".join(paragraph))))
             paragraph.clear()
+        if table:
+            blocks.extend(table_blocks(table))
+            table.clear()
 
     fenced = False
     for raw in body.splitlines():
@@ -210,18 +320,21 @@ def render_blocks(body: str) -> list[Block]:
             blocks.append(Block("pre", (Run(raw, "mono"),)))
             continue
         stripped = raw.strip()
+        # A GFM table is collected row by row and rendered as a whole by
+        # table_blocks once a non-table line (or the end) closes it.
+        if stripped.startswith("|"):
+            if paragraph:
+                blocks.append(Block("p", parse_inline(" ".join(paragraph))))
+                paragraph.clear()
+            table.append(stripped)
+            continue
+        if table:
+            flush()
         if not stripped:
             flush()
             continue
         if raw.startswith("    ") and not paragraph:
             blocks.append(Block("pre", (Run(raw[4:], "mono"),)))
-            continue
-        # GFM tables, footnote bodies and display math have no subset
-        # rendering: they keep their source line, in fixed pitch so table
-        # columns still line up.
-        if stripped.startswith("|"):
-            flush()
-            blocks.append(Block("pre", (Run(stripped, "mono"),)))
             continue
         heading = _HEADING.match(stripped)
         if heading:
@@ -246,7 +359,7 @@ def render_blocks(body: str) -> list[Block]:
 def document_blocks(topic: Topic, index: dict[str, Topic] | None = None) -> list[Block]:
     """Full page: body blocks, a title if the body lacks one, "See also"."""
     index = index or {}
-    blocks = render_blocks(topic.body)
+    blocks = render_blocks(topic.markdown())
     if not blocks or blocks[0].kind != "h1":
         blocks.insert(0, Block("h1", (Run(topic.title),)))
     if topic.see_also:
@@ -271,7 +384,7 @@ class HelpWindow(tk.Toplevel):
         super().__init__(parent)
         self.title(_(WINDOW_TITLE))
         self.geometry("900x640")
-        self.topics = list(load_topics() if topics is None else topics)
+        self.topics = list(all_topics() if topics is None else topics)
         self.index = index_topics(self.topics)
         self.current: Topic | None = None
         self._link_targets: dict[str, str] = {}
@@ -292,7 +405,12 @@ class HelpWindow(tk.Toplevel):
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         right = ttk.Frame(panes)
-        self.text = tk.Text(right, wrap="word", padx=12, pady=8, cursor="arrow")
+        # Body text in the proportional UI font: a bare tk.Text defaults to
+        # TkFixedFont, which made every page read like source code. Fixed
+        # pitch stays for code spans and blocks ("mono", "pre").
+        self.text = tk.Text(
+            right, wrap="word", padx=12, pady=8, cursor="arrow", font="TkTextFont"
+        )
         text_bar = ttk.Scrollbar(right, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=text_bar.set)
         text_bar.pack(side="right", fill="y")
@@ -338,6 +456,11 @@ class HelpWindow(tk.Toplevel):
         self.text.tag_bind("link", "<Leave>", lambda _e: self.text.configure(cursor="arrow"))
 
     def _fill_tree(self) -> None:
+        # Guide pages first, at the top level (#92): the cover page is the
+        # one the viewer opens on, the privacy page the menu's other target.
+        for topic in self.topics:
+            if topic.kind == GUIDE_KIND:
+                self.tree.insert("", "end", iid=topic.uri, text=topic.title)
         for section in SECTIONS:
             kind = SECTION_KINDS[section]
             in_section = [topic for topic in self.topics if topic.kind == kind]
@@ -363,7 +486,10 @@ class HelpWindow(tk.Toplevel):
         self._write(document_blocks(topic, self.index))
         if self.tree.exists(topic.uri) and self.tree.selection() != (topic.uri,):
             self.tree.selection_set(topic.uri)
-        if self.tree.exists(topic.uri):
+        if topic.kind == GUIDE_KIND:
+            # The guide pages head the tree; keep the whole head in view.
+            self.tree.yview_moveto(0.0)
+        elif self.tree.exists(topic.uri):
             self.tree.see(topic.uri)
 
     def _on_tree_select(self, _event=None) -> None:
@@ -415,7 +541,13 @@ _WINDOWS: dict[str, HelpWindow] = {}
 
 
 def open_help(parent, topic=None, topics=None) -> HelpWindow:
-    """Open the help viewer, raising the existing one instead of stacking."""
+    """Open the help viewer, raising the existing one instead of stacking.
+
+    A fresh viewer starts on its first topic (the cover page). An open one
+    is raised and focused; it changes page only when ``topic`` is given
+    (Sec. 9.4.1, #92) - the Help button passes none, so the reader's page
+    survives, while the privacy entry passes its page.
+    """
     key = str(parent)
     window = _WINDOWS.get(key)
     try:
@@ -428,6 +560,7 @@ def open_help(parent, topic=None, topics=None) -> HelpWindow:
     else:
         window.deiconify()
         window.lift()
+        window.focus_force()
     if topic is not None:
         window.show_topic(topic)
     return window

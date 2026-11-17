@@ -87,3 +87,14 @@ def test_the_raw_name_is_still_the_column_identity():
         c.metric for c in metric_columns(registry, extended=False)
     ]
     assert all(metric.islower() for metric in _catalogue_metrics())
+
+
+# -- column widths (#90) --------------------------------------------------------
+
+
+def test_a_column_is_as_wide_as_its_header_but_never_below_the_default():
+    """Sec. 9.2 (#90): only a header that would be cut off widens its column."""
+    from tta.ui.tk.grid import HEADER_PADDING, header_widths
+
+    widths = header_widths(["Ja", "x" * 30], measure=lambda text: 7 * len(text), minimum=120)
+    assert widths == [120, 7 * 30 + HEADER_PADDING]

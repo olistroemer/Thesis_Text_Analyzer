@@ -312,3 +312,44 @@ def test_double_click_on_a_header_opens_nothing(project, tmp_path):
         opened.pop().destroy()
     finally:
         root.destroy()
+
+
+@pytest.mark.parametrize("locale", ["de", "en"])
+@pytest.mark.parametrize("extended", [False, True])
+def test_every_header_fits_its_column(project, tmp_path, locale, extended):
+    """#90: "Veroeffentlichungsj(ahr)" was cut off at the default width.
+    Every localised header - the sort indicator included - fits, in both
+    locales and both modes."""
+    from tkinter import font as tkfont
+
+    from tta.core import i18n
+    from tta.core.modules.registry import default_registry
+    from tta.ui.tk.columns import metric_columns
+    from tta.ui.tk.grid import GridView
+
+    _seed_four_states(project, tmp_path)
+    i18n.install(locale)
+    root = tkinter.Tk()
+    try:
+        grid = GridView(root, project.repo, project.store)
+        columns = metric_columns(default_registry(), extended=extended)
+        grid.reload(columns, show_artefacts=extended)
+        # sort on the widest metric header, so its indicator must fit too
+        widest = max(columns, key=lambda c: len(column_label(c.metric)))
+        grid._sort_key, grid._sorted = widest.metric, True
+        grid.reload(columns, show_artefacts=extended)
+        root.update_idletasks()
+        sheet = grid.sheet
+        measure = tkfont.Font(font=sheet.header_font()).measure
+        headers = sheet.headers()
+        widths = sheet.get_column_widths()
+        too_narrow = [
+            (header, width, measure(header))
+            for header, width in zip(headers, widths)
+            if width < measure(header) + 7  # tksheet's own header margin
+        ]
+        assert len(headers) == len(grid._column_names())
+        assert too_narrow == []
+        assert min(widths) >= sheet.ops.default_column_width
+    finally:
+        root.destroy()

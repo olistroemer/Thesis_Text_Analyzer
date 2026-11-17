@@ -16,9 +16,9 @@ from tkinter import messagebox, ttk
 
 from tta.core import events, progress, report
 from tta.core.config import save_config
+from tta.core.help_corpus import PRIVACY_URI
 from tta.core.i18n import N_, _, format_integer
 from tta.core.modules.registry import default_registry
-from tta.core.privacy_metadata import render_statement_md
 from tta.core.project import Project
 from tta.ui.tk import dialogs
 from tta.ui.tk.columns import metric_columns
@@ -654,21 +654,16 @@ class MainWindow:
         )
 
     def _show_privacy(self) -> None:
-        window = tk.Toplevel(self.root)
-        window.title(_("Privacy statement"))
-        window.geometry("800x600")
-        text = tk.Text(window, wrap="word")
-        text.insert("1.0", render_statement_md())
-        text.configure(state="disabled")
-        scrollbar = ttk.Scrollbar(window, command=text.yview)
-        text.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        text.pack(fill="both", expand=True)
+        """Open the help viewer on the privacy page: the full statement,
+        generated now and rendered (Sec. 9.4.1, ADR-0009, #92)."""
+        from tta.ui.tk.help_view import open_help
+
+        self._help_window = open_help(self.root, topic=PRIVACY_URI)
 
     def _show_help(self) -> None:
-        """Open the help viewer over core/help/** (Sec. 9.4.1, #72). The
-        privacy statement stays on its own menu entry - it is not help
-        content."""
+        """Open the help viewer, which starts on its cover page (Sec. 9.4.1,
+        #72, #92). An open viewer is only raised and focused: the page the
+        reader is on stays (owner decision 2026-11-17)."""
         from tta.ui.tk.help_view import open_help
 
         self._help_window = open_help(self.root)

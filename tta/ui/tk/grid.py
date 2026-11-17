@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import messagebox, ttk
 
 from tksheet import Sheet, num2alpha
@@ -45,6 +46,22 @@ SORT_DESC = N_("{header} (desc)")
 DETAIL_HEADING = N_("{filename} - {label}")
 DETAIL_METRIC_NAME = N_("Column name: {name}")
 STATUS_THESES = N_("{count} theses")
+
+# Sec. 9.2 column widths (#90): room around the header text, in pixels. tksheet
+# itself measures a header at text width + 7; the rest keeps the label clear of
+# the column borders.
+HEADER_PADDING = 18
+
+
+def header_widths(headers, measure, minimum: int, padding: int = HEADER_PADDING) -> list[int]:
+    """Column widths that fit each displayed header (Sec. 9.2, #90).
+
+    ``measure`` maps a header string to its pixel width in the header font.
+    A column is never narrower than ``minimum`` (tksheet's default width),
+    so short headers keep the familiar layout; only a header that would be
+    cut off widens its column. Cell contents are deliberately ignored.
+    """
+    return [max(minimum, measure(header) + padding) for header in headers]
 
 
 def open_with_default_app(path) -> None:
@@ -179,7 +196,12 @@ class GridView(ttk.Frame):
             line += [row.cells[c.metric].display() for c in self.columns]
             data.append(line)
         self.sheet.set_sheet_data(data, reset_col_positions=True, redraw=False)
-        self.sheet.headers(self._header())
+        headers = self._header()
+        self.sheet.headers(headers)
+        header_font = tkfont.Font(font=self.sheet.header_font())
+        self.sheet.set_column_widths(
+            header_widths(headers, header_font.measure, self.sheet.ops.default_column_width)
+        )
         self.sheet.dehighlight_all()
         offset = len(LEAD_COLUMNS) + len(self.artefact_kinds)
         for r, row in enumerate(self.rows):

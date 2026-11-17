@@ -9,6 +9,7 @@ contract); logs and progress go to stderr; exit codes follow sysexits
 from __future__ import annotations
 
 import json
+import re
 import signal
 import sys
 import traceback
@@ -33,8 +34,11 @@ from tta.core.db import migrator
 from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database, export_profiling
 from tta.core.help_corpus import (
+    COVER_SLUG,
     KIND_SECTIONS,
+    PRIVACY_URI,
     SECTIONS,
+    find_guide_page,
     find_page,
     first_paragraph,
     help_root,
@@ -954,18 +958,44 @@ def _help_markdown(fields: dict, body: str) -> str:
     return "\n\n".join(parts)
 
 
-@cli.command("help", help=_(
-    "Show a help topic - a module, a metric or a concept - in the terminal."
-))
+def _cover_markdown() -> str:
+    """The GUI help viewer's cover page for the terminal (#92), or "".
+
+    Its link to the generated privacy page has no terminal target, so it
+    names the command that prints the same statement instead.
+    """
+    page = find_guide_page(COVER_SLUG)
+    if page is None:
+        return ""
+    fields, body = read_page(page)
+    body = re.sub(
+        rf"\[([^\]\n]+)\]\({re.escape(PRIVACY_URI)}\)", r"\1 (`tta privacy report`)", body
+    )
+    return _help_markdown(fields, body)
+
+
+@cli.command(
+    "help",
+    short_help=_("Show a help topic - a module, a metric or a concept - in the terminal."),
+    help=_(
+        "Show a help topic - a module, a metric or a concept - in the terminal. "
+        "Without a topic: the overview page and the list of topics."
+    ),
+)
 @click.argument("topic", required=False)
 def help_(topic: str | None) -> None:
-    """Render a help topic (module, metric, or concept) in the terminal."""
+    """Render a help topic (module, metric, or concept) in the terminal;
+    without one, the cover page and the topic list (Sec. 9.4, #92)."""
     if topic:
         page = find_page(topic)
         if page is None:
             raise DataError(_("no help topic {topic}").format(topic=repr(topic)))
         stdout.print(Markdown(_help_markdown(*read_page(page))))
         return
+    cover = _cover_markdown()
+    if cover:
+        stdout.print(Markdown(cover))
+        stdout.print()
     root = help_root()
     available = [
         f"{section}/{entry.name[:-3]}"

@@ -115,6 +115,19 @@ def test_help_lists_topics():
     invoke("help", "does_not_exist", expect_exit=65)
 
 
+def test_help_without_a_topic_shows_the_cover_page_above_the_topic_list():
+    """#92 (owner decision 2026-11-17, superset rule ADR-0003): the GUI's
+    first help page, rendered like any page, in the active locale (en here);
+    its privacy link names the command, and the topic list is unchanged."""
+    out = invoke("help").stdout
+    assert "Thesis Text Analyzer" in out and "KIWIT" in out
+    assert "Background" in out and "Hintergrund" not in out  # en, not de
+    assert "(tta privacy report)" in out
+    assert "guide:" not in out and "](" not in out and "---" not in out
+    assert out.index("KIWIT") < out.index("available topics:")
+    assert "metrics/yules_k" in out
+
+
 #: Every field of the ADR-0012 front-matter schema, as it would print.
 FRONT_MATTER_KEY = re.compile(
     r"\b(slug|title|kind|produced_by|consumes|produces_artefacts|produces_metrics"
