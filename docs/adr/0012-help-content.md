@@ -14,7 +14,7 @@ Help content lives under `core/help/`, split into three directories: `modules/`,
 |---|---|---|
 | `slug` | yes | matches filename |
 | `title` | yes | rendered as h1 |
-| `kind` | yes | `metric` \| `module` \| `concept` |
+| `kind` | yes | `metric` \| `module` \| `concept` \| `guide` (rev. 6) |
 | `produced_by` | metric only | the producing module |
 | `consumes`, `produces_artefacts`, `produces_metrics` | module only | mirror the `ModuleSpec` |
 | `applicability` | yes (modules + metrics) | short prose |
@@ -121,6 +121,37 @@ so `tta help` printed every page's front matter as its first paragraph.
 appended to a generated statement, not help pages, they carry no front matter,
 they do carry an HTML status comment, and the viewer's topic tree deliberately
 excludes them.
+
+**Rev. 6 (2026-11-17, #92): guide pages - a cover page and the generated
+privacy page.** The GUI viewer gains two topics above the three sections, under
+a fourth URI scheme, `guide:` (SDD §9.4.1):
+
+- **`guide:cover`**, an authored page with front matter (`kind: guide`; the
+  schema's required fields are `slug`, `title`, `kind`, nothing else, and
+  `references`/`see_also` stay optional). Unlike the rest of the corpus it is
+  **per locale**: `core/help/guide/<locale>/<slug>.md`, `de` and `en`, German
+  as the fallback - the layout of `privacy/<locale>/`, because it is the first
+  thing a professor reads and must follow the UI language. Its titles are
+  therefore per-locale too, which is what rev. 3's label problem lacked; that
+  problem stays open for the metric pages. Checks 3 and 5-7 apply to guide
+  pages in **every** locale; the corpus size check and the label/title gate
+  stay about `modules/`, `metrics/`, `concepts/`.
+- **`guide:privacy`**, the ADR-009 statement, **generated at view time** from
+  `render_statement_md()` and never stored as a file. It is a valid link
+  target - check 3 accepts it as the one generated guide slug - but it is not a
+  page of the gate's page set: it has no front matter, and its content is the
+  privacy registry's to gate (`tests/core/test_privacy.py`).
+
+The CLI target is unchanged: `tta help` lists and renders the three sections
+only, and the statement keeps `tta privacy report`.
+
+The GUI renderer's table fallback changes with it: a GFM table renders as one
+item per body row (`first cell - header: cell; ...`), inline-rendered and
+word-wrapped, instead of fixed-pitch source lines. The privacy statement's
+tables have cells past a hundred characters, and as source lines they showed
+the professor `|` markers and a horizontal scrollbar; the corpus's own small
+tables gain clickable links from the same change. The **authoring** subset is
+unchanged.
 
 ## Alternatives considered
 
