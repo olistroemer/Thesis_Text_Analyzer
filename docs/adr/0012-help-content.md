@@ -142,8 +142,11 @@ a fourth URI scheme, `guide:` (SDD §9.4.1):
   page of the gate's page set: it has no front matter, and its content is the
   privacy registry's to gate (`tests/core/test_privacy.py`).
 
-The CLI target is unchanged: `tta help` lists and renders the three sections
-only, and the statement keeps `tta privacy report`.
+On the CLI target, `tta help` without a topic prints the cover page in the
+active locale (its privacy link given as `tta privacy report`) above the
+unchanged list of the three sections' topics; `tta help <topic>` still
+resolves the three sections only, and the statement keeps `tta privacy
+report` (owner decision 2026-11-17, superset rule of ADR-003).
 
 The GUI renderer's table fallback changes with it: a GFM table renders as one
 item per body row (`first cell - header: cell; ...`), inline-rendered and
