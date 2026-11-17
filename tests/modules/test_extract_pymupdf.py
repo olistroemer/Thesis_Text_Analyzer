@@ -49,7 +49,7 @@ def test_run_extracts_text_and_metrics(ctx, sample_pages):
     assert result.metrics["n_pages"] == len(sample_pages)
     assert result.metrics["text_chars"] == len(text)
     assert text.count(PAGE_SEPARATOR) == len(sample_pages) - 1
-    assert result.diagnostics == {}
+    assert result.diagnostics == {"surrogates_replaced": 0}
 
 
 def test_run_is_deterministic(ctx, tmp_path):

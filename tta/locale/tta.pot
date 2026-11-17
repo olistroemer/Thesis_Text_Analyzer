@@ -1477,7 +1477,7 @@ msgstr ""
 msgid "no sentence long enough for bigrams"
 msgstr ""
 
-#: tta/core/modules/tokenize.py:91
+#: tta/core/modules/tokenize.py:92
 msgid "no sentences in text"
 msgstr ""
 
@@ -1490,8 +1490,8 @@ msgid "no word tokens in tokenisation"
 msgstr ""
 
 #: tta/core/modules/count_images.py:261
-#: tta/core/modules/extract_pdf_metadata.py:69
-#: tta/core/modules/extract_pymupdf.py:34
+#: tta/core/modules/extract_pdf_metadata.py:70
+#: tta/core/modules/extract_pymupdf.py:35
 msgid "not a PDF"
 msgstr ""
 

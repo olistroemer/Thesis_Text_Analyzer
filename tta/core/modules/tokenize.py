@@ -25,6 +25,7 @@ import json
 
 from tta.core import artefact_kinds
 from tta.core.i18n import N_
+from tta.core.modules._textio import write_text_artefact
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
 #: Supported language codes -> NLTK language names (SDD Sec. 7.2).
@@ -90,8 +91,10 @@ class Tokenize(Module):
             # honestly, an empty `tokens` file measures nothing (#34).
             raise NotApplicable(N_("no sentences in text"))
         out_path = ctx.workdir / "tokens.json"
-        out_path.write_text(
-            json.dumps({"sentences": sentences, "language": language}, ensure_ascii=False),
-            encoding="utf-8",
+        replaced = write_text_artefact(
+            out_path, json.dumps({"sentences": sentences, "language": language}, ensure_ascii=False)
         )
-        return RunResult(artefacts={artefact_kinds.TOKENS: out_path})
+        return RunResult(
+            artefacts={artefact_kinds.TOKENS: out_path},
+            diagnostics={"surrogates_replaced": replaced},
+        )

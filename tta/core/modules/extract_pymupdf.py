@@ -12,6 +12,7 @@ from pathlib import Path
 
 from tta.core import artefact_kinds
 from tta.core.i18n import N_
+from tta.core.modules._textio import write_text_artefact
 from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from tta.core.types import Thesis
 
@@ -41,8 +42,9 @@ class ExtractPymupdf(Module):
             pages = [page.get_text("text") for page in doc]
         text = PAGE_SEPARATOR.join(pages)
         out_path = ctx.workdir / "raw_text.txt"
-        out_path.write_text(text, encoding="utf-8")
+        replaced = write_text_artefact(out_path, text)
         return RunResult(
             metrics={"text_chars": len(text), "n_pages": len(pages)},
             artefacts={artefact_kinds.RAW_TEXT: out_path},
+            diagnostics={"surrogates_replaced": replaced},
         )
