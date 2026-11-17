@@ -3,7 +3,7 @@
   "format": "tta-reference-aggregates",
   "format_version": 1,
   "status": "interim",
-  "source": "INTERIM: HU Berlin edoc + ETH Research Collection, reference run of 2026-09 (TTA-exp22/ref_tta.sqlite), analysed before the #81/#82 year and type detectors and the #22 text views; values are stale and replaced before the release",
+  "source": "INTERIM: reference theses of HU Berlin (edoc) and ETH Zurich, reference run of 2026-09 (TTA-exp22/ref_tta.sqlite), analysed before the #81/#82 year and type detectors and the #22 text views; values are stale and are replaced before the release",
   "generated": "2026-11-18",
   "generator": "tools/reference_aggregates.py (tta 0.1.0)",
   "analysed_with": ["mod_check_extraction_quality 0.1.0", "mod_classify_language 0.1.0", "mod_classify_thesis_type 0.2.0", "mod_count_images 0.1.0", "mod_determine_publication_year 0.1.0", "mod_extract_filesystem_metadata 0.1.0", "mod_extract_pdf_metadata 0.1.0", "mod_extract_pymupdf 0.1.0", "mod_readability 0.1.0", "mod_redundancy 0.1.0", "mod_surface_counts 0.1.0", "mod_vocabulary 0.2.0"],

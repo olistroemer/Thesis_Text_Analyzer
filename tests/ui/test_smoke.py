@@ -122,8 +122,9 @@ def test_main_window_builds_and_renders(tmp_path, english_pdf, monkeypatch):
             assert len(written) == 1
             document = written[0].read_text("utf-8")
             assert document.startswith("<!DOCTYPE html>")
-            assert "Cohort report" in document
-            assert "english_thesis.pdf" not in document  # no PII in a written file
+            assert "Thesis report" in document
+            # a local product for the professor (ADR-0016 rev. 3)
+            assert "english_thesis.pdf" in document
             assert opened == [written[0].as_uri()]
             assert not hasattr(window, "report_view")
             assert not hasattr(window, "notebook")

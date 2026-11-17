@@ -1,46 +1,93 @@
-"""Cohort report (SDD Sec. 9.8, ADR-0016 rev. 2, US-PROF-INSIGHTS).
+"""The professor report (SDD Sec. 9.8, ADR-0016 rev. 3, ADR-0025, US-PROF-INSIGHTS).
 
 Two pure halves, both stdlib-only:
 
-* ``collect(repo)`` aggregates ``v_current_metrics`` over local,
-  non-excluded theses; garbled extractions are dropped from the
-  aggregates and counted in a caption.
-* ``render_html(data)`` returns one complete, self-contained HTML
-  document as a string - every style rule and every chart inline, no
-  script, no web font, no external request of any kind (QA-PRIV).
+* ``collect(repo)`` turns ``v_current_metrics`` over local, non-excluded
+  theses into one record per thesis; garbled extractions are dropped and
+  counted in a caption.
+* ``render_html(data)`` returns one complete, self-contained HTML document
+  as a string: CSS, the vendored plotly.js bundle, one JSON data block and
+  the report script, all inline. It opens no network connection and
+  references no external resource (QA-PRIV).
 
-Charts are hand-rolled SVG. The two statistics matplotlib used to
-supply are reimplemented here as ``box_stats`` (1.5 x IQR fences,
-whiskers to the most extreme datum inside the fence) and ``histogram``
-(equal-width bins, last bin closed on both ends).
+The comparison comes only from the reference aggregates shipped with the
+app (``core.reference``); every highlight level is computed here, in Python,
+so the script only picks the level that matches the current filter.
 
-Nothing here writes a file or opens a browser - the adapters own those
-side effects (ADR-0002). Nothing here renders an identifying value:
-``notable`` carries thesis ids, never ``pdf_filename``, so the report is
-free of PII by construction (ADR-0016 rev. 2, Sec. 9.8.3).
+The report is a local product for the professor: it shows file names and
+links to the local PDFs, and says at its top that it is not meant to be
+sent to the research team (ADR-0016 rev. 3). Nothing here writes a file or
+opens a browser - the adapters own those side effects (ADR-0002).
 """
 
 from __future__ import annotations
 
+import hashlib
 import html
-import math
+import json
+import random
 import statistics
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from importlib import resources
 from pathlib import Path
 
 import tta
+from tta.core import reference as ref
 from tta.core.db.repository import Repository
-from tta.core.i18n import _, active_locale, format_datetime, format_integer, format_number
-from tta.core.types import thesis_type_label
-
-TRUSTWORTHY_METRICS = ("avg_word_len", "std_sentence_len", "yules_k", "flesch_reading_ease")
+from tta.core.i18n import N_, _, active_locale, format_datetime, format_number
+from tta.core.types import REFERENCE_THESIS_TYPES, thesis_type_label
 
 #: Post-run auto-open preference (`ui.open_report_after_run` in tta.toml, #70).
 OPEN_REPORT_MODES = ("ask", "always", "never")
 
 #: Where adapters put the generated file, relative to the project (Sec. 9.8.3).
 REPORTS_DIRNAME = "reports"
+
+#: The vendored plotly.js bundle and its pin (ADR-0016 rev. 3, dependencies.md 4.1).
+PLOTLY_FILENAME = "plotly-cartesian-4.3.0.min.js"
+PLOTLY_SHA256 = "38d5da8c29f94a5ba9bce10fd48ef0601dfb47bb2490c2e305137993ae7ba175"
+SCRIPT_FILENAME = "report.js"
+
+#: A year needs this many of the professor's theses for a box (Sec. 9.8.3).
+MIN_BOX_THESES = 3
+
+#: Half-width of the within-year jitter of the points.
+JITTER = 0.28
+
+#: Display labels of ``creator_category`` / ``producer_category`` values.
+TOOL_LABELS = {
+    "latex": "LaTeX",
+    "word": "Word",
+    "libreoffice": "LibreOffice",
+    "openoffice": "OpenOffice",
+    "indesign": "InDesign",
+    "ghostscript": "Ghostscript",
+    "other": N_("other"),
+    "unknown": N_("unknown"),
+}
+
+GROUP_TITLES = {
+    "length": N_("Length metrics over time"),
+    "style": N_("Style metrics over time"),
+    "vocabulary": N_("Vocabulary metrics over time"),
+}
+GROUP_NOTES = {
+    "length": N_(
+        "How long the theses are. Length grows with the subject and the degree, so "
+        "compare within one type and language."
+    ),
+    "style": N_(
+        "Style metrics that depend little on length: a thesis far outside the band "
+        "writes differently from most theses of its year, not just longer or shorter."
+    ),
+    "vocabulary": N_(
+        "Vocabulary ratios fall mechanically with text length; read them together "
+        "with the length panel."
+    ),
+}
+
+LANGUAGE_LABELS = {"de": N_("German"), "en": N_("English")}
 
 
 def default_report_path(project_dir: Path | str, today: date | None = None) -> Path:
@@ -55,6 +102,20 @@ def default_report_path(project_dir: Path | str, today: date | None = None) -> P
 
 
 @dataclass
+class ThesisRecord:
+    """One of the professor's theses as the report sees it."""
+
+    id: int
+    filename: str
+    uri: str | None
+    thesis_type: str  # detected, "unspecified" when none
+    language: str | None
+    year: int | None
+    tool: str
+    metrics: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
 class ReportData:
     theses: int = 0
     excluded: int = 0
@@ -63,11 +124,26 @@ class ReportData:
     by_language: dict[str, int] = field(default_factory=dict)
     median_words: float | None = None
     year_range: tuple[int, int] | None = None
-    # chart series, keyed by thesis id
-    words_by_year: list[tuple[int, float, str]] = field(default_factory=list)  # (year, words, type)
-    words_by_type: dict[str, list[float]] = field(default_factory=dict)
-    fre_by_language: dict[str, list[float]] = field(default_factory=dict)
-    notable: list[tuple[str, list[str]]] = field(default_factory=list)  # (label, metrics)
+    records: list[ThesisRecord] = field(default_factory=list)
+
+
+def _tool(values: dict) -> str:
+    """Creator category, the producer where the creator says nothing specific."""
+    creator = values.get("creator_category")
+    producer = values.get("producer_category")
+    for candidate in (creator, producer):
+        if isinstance(candidate, str) and candidate not in ("other", "unknown"):
+            return candidate
+    if "other" in (creator, producer):
+        return "other"
+    return "unknown"
+
+
+def _file_uri(path: str) -> str | None:
+    try:
+        return Path(path).resolve().as_uri()
+    except (OSError, ValueError):
+        return None
 
 
 def collect(repo: Repository) -> ReportData:
@@ -81,60 +157,46 @@ def collect(repo: Repository) -> ReportData:
             value = row["value_num"] if row["value_num"] is not None else row["value_text"]
             values[row["thesis_id"]][row["metric_name"]] = value
 
-    garbled_ids = {
-        tid for tid, v in values.items() if v.get("extraction_quality") == "garbled"
-    }
+    garbled_ids = {tid for tid, v in values.items() if v.get("extraction_quality") == "garbled"}
     data.garbled = len(garbled_ids)
-    usable = {tid: v for tid, v in values.items() if tid not in garbled_ids}
-    data.theses = len(usable)
-
-    words = []
-    years = []
-    for tid, v in usable.items():
-        # thesis type is the detected `thesis_type` metric now (ADR-0019, #9);
-        # theses with no detected type group under "unspecified"
-        detected_type = v.get("thesis_type")
-        thesis_type = detected_type if isinstance(detected_type, str) else "unspecified"
+    words, years = [], []
+    for tid, v in values.items():
+        if tid in garbled_ids:
+            continue
+        # thesis type is the detected `thesis_type` metric (ADR-0019); theses
+        # with no detected type group under "unspecified"
+        detected = v.get("thesis_type")
+        thesis_type = detected if isinstance(detected, str) else "unspecified"
         data.by_type[thesis_type] = data.by_type.get(thesis_type, 0) + 1
-        language = v.get("language_code")
-        if isinstance(language, str):
+        language = v.get("language_code") if isinstance(v.get("language_code"), str) else None
+        if language:
             data.by_language[language] = data.by_language.get(language, 0) + 1
-        word_count = v.get("word_count")
-        # length-over-time uses the fused publication_year (#17, SDD Sec. 9.8),
-        # not the raw PDF creation_year
+        # the time axis is the fused publication_year (#17), not creation_year
         year = v.get("publication_year")
-        if isinstance(word_count, (int, float)):
-            words.append(word_count)
-            data.words_by_type.setdefault(thesis_type, []).append(word_count)
-            if isinstance(year, (int, float)):
-                data.words_by_year.append((int(year), word_count, thesis_type))
-                years.append(int(year))
-        fre = v.get("flesch_reading_ease")
-        if isinstance(fre, (int, float)) and isinstance(language, str):
-            data.fre_by_language.setdefault(language, []).append(fre)
+        year = int(year) if isinstance(year, (int, float)) and not isinstance(year, bool) else None
+        if year is not None:
+            years.append(year)
+        metrics = ref.derive_metrics(v)
+        if "word_count" in metrics:
+            words.append(metrics["word_count"])
+        thesis = included[tid]
+        data.records.append(
+            ThesisRecord(
+                id=tid,
+                filename=thesis.pdf_filename,
+                uri=_file_uri(thesis.pdf_path),
+                thesis_type=thesis_type,
+                language=language,
+                year=year,
+                tool=_tool(v),
+                metrics=metrics,
+            )
+        )
+    data.theses = len(data.records)
     if words:
         data.median_words = statistics.median(words)
     if years:
         data.year_range = (min(years), max(years))
-
-    # notable theses: IQR outlier on >= 2 trustworthy metrics (Sec. 9.8.3)
-    bounds = {}
-    for metric in TRUSTWORTHY_METRICS:
-        series = [v[metric] for v in usable.values() if isinstance(v.get(metric), (int, float))]
-        if len(series) >= 4:
-            q1, _median, q3 = statistics.quantiles(series, n=4, method="inclusive")
-            iqr = q3 - q1
-            bounds[metric] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
-    for tid, v in usable.items():
-        flagged = [
-            metric
-            for metric, (lo, hi) in bounds.items()
-            if isinstance(v.get(metric), (int, float)) and not lo <= v[metric] <= hi
-        ]
-        if len(flagged) >= 2:
-            # id, never pdf_filename: Category.IDENTIFYING must not reach a
-            # written file (ADR-0016 rev. 2 "Privacy", Sec. 9.8.3)
-            data.notable.append((f"thesis {tid}", flagged))
     return data
 
 
@@ -158,592 +220,86 @@ def should_offer_report(mode: str, *, cancelled: bool, ok: int) -> str:
     return "ask"  # "ask", and any unknown value, falls back to asking
 
 
-# -- chart statistics (was matplotlib's) --------------------------------------
+# -- comparison ---------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class BoxStats:
-    """Five-number summary plus fliers, matplotlib's boxplot convention."""
-
-    q1: float
-    median: float
-    q3: float
-    whisker_lo: float
-    whisker_hi: float
-    fliers: tuple[float, ...]
+def comparison_options(reference: ref.Reference | None) -> list[str]:
+    """The comparison buckets a thesis can be compared with, in the order of
+    its level string: the yearly summary, then "all fields" and every field
+    the reference has (for the thesis's own type and language)."""
+    fields = reference.fields if reference is not None else []
+    return ["summary", ref.ALL] + fields
 
 
-def box_stats(values) -> BoxStats | None:
-    """Quartiles, 1.5 x IQR whiskers and fliers for one box (Sec. 9.8.3).
-
-    Same convention as the grid's outlier highlighting and as
-    ``matplotlib.cbook.boxplot_stats``: Q1/Q3 by linear interpolation
-    (``statistics.quantiles(..., method="inclusive")``), fences at
-    1.5 x IQR, and whiskers drawn to the most extreme datum still inside
-    the fence rather than to the fence itself."""
-    ordered = sorted(float(v) for v in values)
-    if not ordered:
-        return None
-    if len(ordered) == 1:
-        only = ordered[0]
-        return BoxStats(only, only, only, only, only, ())
-    q1, median, q3 = statistics.quantiles(ordered, n=4, method="inclusive")
-    iqr = q3 - q1
-    lo_fence, hi_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-    inside = [v for v in ordered if lo_fence <= v <= hi_fence]
-    return BoxStats(
-        q1,
-        median,
-        q3,
-        inside[0] if inside else ordered[0],
-        inside[-1] if inside else ordered[-1],
-        tuple(v for v in ordered if not lo_fence <= v <= hi_fence),
+def level_string(record: ThesisRecord, metric: str, reference: ref.Reference | None,
+                 options: list[str]) -> str:
+    """One character per comparison option: the ``band_level`` (0/1/2) of the
+    thesis's value against that bucket's bands, ``-`` without a comparison
+    (year outside the reference, no bucket or statistic, no reference)."""
+    value = record.metrics[metric]
+    comparable = (
+        reference is not None
+        and record.year is not None
+        and ref.year_in_range(record.year)
     )
+    split = record.thesis_type in REFERENCE_THESIS_TYPES and record.language in ref.LANGUAGES
+    out = []
+    for option in options:
+        stats = None
+        if comparable:
+            if option == "summary":
+                stats = reference.stats(ref.ALL, ref.ALL, ref.ALL, record.year, metric)
+            elif split:
+                stats = reference.stats(record.thesis_type, record.language, option,
+                                        record.year, metric)
+        out.append("-" if stats is None else str(ref.band_level(value, stats)))
+    return "".join(out)
 
 
-def histogram(
-    values, bins: int = 15, span: tuple[float, float] | None = None
-) -> tuple[list[float], list[int]]:
-    """Equal-width bin edges and counts (Sec. 9.8.3).
-
-    ``numpy.histogram``'s convention: ``bins`` equal-width bins over
-    ``span`` (default the data's own [min, max]), each half-open except
-    the last, which is closed on both ends. An all-equal series widens to
-    [x - 0.5, x + 0.5], as numpy does. ``span`` lets several series share
-    one binning so overlaid histograms line up."""
-    data = [float(v) for v in values]
-    if bins < 1 or (not data and span is None):
-        return [], []
-    lo, hi = span if span is not None else (min(data), max(data))
-    lo, hi = float(min(lo, hi)), float(max(lo, hi))
-    if hi == lo:
-        lo, hi = lo - 0.5, hi + 0.5
-    width = (hi - lo) / bins
-    edges = [lo + i * width for i in range(bins + 1)]
-    edges[-1] = hi
-    counts = [0] * bins
-    for value in data:
-        index = min(int((value - lo) / width), bins - 1)
-        # float division can land a value one bin off its edge; walk it back
-        while index > 0 and value < edges[index]:
-            index -= 1
-        while index < bins - 1 and value >= edges[index + 1]:
-            index += 1
-        if 0 <= index < bins:
-            counts[index] += 1
-    return edges, counts
-
-
-# -- SVG plotting -------------------------------------------------------------
-
-PLOT_W, PLOT_H = 520, 320
-M_LEFT, M_RIGHT, M_TOP, M_BOTTOM = 66, 18, 16, 46
-
-HIST_BINS = 15
-#: Categorical hues are assigned in fixed order and never cycled. Three is
-#: the validated all-pairs cap for scatter/overlay forms; the tail folds into
-#: one neutral "other" series instead of inventing a fourth hue.
-MAX_SERIES = 3
-
-
-def _esc(text) -> str:
-    return html.escape(str(text), quote=True)
-
-
-def _fmt(value: float) -> str:
-    """Axis-tick / table formatting: integers stay integers, and only as
-    many decimals as the magnitude needs.
-
-    Routed through the locale-aware formatter (SDD Sec. 9.6), so a German
-    report reads 1.234,5 where an English one reads 1,234.5. Grouping starts
-    at 10 000, as it did before the report became locale-aware - a 4-digit
-    axis tick is easier to read without a separator."""
-    grouped = abs(value) >= 10000
-    if value == int(value):
-        return format_integer(int(value), grouping=grouped)
-    if abs(value) >= 100:
-        return format_number(value, 0, grouping=grouped)
-    if abs(value) >= 1:
-        return format_number(value, 1, grouping=grouped)
-    return format_number(value, 2, grouping=grouped)
-
-
-def _fmt_year(value: float) -> str:
-    return str(int(round(value)))
-
-
-def _nice_step(span: float, target: int, min_step: float | None) -> float:
-    raw = span / max(target, 1)
-    if raw <= 0:
-        raw = 1.0
-    magnitude = 10.0 ** math.floor(math.log10(raw))
-    step = 10.0 * magnitude
-    for factor in (1.0, 2.0, 2.5, 5.0):
-        if factor * magnitude >= raw:
-            step = factor * magnitude
-            break
-    if min_step is not None and step < min_step:
-        step = min_step
-    return step
-
-
-def _axis_ticks(lo, hi, target: int = 5, min_step: float | None = None) -> list[float]:
-    """Round tick values whose first and last bound the axis (linear only)."""
-    lo, hi = float(min(lo, hi)), float(max(lo, hi))
-    if hi == lo:
-        lo, hi = lo - 0.5, hi + 0.5
-    step = _nice_step(hi - lo, target, min_step)
-    first = math.floor(lo / step) * step
-    count = max(1, int(math.ceil((hi - first) / step - 1e-9)))
-    return [round(first + i * step, 10) for i in range(count + 1)]
-
-
-def _series_class(index: int) -> str:
-    return f"s{index + 1}" if index < MAX_SERIES else "sx"
-
-
-def _fold_series(ordered: list[tuple[str, list]]) -> list[tuple[str, list]]:
-    """Merge everything past ``MAX_SERIES`` into one neutral series."""
-    head, tail = ordered[:MAX_SERIES], ordered[MAX_SERIES:]
-    if not tail:
-        return head
-    merged: list = []
-    for _label, series in tail:
-        merged.extend(series)
-    return head + [
-        (_("other ({count} more)").format(count=len(tail)), merged)
-    ]
-
-
-class _Plot:
-    """A minimal linear-axis SVG frame: hairline grid, round ticks, no deps.
-
-    Either ``x_ticks`` (numeric x) or ``categories`` (banded x) is given.
-    Marks are appended to ``body`` in user coordinates via ``x``/``y``.
-    """
-
-    def __init__(
-        self,
-        y_ticks: list[float],
-        *,
-        x_ticks: list[float] | None = None,
-        categories: list[str] | None = None,
-        x_label: str = "",
-        y_label: str = "",
-        x_fmt=_fmt,
-        y_fmt=_fmt,
-    ) -> None:
-        self.px0, self.px1 = float(M_LEFT), float(PLOT_W - M_RIGHT)
-        self.py0, self.py1 = float(PLOT_H - M_BOTTOM), float(M_TOP)  # y grows upward
-        self.y_lo, self.y_hi = y_ticks[0], y_ticks[-1]
-        self.x_lo, self.x_hi = (x_ticks[0], x_ticks[-1]) if x_ticks else (0.0, 1.0)
-        self.categories = list(categories or [])
-        self.body: list[str] = []
-        frame: list[str] = []
-        for value in y_ticks:
-            py = self.y(value)
-            frame.append(
-                f'<line class="grid" x1="{self.px0:.1f}" y1="{py:.1f}"'
-                f' x2="{self.px1:.1f}" y2="{py:.1f}"/>'
-            )
-            frame.append(
-                f'<text class="tick ty" x="{self.px0 - 9:.1f}" y="{py + 4:.1f}">'
-                f"{_esc(y_fmt(value))}</text>"
-            )
-        for value in x_ticks or []:
-            px = self.x(value)
-            frame.append(
-                f'<line class="grid" x1="{px:.1f}" y1="{self.py0:.1f}"'
-                f' x2="{px:.1f}" y2="{self.py0 + 5:.1f}"/>'
-            )
-            frame.append(
-                f'<text class="tick tx" x="{px:.1f}" y="{self.py0 + 19:.1f}">'
-                f"{_esc(x_fmt(value))}</text>"
-            )
-        for index, name in enumerate(self.categories):
-            frame.append(
-                f'<text class="tick tx" x="{self.band(index):.1f}"'
-                f' y="{self.py0 + 19:.1f}">{_esc(name)}</text>'
-            )
-        frame.append(
-            f'<line class="axis" x1="{self.px0:.1f}" y1="{self.py0:.1f}"'
-            f' x2="{self.px1:.1f}" y2="{self.py0:.1f}"/>'
-        )
-        frame.append(
-            f'<line class="axis" x1="{self.px0:.1f}" y1="{self.py0:.1f}"'
-            f' x2="{self.px0:.1f}" y2="{self.py1:.1f}"/>'
-        )
-        if x_label:
-            mid = (self.px0 + self.px1) / 2
-            frame.append(
-                f'<text class="axlabel tx" x="{mid:.1f}" y="{PLOT_H - 8}">'
-                f"{_esc(x_label)}</text>"
-            )
-        if y_label:
-            mid = (self.py0 + self.py1) / 2
-            frame.append(
-                f'<text class="axlabel tx" x="14" y="{mid:.1f}"'
-                f' transform="rotate(-90 14 {mid:.1f})">{_esc(y_label)}</text>'
-            )
-        self.frame = frame
-
-    def x(self, value: float) -> float:
-        if self.x_hi == self.x_lo:
-            return (self.px0 + self.px1) / 2
-        ratio = (value - self.x_lo) / (self.x_hi - self.x_lo)
-        return self.px0 + ratio * (self.px1 - self.px0)
-
-    def y(self, value: float) -> float:
-        if self.y_hi == self.y_lo:
-            return (self.py0 + self.py1) / 2
-        ratio = (value - self.y_lo) / (self.y_hi - self.y_lo)
-        return self.py0 + ratio * (self.py1 - self.py0)
-
-    def band_width(self) -> float:
-        return (self.px1 - self.px0) / max(len(self.categories), 1)
-
-    def band(self, index: int) -> float:
-        return self.px0 + (index + 0.5) * self.band_width()
-
-    def render(self, description: str) -> str:
-        return (
-            f'<svg viewBox="0 0 {PLOT_W} {PLOT_H}" role="img"'
-            f' preserveAspectRatio="xMidYMid meet"><title>{_esc(description)}</title>'
-            + "".join(self.frame)
-            + "".join(self.body)
-            + "</svg>"
-        )
-
-
-def _legend(entries: list[tuple[str, str]]) -> str:
-    """Identity is never colour-alone: a legend for every multi-series chart."""
-    if len(entries) < 2:
-        return ""
-    items = "".join(
-        f'<li><span class="swatch {cls}"></span>{_esc(label)}</li>' for label, cls in entries
-    )
-    return f'<ul class="legend">{items}</ul>'
-
-
-def _table(headers: list[str], rows: list[list[str]], summary: str | None = None) -> str:
-    """The chart's numbers, collapsed. Carries identity for readers who
-    cannot separate the hues, and discharges the palette's contrast relief."""
-    if not rows:
-        return ""
-    summary = _("Data table") if summary is None else summary
-    head = "".join(f"<th>{_esc(h)}</th>" for h in headers)
-    body = "".join(
-        "<tr>" + "".join(f"<td>{_esc(c)}</td>" for c in row) + "</tr>" for row in rows
-    )
-    return (
-        f"<details class=\"data\"><summary>{_esc(summary)}</summary>"
-        f"<div class=\"scroll\"><table><thead><tr>{head}</tr></thead>"
-        f"<tbody>{body}</tbody></table></div></details>"
-    )
-
-
-def _panel(title: str, *parts: str) -> str:
-    return (
-        f'<section class="panel"><h3>{_esc(title)}</h3>'
-        + "".join(p for p in parts if p)
-        + "</section>"
-    )
-
-
-def _empty(message: str) -> str:
-    return f'<p class="empty">{_esc(message)}</p>'
-
-
-# -- the four charts ----------------------------------------------------------
-
-
-def _chart_length_over_time(data: ReportData) -> str:
-    points = data.words_by_year
-    if not points:
-        return _empty(_("No thesis has both a word count and a publication year yet."))
-    grouped: dict[str, list[tuple[int, float]]] = {}
-    for year, word_count, thesis_type in points:
-        grouped.setdefault(thesis_type, []).append((year, word_count))
-    series = _fold_series(
-        [(thesis_type_label(name), pairs) for name, pairs in sorted(grouped.items())]
-    )
-    years = [year for year, _words, _type in points]
-    words = [count for _year, count, _type in points]
-
-    trend = None
-    lows, highs = [0.0, min(words)], [max(words)]
-    if len(points) >= 5:  # trend line only with >= 5 points (Sec. 9.8.3)
-        slope, intercept = statistics.linear_regression(years, words)
-        x0, x1 = min(years), max(years)
-        trend = ((x0, slope * x0 + intercept), (x1, slope * x1 + intercept))
-        lows += [trend[0][1], trend[1][1]]
-        highs += [trend[0][1], trend[1][1]]
-
-    plot = _Plot(
-        _axis_ticks(min(lows), max(highs)),
-        x_ticks=_axis_ticks(min(years), max(years), min_step=1.0),
-        x_label=_("publication year"),
-        y_label=_("words"),
-        x_fmt=_fmt_year,
-    )
-    for index, (label, pairs) in enumerate(series):
-        cls = _series_class(index)
-        for year, word_count in sorted(pairs):
-            plot.body.append(
-                f'<circle class="dot {cls}" cx="{plot.x(year):.1f}"'
-                f' cy="{plot.y(word_count):.1f}" r="4.5"><title>'
-                + _esc(
-                    _("{label}: {words} words, {year}").format(
-                        label=label, words=_fmt(word_count), year=_fmt_year(year)
-                    )
-                )
-                + "</title></circle>"
-            )
-    if trend is not None:
-        (x0, y0), (x1, y1) = trend
-        plot.body.append(
-            f'<line class="trend" x1="{plot.x(x0):.1f}" y1="{plot.y(y0):.1f}"'
-            f' x2="{plot.x(x1):.1f}" y2="{plot.y(y1):.1f}"><title>'
-            + _esc(_("linear trend"))
-            + "</title></line>"
-        )
-    rows = [
-        [_fmt_year(year), thesis_type_label(thesis_type), _fmt(word_count)]
-        for year, word_count, thesis_type in sorted(points)
-    ]
-    caption = '<p class="note">%s</p>' % _esc(
-        _("Dashed line: least-squares trend over all plotted theses.")
-        if trend is not None
-        else _("Trend line needs at least 5 dated theses.")
-    )
-    return (
-        plot.render(_("Scatter plot of thesis word count against publication year."))
-        + _legend([(label, _series_class(i)) for i, (label, _pairs) in enumerate(series)])
-        + caption
-        + _table([_("publication year"), _("type"), _("words")], rows)
-    )
-
-
-def _chart_length_by_type(data: ReportData) -> str:
-    present = [
-        (thesis_type_label(name), values)
-        for name, values in sorted(data.words_by_type.items())
-        if values
-    ]
-    if not present:
-        return _empty(_("No word counts recorded yet."))
-    boxes = [(name, box_stats(values), values) for name, values in present]
-    spread = [
-        value
-        for _name, box, _values in boxes
-        for value in (box.whisker_lo, box.whisker_hi, *box.fliers)
-    ]
-    plot = _Plot(
-        _axis_ticks(min(spread), max(spread)),
-        categories=[name for name, _box, _values in boxes],
-        y_label=_("words"),
-    )
-    width = min(plot.band_width() * 0.46, 84.0)
-    for index, (name, box, values) in enumerate(boxes):
-        cx = plot.band(index)
-        left, top = cx - width / 2, plot.y(box.q3)
-        height = max(abs(plot.y(box.q1) - plot.y(box.q3)), 1.0)
-        tip = _("{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}").format(
-            name=name,
-            n=len(values),
-            median=_fmt(box.median),
-            q1=_fmt(box.q1),
-            q3=_fmt(box.q3),
-        )
-        plot.body.append(
-            f'<line class="whisker" x1="{cx:.1f}" y1="{plot.y(box.whisker_lo):.1f}"'
-            f' x2="{cx:.1f}" y2="{plot.y(box.whisker_hi):.1f}"/>'
-        )
-        for value in (box.whisker_lo, box.whisker_hi):
-            plot.body.append(
-                f'<line class="whisker" x1="{cx - width / 4:.1f}"'
-                f' y1="{plot.y(value):.1f}" x2="{cx + width / 4:.1f}"'
-                f' y2="{plot.y(value):.1f}"/>'
-            )
-        plot.body.append(
-            f'<rect class="box s1" x="{left:.1f}" y="{top:.1f}" width="{width:.1f}"'
-            f' height="{height:.1f}" rx="3"><title>{_esc(tip)}</title></rect>'
-        )
-        plot.body.append(
-            f'<line class="median" x1="{left:.1f}" y1="{plot.y(box.median):.1f}"'
-            f' x2="{left + width:.1f}" y2="{plot.y(box.median):.1f}"/>'
-        )
-        for value in box.fliers:
-            plot.body.append(
-                f'<circle class="flier" cx="{cx:.1f}" cy="{plot.y(value):.1f}" r="4">'
-                + "<title>"
-                + _esc(
-                    _("{name} outlier: {words} words").format(
-                        name=name, words=_fmt(value)
-                    )
-                )
-                + "</title></circle>"
-            )
-    rows = [
-        [
-            name,
-            str(len(values)),
-            _fmt(box.whisker_lo),
-            _fmt(box.q1),
-            _fmt(box.median),
-            _fmt(box.q3),
-            _fmt(box.whisker_hi),
-            str(len(box.fliers)),
-        ]
-        for name, box, values in boxes
-    ]
-    return (
-        plot.render(_("Box plots of thesis word count per detected thesis type."))
-        + '<p class="note">%s</p>' % _esc(
-            _(
-                "Box: Q1 to Q3 with the median. Whiskers reach the most extreme "
-                "thesis within 1.5 x IQR; points beyond are drawn separately."
-            )
-        )
-        + _table(
-            [
-                _("type"),
-                _("n"),
-                _("low whisker"),
-                _("Q1"),
-                _("median"),
-                _("Q3"),
-                _("high whisker"),
-                _("outliers"),
-            ],
-            rows,
-        )
-    )
-
-
-def _chart_reading_ease(data: ReportData) -> str:
-    present = [(lang, values) for lang, values in data.fre_by_language.items() if values]
-    if not present:
-        return _empty(_("No reading-ease scores recorded yet."))
-    # biggest samples keep the fixed categorical hues; the tail folds to one
-    present.sort(key=lambda item: (-len(item[1]), item[0]))
-    series = _fold_series(present)
-    everything = [value for _label, values in series for value in values]
-    edges, _counts = histogram(everything, bins=HIST_BINS)
-    span = (edges[0], edges[-1])
-    binned = [(label, histogram(values, bins=HIST_BINS, span=span)[1]) for label, values in series]
-    peak = max((count for _label, counts in binned for count in counts), default=1)
-
-    plot = _Plot(
-        _axis_ticks(0, peak, min_step=1.0),
-        x_ticks=_axis_ticks(span[0], span[1]),
-        x_label=_("Flesch reading ease"),
-        y_label=_("theses"),
-    )
-    for index, (label, counts) in enumerate(binned):
-        cls = _series_class(index)
-        for slot, count in enumerate(counts):
-            if not count:
-                continue
-            left, right = plot.x(edges[slot]), plot.x(edges[slot + 1])
-            top = plot.y(count)
-            tip = _("{label}: {count} thesis(es) between {low} and {high}").format(
-                label=label,
-                count=count,
-                low=_fmt(edges[slot]),
-                high=_fmt(edges[slot + 1]),
-            )
-            plot.body.append(
-                f'<rect class="hbar {cls}" x="{left + 1:.1f}" y="{top:.1f}"'
-                f' width="{max(right - left - 2, 1.0):.1f}"'
-                f' height="{max(plot.y(0) - top, 1.0):.1f}" rx="2">'
-                f"<title>{_esc(tip)}</title></rect>"
-            )
-    rows = [
-        [_("{low} to {high}").format(low=_fmt(edges[slot]), high=_fmt(edges[slot + 1]))]
-        + [str(counts[slot]) for _label, counts in binned]
-        for slot in range(HIST_BINS)
-        if any(counts[slot] for _label, counts in binned)
-    ]
-    return (
-        plot.render(
-            _("Histogram of Flesch reading-ease scores, one series per language.")
-        )
-        + _legend([(label, _series_class(i)) for i, (label, _counts) in enumerate(binned)])
-        + '<p class="note">%s</p>' % _esc(
-            _("{bins} equal-width bins; series are overlaid, not stacked.").format(
-                bins=HIST_BINS
-            )
-        )
-        + _table([_("reading ease")] + [label for label, _counts in binned], rows)
-    )
-
-
-def _chart_language_mix(data: ReportData) -> str:
-    items = sorted(data.by_language.items())
-    if not items:
-        return _empty(_("No language has been detected yet."))
-    plot = _Plot(
-        _axis_ticks(0, max(count for _lang, count in items), min_step=1.0),
-        categories=[lang for lang, _count in items],
-        y_label=_("theses"),
-    )
-    width = min(plot.band_width() * 0.55, 78.0)
-    baseline = plot.y(0)
-    for index, (lang, count) in enumerate(items):
-        cx = plot.band(index)
-        top = plot.y(count)
-        plot.body.append(
-            f'<rect class="bar s1" x="{cx - width / 2:.1f}" y="{top:.1f}"'
-            f' width="{width:.1f}" height="{max(baseline - top, 1.0):.1f}" rx="4">'
-            + "<title>"
-            + _esc(
-                _("{language}: {count} thesis(es)").format(language=lang, count=count)
-            )
-            + "</title></rect>"
-        )
-        plot.body.append(
-            f'<text class="value tx" x="{cx:.1f}" y="{top - 7:.1f}">{count}</text>'
-        )
-    return (
-        plot.render(_("Bar chart of thesis counts per detected language."))
-        + _table(
-            [_("language"), _("theses")],
-            [[lang, str(count)] for lang, count in items],
-        )
-    )
+def _jitter(record: ThesisRecord) -> float:
+    """Stable within-year offset: seeded by the thesis id."""
+    return round(random.Random(record.id).uniform(-JITTER, JITTER), 3)
 
 
 # -- the document -------------------------------------------------------------
+
 
 _STYLE = """
 :root {
   color-scheme: light;
   --surface: #fcfcfb; --card: #ffffff; --line: #e4e3df; --grid: #eceae5;
   --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #7a7975;
-  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-x: #7a7f87;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-x: #9a9994;
+  --serious: #ec835a; --critical: #d03b3b;
+  --band-outer: rgba(82, 81, 78, 0.10); --band-inner: rgba(82, 81, 78, 0.22);
+  --note-bg: #fff6e5; --note-line: #f0c36d;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
     --surface: #1a1a19; --card: #232322; --line: #35342f; --grid: #2c2b28;
     --ink: #ffffff; --ink-2: #c3c2b7; --ink-3: #9b9a92;
-    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-x: #8d9199;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-x: #8d9199;
+    --band-outer: rgba(195, 194, 183, 0.10); --band-inner: rgba(195, 194, 183, 0.22);
+    --note-bg: #33291a; --note-line: #8a6a2a;
   }
 }
 * { box-sizing: border-box; }
 body {
-  margin: 0; padding: 32px 20px 56px; background: var(--surface); color: var(--ink);
+  margin: 0; padding: 28px 20px 56px; background: var(--surface); color: var(--ink);
   font: 15px/1.55 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-main { max-width: 1060px; margin: 0 auto; }
+main { max-width: 1120px; margin: 0 auto; }
 h1 { font-size: 25px; letter-spacing: -0.01em; margin: 0 0 4px; }
-h2 { font-size: 15px; font-weight: 600; text-transform: uppercase;
-     letter-spacing: 0.07em; color: var(--ink-3); margin: 40px 0 12px; }
-h3 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
-.sub { color: var(--ink-2); margin: 0 0 4px; }
-.cards { display: grid; gap: 12px; margin-top: 16px;
-         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+h3 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+.sub { color: var(--ink-2); margin: 0 0 12px; }
+.privacy { background: var(--note-bg); border: 1px solid var(--note-line); border-radius: 10px;
+           padding: 10px 14px; margin: 0 0 16px; font-size: 14px; }
+.privacy strong { display: block; margin-bottom: 2px; }
+.cards { display: grid; gap: 12px; margin: 0;
+         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
         padding: 12px 14px; }
 .card dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
@@ -751,56 +307,60 @@ h3 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
 .card dd { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
 .card dd small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-2);
                  letter-spacing: 0; }
-.grid2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.filters { position: sticky; top: 0; z-index: 5; background: var(--surface);
+           display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: end;
+           padding: 12px 0 10px; margin-top: 18px; border-bottom: 1px solid var(--line); }
+.filters label, .picker { display: flex; flex-direction: column; font-size: 12px;
+                          color: var(--ink-3); gap: 3px; }
+select { font: inherit; font-size: 14px; color: var(--ink); background: var(--card);
+         border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; min-width: 150px; }
+select:disabled { opacity: 0.55; }
+.hint { color: var(--ink-3); font-size: 12.5px; margin: 6px 0 0; }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-         padding: 16px; }
-.panel svg { display: block; width: 100%; height: auto; overflow: visible; }
-.note, .caption { color: var(--ink-3); font-size: 12.5px; margin: 8px 0 0; }
+         padding: 16px; margin-top: 18px; }
+.panel .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.plot { width: 100%; min-height: 360px; }
+.plot.short { min-height: 300px; }
+.note, .caption { color: var(--ink-3); font-size: 12.5px; margin: 6px 0 0; }
 .empty { color: var(--ink-3); font-size: 13.5px; margin: 0; padding: 28px 0; text-align: center; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none;
-          margin: 10px 0 0; padding: 0; font-size: 13px; color: var(--ink-2); }
-.legend li { display: flex; align-items: center; gap: 7px; }
-.swatch { width: 11px; height: 11px; border-radius: 3px; background: var(--series); }
-.s1 { --series: var(--series-1); }
-.s2 { --series: var(--series-2); }
-.s3 { --series: var(--series-3); }
-.sx { --series: var(--series-x); }
-.grid { stroke: var(--grid); stroke-width: 1; }
-.axis { stroke: var(--line); stroke-width: 1; }
-.tick { fill: var(--ink-3); font-size: 11px; }
-.ty { text-anchor: end; }
-.tx { text-anchor: middle; }
-.axlabel { fill: var(--ink-2); font-size: 12px; }
-.value { fill: var(--ink-2); font-size: 11px; }
-.dot { fill: var(--series); stroke: var(--card); stroke-width: 2; }
-.bar, .box, .hbar { fill: var(--series); }
-.hbar { fill-opacity: 0.62; }
-.trend { stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 6 4; }
-.whisker { stroke: var(--ink-2); stroke-width: 1.5; }
-.median { stroke: var(--card); stroke-width: 2.5; }
-.flier { fill: none; stroke: var(--ink-2); stroke-width: 1.5; }
-details.data { margin-top: 12px; }
-details.data summary { cursor: pointer; font-size: 12.5px; color: var(--ink-3); }
-.scroll { overflow-x: auto; margin-top: 8px; }
+.outside { margin-top: 10px; font-size: 13px; }
+.outside summary { cursor: pointer; color: var(--ink-2); }
+.scroll { overflow-x: auto; margin-top: 6px; }
 table { border-collapse: collapse; font-size: 13px; width: 100%; }
-th, td { text-align: left; padding: 5px 12px 5px 0; border-bottom: 1px solid var(--line);
+th, td { text-align: left; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--line);
          white-space: nowrap; }
 th { color: var(--ink-3); font-weight: 600; }
-table.notable { max-width: 640px; }
+a { color: var(--series-1); }
+noscript p { background: var(--note-bg); padding: 10px 14px; border-radius: 10px; }
 footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line);
          color: var(--ink-3); font-size: 12.5px; }
 @media print {
   body { padding: 0; background: #ffffff; }
-  .grid2 { grid-template-columns: 1fr; }
+  .filters { position: static; }
   .panel { break-inside: avoid; border-color: #cccccc; }
-  details.data { display: none; }
 }
 """
 
 
+def _esc(text) -> str:
+    return html.escape(str(text), quote=True)
+
+
+def _asset(name: str) -> str:
+    return (resources.files("tta.core") / ref.ASSETS_DIR / name).read_text(encoding="utf-8")
+
+
+def plotly_js() -> str:
+    """The vendored library, verified against its pin (ADR-0016 rev. 3)."""
+    raw = (resources.files("tta.core") / ref.ASSETS_DIR / PLOTLY_FILENAME).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != PLOTLY_SHA256:
+        raise RuntimeError(f"{PLOTLY_FILENAME} does not match its pinned SHA-256")
+    return raw.decode("utf-8")
+
+
 def _card(term: str, value: str, note: str = "") -> str:
     detail = f"<small>{_esc(note)}</small>" if note else ""
-    return f"<div class=\"card\"><dt>{_esc(term)}</dt><dd>{_esc(value)}{detail}</dd></div>"
+    return f'<div class="card"><dt>{_esc(term)}</dt><dd>{_esc(value)}{detail}</dd></div>'
 
 
 def _summary_cards(data: ReportData) -> str:
@@ -808,14 +368,12 @@ def _summary_cards(data: ReportData) -> str:
     years = f"{data.year_range[0]}-{data.year_range[1]}" if data.year_range else "-"
     types = " | ".join(
         f"{thesis_type_label(k)}: {n}" for k, n in sorted(data.by_type.items())
-    ) or _(
-        "no type detected"
-    )
+    ) or _("no type detected")
     median = format_number(data.median_words, 0) if data.median_words is not None else "-"
     return (
         '<dl class="cards">'
         + _card(_("Theses analysed"), str(data.theses), types)
-        + _card(_("Excluded"), str(data.excluded), _("left out of every aggregate"))
+        + _card(_("Excluded"), str(data.excluded), _("left out of every panel"))
         + _card(_("Languages"), languages)
         + _card(_("Publication years"), years)
         + _card(_("Median length"), median, _("words"))
@@ -823,86 +381,284 @@ def _summary_cards(data: ReportData) -> str:
     )
 
 
-def _notable_section(data: ReportData) -> str:
-    if not data.notable:
-        return _empty(
-            _(
-                "No thesis is an outlier on two or more of the trustworthy metrics "
-                "({metrics})."
-            ).format(metrics=", ".join(TRUSTWORTHY_METRICS))
-        )
-    head = "<thead><tr><th>%s</th><th>%s</th></tr></thead>" % (
-        _esc(_("Thesis")),
-        _esc(_("Outlier on")),
+def _select(element_id: str, label: str, options: list[tuple[str, str]]) -> str:
+    items = "".join(f'<option value="{_esc(v)}">{_esc(t)}</option>' for v, t in options)
+    return (
+        f'<label>{_esc(label)}<select id="{_esc(element_id)}">{items}</select></label>'
     )
-    body = "".join(
-        f"<tr><td>{_esc(label)}</td><td>{_esc(', '.join(metrics))}</td></tr>"
-        for label, metrics in data.notable
+
+
+def _filters(reference: ref.Reference | None) -> str:
+    types = [(ref.ALL, _("all types"))] + [
+        (code, thesis_type_label(code)) for code in REFERENCE_THESIS_TYPES
+    ]
+    languages = [(ref.ALL, _("all languages"))] + [
+        (code, _(LANGUAGE_LABELS[code])) for code in ref.LANGUAGES
+    ]
+    fields = [(ref.ALL, _("all fields"))] + [
+        (code, _(ref.DDC_MAIN_CLASSES[code]))
+        for code in (reference.fields if reference is not None else [])
+    ]
+    return (
+        '<div class="filters">'
+        + _select("f-type", _("Thesis type"), types)
+        + _select("f-lang", _("Language"), languages)
+        + _select("f-field", _("Field (reference only)"), fields)
+        + "</div>"
+        + '<p class="hint" id="f-hint"></p>'
+    )
+
+
+def _reference_caption(reference: ref.Reference | None) -> str:
+    if reference is None:
+        text = _(
+            "No reference data is available in this version of the app; the panels "
+            "show your theses only."
+        )
+    else:
+        first, last = reference.years
+        text = _(
+            "Reference: bachelor's and master's theses from two university repositories "
+            "(HU Berlin, ETH Zurich), {first}-{last}. Per year, the line is the median "
+            "and the bands span the 25th-75th and the 5th-95th percentile. A band is "
+            "shown only where at least {minimum} reference theses have a value."
+        ).format(first=first, last=last, minimum=reference.document.get("min_theses"))
+        if reference.status == "interim":
+            text += " " + _(
+                "Interim reference values: computed with an earlier version of the "
+                "analysis; they will be replaced before the release."
+            )
+    return f'<p class="caption">{_esc(text)}</p>'
+
+
+def _picker(element_id: str, metrics) -> str:
+    options = "".join(
+        f'<option value="{_esc(m)}">{_esc(_(ref.METRIC_LABELS[m]))}</option>' for m in metrics
     )
     return (
-        f'<div class="scroll"><table class="notable">{head}<tbody>{body}</tbody></table></div>'
-        + '<p class="note">%s</p>' % _(
-            "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of "
-            "avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses "
-            "are named by id - no file name leaves the database (Sec. 9.8.3); "
-            "<code>tta list</code> resolves an id."
-        )
+        f'<label class="picker">{_esc(_("Metric"))}'
+        f'<select id="{_esc(element_id)}">{options}</select></label>'
     )
 
 
-def render_html(data: ReportData, generated_at: datetime | None = None) -> str:
+def _panel(panel_id: str, title: str, body: str, picker: str = "", note: str = "") -> str:
+    note_html = f'<p class="note">{_esc(note)}</p>' if note else ""
+    return (
+        f'<section class="panel" id="{_esc(panel_id)}"><div class="head">'
+        f"<h3>{_esc(title)}</h3>{picker}</div>{body}{note_html}</section>"
+    )
+
+
+def _strings() -> dict[str, str]:
+    """Every user-visible text the script shows, translated here (ADR-0020)."""
+    return {
+        "year": _("publication year"),
+        "theses": _("theses"),
+        "median": _("reference median"),
+        "inner": _("reference 25th-75th percentile"),
+        "outer": _("reference 5th-95th percentile"),
+        "level0": _("your theses: inside the 25th-75th percentile"),
+        "level1": _("outside the 25th-75th percentile"),
+        "level2": _("outside the 5th-95th percentile"),
+        "levelNone": _("no comparison"),
+        "noData": _("Not enough data for this selection."),
+        "noComparisonYears": _(
+            "{count} thesis(es) are dated outside the reference years and are shown "
+            "without a comparison."
+        ),
+        "undated": _("{count} thesis(es) without a publication year are not on the time axis."),
+        "fieldHint": _(
+            "The field applies to the reference only (the app does not know the subject "
+            "of your theses). Choose a thesis type and a language to compare with one field."
+        ),
+        "fieldHintActive": _(
+            "Your theses of this type and language are compared with the reference "
+            "theses of the chosen field."
+        ),
+        "outsideTitle": _("Theses outside the 5th-95th percentile of the reference: {count}"),
+        "outsideMore": _("{count} more outside the 25th-75th percentile."),
+        "colThesis": _("Thesis"),
+        "colYear": _("Year"),
+        "colValue": _("Value"),
+        "colBand": _("Reference 5th-95th percentile"),
+        "boxesNote": _(
+            "Box: 25th to 75th percentile with the median; whiskers reach the most "
+            "extreme thesis within 1.5 x IQR. Years with at least {minimum} theses."
+        ).format(minimum=MIN_BOX_THESES),
+    }
+
+
+def _payload(data: ReportData, reference: ref.Reference | None) -> dict:
+    options = comparison_options(reference)
+    theses = []
+    for record in sorted(data.records, key=lambda r: (r.year or 0, r.id)):
+        meta = " | ".join(
+            part
+            for part in (
+                thesis_type_label(record.thesis_type),
+                record.language or "",
+                str(record.year) if record.year is not None else "",
+            )
+            if part
+        )
+        theses.append(
+            {
+                "id": record.id,
+                "name": record.filename,
+                "uri": record.uri,
+                "type": record.thesis_type,
+                "lang": record.language,
+                "year": record.year,
+                "x": None if record.year is None else record.year + _jitter(record),
+                "tool": record.tool,
+                "head": f"<b>{_esc(record.filename)}</b><br>{_esc(meta)}",
+                "m": {k: float(f"{v:.6g}") for k, v in record.metrics.items()},
+                "lv": {
+                    k: level_string(record, k, reference, options) for k in record.metrics
+                },
+            }
+        )
+    bands: dict[str, dict[str, list]] = {}
+    years = list(range(ref.YEARS[0], ref.YEARS[1] + 1))
+    if reference is not None:
+        for (thesis_type, language, field_code, year), values in reference.rows.items():
+            key = f"{thesis_type}|{language}|{field_code}"
+            for metric, stats in values.items():
+                series = bands.setdefault(key, {}).setdefault(metric, [None] * len(years))
+                if year in years:
+                    series[years.index(year)] = stats
+    return {
+        "locale": active_locale(),
+        "separators": ",." if active_locale() == "de" else ".,",
+        "years": years,
+        "options": options,
+        "groups": {name: list(metrics) for name, metrics in ref.METRIC_GROUPS.items()},
+        "labels": {m: _(ref.METRIC_LABELS[m]) for m in ref.METRICS},
+        "tools": {k: (_(v) if k in ("other", "unknown") else v) for k, v in TOOL_LABELS.items()},
+        "toolOrder": list(TOOL_LABELS),
+        "minBox": MIN_BOX_THESES,
+        "strings": _strings(),
+        "theses": theses,
+        "bands": bands,
+    }
+
+
+def _json_block(payload: dict) -> str:
+    # "<" escaped so no sequence inside can end or confuse the script element
+    text = json.dumps(payload, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c")
+    return f'<script type="application/json" id="tta-data">{text}</script>'
+
+
+_SHIPPED = object()
+
+
+def render_html(data: ReportData, reference=_SHIPPED, generated_at: datetime | None = None) -> str:
     """One self-contained HTML document, as a string (Sec. 9.8).
 
-    All CSS and all SVG are inline and the document makes no external
-    request whatsoever - no script, no image, no web font, no CDN
-    (QA-PRIV). It contains no identifying value (Sec. 9.8.3)."""
+    ``reference`` defaults to the aggregates shipped with the app; ``None``
+    renders without a comparison. The document makes no external request:
+    everything, plotly.js included, is inline (QA-PRIV)."""
+    if reference is _SHIPPED:
+        reference = ref.load_shipped()
     stamp = format_datetime(generated_at or datetime.now())
     garbled = (
         '<p class="caption">%s</p>'
         % _esc(
             _(
-                "{count} thesis(es) with a garbled text extraction are excluded "
-                "from every aggregate above and below."
+                "{count} thesis(es) with a garbled text extraction are left out of "
+                "every panel."
             ).format(count=data.garbled)
         )
         if data.garbled
         else ""
     )
-    # The document declares the locale it was rendered in, so a screen reader
-    # and a browser translator both get it right (SDD Sec. 9.6).
+    privacy = (
+        '<div class="privacy" role="note"><strong>%s</strong>%s</div>'
+        % (
+            _esc(_("This report may contain personal data.")),
+            _esc(
+                _(
+                    "It shows file names, file paths and links to your PDFs. It is meant "
+                    "for you and is not intended to be sent to the research team - for "
+                    "that, use the anonymised export."
+                )
+            ),
+        )
+    )
+    group_panels = "".join(
+        _panel(
+            f"p-{name}",
+            _(GROUP_TITLES[name]),
+            f'<div class="plot" id="g-{name}"></div><div class="outside" id="o-{name}"></div>',
+            _picker(f"m-{name}", metrics),
+            _(GROUP_NOTES[name]) + " " + _("Click a point to open the PDF."),
+        )
+        for name, metrics in ref.METRIC_GROUPS.items()
+    )
+    body = (
+        f"<h1>{_esc(_('Thesis report'))}</h1>"
+        + '<p class="sub">%s</p>'
+        % _esc(
+            _("Thesis Text Analyzer - {count} analysed thesis(es), generated {stamp}").format(
+                count=data.theses, stamp=stamp
+            )
+        )
+        + privacy
+        + _summary_cards(data)
+        + garbled
+        + "<noscript><p>%s</p></noscript>"
+        % _esc(
+            _(
+                "The charts of this report need JavaScript. It runs locally in your "
+                "browser; nothing is loaded from the network."
+            )
+        )
+        + _filters(reference)
+        + _reference_caption(reference)
+        + _panel(
+            "p-coverage",
+            _("Coverage"),
+            '<div class="plot short" id="g-coverage"></div><p class="note" id="n-coverage"></p>',
+            note=_("Your theses per publication year, for the selected type and language."),
+        )
+        + group_panels
+        + _panel(
+            "p-boxes",
+            _("Your theses per year"),
+            '<div class="plot" id="g-boxes"></div>',
+            _picker("m-boxes", ref.METRICS),
+            _strings()["boxesNote"],
+        )
+        + _panel(
+            "p-tools",
+            _("Authoring tools"),
+            '<div class="plot short" id="g-tools"></div>',
+            note=_(
+                "Your theses per year by the application that created the PDF (the PDF "
+                "producer where the creator is not recognised)."
+            ),
+        )
+        + "<footer>"
+        + _esc(
+            _(
+                "Generated locally by tta {version}. This file is self-contained and "
+                "works offline: it loads nothing from the network. Regenerate it any "
+                "time from the Report button or `tta report`."
+            ).format(version=tta.__version__)
+        )
+        + "</footer>"
+    )
+    # The document declares the locale it was rendered in (SDD Sec. 9.6).
     return (
         "<!DOCTYPE html>\n"
         f'<html lang="{_esc(active_locale())}"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{_esc(_('Thesis Text Analyzer - cohort report {stamp}').format(stamp=stamp))}</title>"
+        f"<title>{_esc(_('Thesis Text Analyzer - thesis report {stamp}').format(stamp=stamp))}</title>"
         f"<style>{_STYLE}</style></head><body><main>"
-        f"<h1>{_esc(_('Cohort report'))}</h1>"
-        + '<p class="sub">%s</p>'
-        % _esc(
-            _(
-                "Thesis Text Analyzer - {count} analysed thesis(es), "
-                "generated {stamp}"
-            ).format(count=data.theses, stamp=stamp)
-        )
-        + _summary_cards(data)
-        + garbled
-        + f"<h2>{_esc(_('Trends'))}</h2><div class=\"grid2\">"
-        + _panel(_("Length over time"), _chart_length_over_time(data))
-        + _panel(_("Length by type"), _chart_length_by_type(data))
-        + f"</div><h2>{_esc(_('Distributions'))}</h2><div class=\"grid2\">"
-        + _panel(_("Reading ease distribution"), _chart_reading_ease(data))
-        + _panel(_("Language mix"), _chart_language_mix(data))
-        + f"</div><h2>{_esc(_('Notable theses'))}</h2>"
-        + f'<section class="panel">{_notable_section(data)}</section>'
-        + "<footer>"
-        + _esc(
-            _(
-                "Generated locally by tta {version}. This file is self-contained: "
-                "it loads nothing from the network and contains no file names, "
-                "paths, notes or document text. Regenerate it any time from the "
-                "Report button or `tta report`."
-            ).format(version=tta.__version__)
-        )
-        + "</footer>"
-        "</main></body></html>\n"
+        + body
+        + "</main>"
+        + _json_block(_payload(data, reference))
+        + f"<script>{plotly_js()}</script>"
+        + f"<script>{_asset(SCRIPT_FILENAME)}</script>"
+        + "</body></html>\n"
     )

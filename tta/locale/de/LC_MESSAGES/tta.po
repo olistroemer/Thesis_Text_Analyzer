@@ -196,6 +196,10 @@ msgstr "Analyseergebnisse (aggregierte Textstatistiken)"
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr "Alle ausstehenden Schemamigrationen anwenden, nach einer Sicherungskopie."
 
+#: tta/core/report.py:634
+msgid "Authoring tools"
+msgstr "Erstellungsprogramme"
+
 #: tta/ui/tk/columns.py:180
 msgid "Average sentence length, in words."
 msgstr "Mittlere Satzlänge in Wörtern."
@@ -216,10 +220,6 @@ msgstr "Mittlere Wortlänge"
 msgid "Bachelor"
 msgstr "Bachelor"
 
-#: tta/core/report.py:709
-msgid "Bar chart of thesis counts per detected language."
-msgstr "Balkendiagramm der Anzahl Arbeiten je erkannter Sprache."
-
 #: tta/ui/tk/columns.py:155
 msgid "Best-estimate publication year (title-page year, else PDF dates)."
 msgstr "Bestmögliche Schätzung des Veröffentlichungsjahres (Jahr der Titelseite, sonst die PDF-Datumsangaben)."
@@ -228,13 +228,9 @@ msgstr "Bestmögliche Schätzung des Veröffentlichungsjahres (Jahr der Titelsei
 msgid "Bookmarks"
 msgstr "Lesezeichen"
 
-#: tta/core/report.py:601
-msgid "Box plots of thesis word count per detected thesis type."
-msgstr "Boxplots der Wortzahl je erkannter Abschlussart."
-
-#: tta/core/report.py:603
-msgid "Box: Q1 to Q3 with the median. Whiskers reach the most extreme thesis within 1.5 x IQR; points beyond are drawn separately."
-msgstr "Box: Q1 bis Q3 mit dem Median. Die Whisker reichen bis zur äußersten Arbeit innerhalb von 1,5 x IQA; Punkte darüber hinaus werden einzeln eingezeichnet."
+#: tta/core/report.py:484
+msgid "Box: 25th to 75th percentile with the median; whiskers reach the most extreme thesis within 1.5 x IQR. Years with at least {minimum} theses."
+msgstr "Kasten: 25. bis 75. Perzentil mit dem Median; die Antennen reichen bis zur äußersten Arbeit innerhalb von 1,5 x IQR. Jahre mit mindestens {minimum} Arbeiten."
 
 #: tta/ui/tk/columns.py:66
 msgid "Cached PDF metadata"
@@ -312,13 +308,13 @@ msgstr "Zeichen, die aus dem Text entfernt wurden, weil sie in einer Formelschri
 msgid "Characters removed from the text because they are set in a monospaced font (code, often also URLs)."
 msgstr "Zeichen, die aus dem Text entfernt wurden, weil sie in einer Festbreitenschrift gesetzt sind (Programmcode, oft auch URLs)."
 
+#: tta/core/report.py:594
+msgid "Click a point to open the PDF."
+msgstr "Ein Klick auf einen Punkt öffnet das PDF."
+
 #: tta/ui/tk/about_view.py:74
 msgid "Close"
 msgstr "Schließen"
-
-#: tta/core/report.py:879
-msgid "Cohort report"
-msgstr "Kohortenbericht"
 
 #: tta/cli/main.py:135
 msgid "Collect diagnostics for a support request."
@@ -378,6 +374,10 @@ msgstr ""
 "Der Bericht konnte nicht geschrieben werden:\n"
 "{error}"
 
+#: tta/core/report.py:620
+msgid "Coverage"
+msgstr "Abdeckung"
+
 #: tta/cli/main.py:207
 msgid "Create the project in the --project directory, or migrate an existing one."
 msgstr "Das Projekt im Verzeichnis aus --project anlegen oder ein vorhandenes migrieren."
@@ -393,14 +393,6 @@ msgstr "Erstellt (Jahr)"
 #: tta/ui/tk/columns.py:75
 msgid "Creator tool"
 msgstr "Ausgangsprogramm"
-
-#: tta/core/report.py:515
-msgid "Dashed line: least-squares trend over all plotted theses."
-msgstr "Gestrichelte Linie: Trend nach kleinsten Quadraten über alle dargestellten Arbeiten."
-
-#: tta/core/report.py:433
-msgid "Data table"
-msgstr "Datentabelle"
 
 #: tta/core/privacy_metadata.py:293
 msgid "Description"
@@ -426,10 +418,6 @@ msgstr "Diplom"
 msgid "Directly identifying values (kept on this machine only)"
 msgstr "Unmittelbar identifizierende Werte (bleiben ausschließlich auf diesem Rechner)"
 
-#: tta/core/report.py:892
-msgid "Distributions"
-msgstr "Verteilungen"
-
 #: tta/core/types.py:47
 msgid "Doctoral"
 msgstr "Dissertation"
@@ -445,6 +433,10 @@ msgstr "Nicht mehr fragen"
 #: tta/cli/main.py:780
 msgid "Dump per-run durations as CSV instead of the cohort export (QA-RES)."
 msgstr "Die Laufzeiten je Lauf als CSV ausgeben statt des Kohortenexports (QA-RES)."
+
+#: tta/core/report.py:90
+msgid "English"
+msgstr "Englisch"
 
 #: tta/ui/tk/grid_model.py:30
 msgid "Error: {reason}"
@@ -486,7 +478,7 @@ msgstr "Arbeit {thesis_id} ausschließen und ihre zwischengespeicherte Analyse d
 msgid "Exclude this thesis from analysis and exports. Excluding an already-analysed thesis deletes its cached analysis (artefacts + metrics) from this machine after a confirmation; the source PDF is not touched."
 msgstr "Diese Arbeit von Analyse und Export ausschließen. Wird eine bereits analysierte Arbeit ausgeschlossen, so wird ihre zwischengespeicherte Analyse (Artefakte und Metriken) nach einer Rückfrage von diesem Rechner gelöscht; die PDF-Quelldatei wird nicht angetastet."
 
-#: tta/core/report.py:818
+#: tta/core/report.py:376
 #: tta/ui/tk/columns.py:55
 msgid "Excluded"
 msgstr "Ausgeschlossen"
@@ -537,6 +529,10 @@ msgstr "Erweiterter Modus"
 msgid "Extraction quality"
 msgstr "Extraktionsqualität"
 
+#: tta/core/report.py:406
+msgid "Field (reference only)"
+msgstr "Fach (nur Referenz)"
+
 #: tta/ui/tk/columns.py:57
 #: tta/ui/tk/main_window.py:108
 msgid "File"
@@ -554,10 +550,6 @@ msgstr "Dateiname der PDF-Datei der Arbeit. Doppelklick öffnet die PDF-Datei."
 msgid "File size"
 msgstr "Dateigröße"
 
-#: tta/core/report.py:844
-msgid "Flagged by per-metric IQR (1.5 x IQR beyond Q1/Q3) on at least two of avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Theses are named by id - no file name leaves the database (Sec. 9.8.3); <code>tta list</code> resolves an id."
-msgstr "Markiert je Metrik über den Interquartilsabstand (1,5 x IQA jenseits von Q1/Q3) bei mindestens zwei von avg_word_len, std_sentence_len, yules_k, flesch_reading_ease. Arbeiten werden nur über ihre ID benannt - kein Dateiname verlässt die Datenbank (Abschn. 9.8.3); <code>tta list</code> löst eine ID auf."
-
 #: tta/core/privacy_metadata.py:133
 msgid "Flesch (en) / Amstad (de) reading-ease score"
 msgstr "Lesbarkeitswert nach Flesch (en) bzw. Amstad (de)"
@@ -565,10 +557,6 @@ msgstr "Lesbarkeitswert nach Flesch (en) bzw. Amstad (de)"
 #: tta/ui/tk/columns.py:175
 msgid "Flesch Reading Ease; higher scores read more easily."
 msgstr "Flesch-Lesbarkeitsindex; höhere Werte lesen sich leichter."
-
-#: tta/core/report.py:640
-msgid "Flesch reading ease"
-msgstr "Flesch-Lesbarkeit"
 
 #: tta/ui/tk/columns.py:187
 msgid "Fraction of repeated word bigrams (two-word runs)."
@@ -582,13 +570,17 @@ msgstr "Anteil wiederholter Wort-Trigramme (Drei-Wort-Folgen)."
 msgid "Free software under the GNU General Public License, {spdx} (SPDX)."
 msgstr "Freie Software unter der GNU General Public License, {spdx} (SPDX)."
 
-#: tta/core/report.py:899
-msgid "Generated locally by tta {version}. This file is self-contained: it loads nothing from the network and contains no file names, paths, notes or document text. Regenerate it any time from the Report button or `tta report`."
-msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: sie lädt nichts aus dem Netz und enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Sie kann jederzeit über die Schaltfläche \"Bericht\" oder mit `tta report` neu erzeugt werden."
+#: tta/core/report.py:643
+msgid "Generated locally by tta {version}. This file is self-contained and works offline: it loads nothing from the network. Regenerate it any time from the Report button or `tta report`."
+msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen und funktioniert offline: Sie lädt nichts aus dem Netz. Neu erzeugen lässt sie sich jederzeit über die Schaltfläche „Bericht“ oder `tta report`."
 
 #: tta/core/privacy_metadata.py:243
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
+
+#: tta/core/report.py:90
+msgid "German"
+msgstr "Deutsch"
 
 #: tta/ui/tk/help_view.py:59
 #: tta/ui/tk/main_window.py:124
@@ -599,9 +591,9 @@ msgstr "Hilfe"
 msgid "Help topics"
 msgstr "Hilfethemen"
 
-#: tta/core/report.py:670
-msgid "Histogram of Flesch reading-ease scores, one series per language."
-msgstr "Histogramm der Flesch-Lesbarkeitswerte, eine Reihe je Sprache."
+#: tta/core/report.py:76
+msgid "How long the theses are. Length grows with the subject and the degree, so compare within one type and language."
+msgstr "Wie lang die Arbeiten sind. Die Länge hängt vom Fach und vom Abschluss ab – vergleichen Sie daher innerhalb einer Art und Sprache."
 
 #: tta/ui/tk/columns.py:161
 msgid "How precise the date behind the publication year is: day, month, semester, year or year range."
@@ -627,10 +619,19 @@ msgstr "Das Wichtigste in Kürze"
 msgid "Inspect the catalogue of analysis modules."
 msgstr "Den Katalog der Analysemodule ansehen."
 
+#: tta/core/report.py:427
+msgid "Interim reference values: computed with an earlier version of the analysis; they will be replaced before the release."
+msgstr "Vorläufige Referenzwerte: mit einer früheren Version der Analyse berechnet; sie werden vor der Veröffentlichung ersetzt."
+
+#: tta/core/report.py:580
+msgid "It shows file names, file paths and links to your PDFs. It is meant for you and is not intended to be sent to the research team - for that, use the anonymised export."
+msgstr "Er zeigt Dateinamen, Dateipfade und Verweise auf Ihre PDF-Dateien. Er ist für Sie bestimmt und nicht dafür gedacht, an das Forschungsteam geschickt zu werden – dafür gibt es den anonymisierten Export."
+
 #: tta/core/privacy_metadata.py:293
 msgid "Kind"
 msgstr "Art"
 
+#: tta/core/report.py:405
 #: tta/ui/tk/columns.py:84
 msgid "Language"
 msgstr "Sprache"
@@ -639,11 +640,7 @@ msgstr "Sprache"
 msgid "Language confidence"
 msgstr "Sicherheit der Spracherkennung"
 
-#: tta/core/report.py:894
-msgid "Language mix"
-msgstr "Sprachverteilung"
-
-#: tta/core/report.py:819
+#: tta/core/report.py:377
 msgid "Languages"
 msgstr "Sprachen"
 
@@ -651,13 +648,9 @@ msgstr "Sprachen"
 msgid "Leaves your machine on export"
 msgstr "Verlässt beim Export Ihren Rechner"
 
-#: tta/core/report.py:891
-msgid "Length by type"
-msgstr "Länge nach Abschlussart"
-
-#: tta/core/report.py:890
-msgid "Length over time"
-msgstr "Länge über die Zeit"
+#: tta/core/report.py:71
+msgid "Length metrics over time"
+msgstr "Längenmaße über die Zeit"
 
 #: tta/ui/tk/columns.py:88
 msgid "Letters"
@@ -687,9 +680,13 @@ msgstr "Magister"
 msgid "Master"
 msgstr "Master"
 
-#: tta/core/report.py:821
+#: tta/core/report.py:379
 msgid "Median length"
 msgstr "Medianlänge"
+
+#: tta/core/report.py:439
+msgid "Metric"
+msgstr "Kennzahl"
 
 #: tta/ui/tk/help_view.py:69
 msgid "Metrics"
@@ -719,29 +716,17 @@ msgstr ""
 msgid "No data leaves this machine unless you create an export and pass it on yourself. An export is a file you save in a folder of your choice; the application never transmits it."
 msgstr "Daten verlassen diesen Rechner nur, wenn Sie selbst einen Export erstellen und weitergeben. Ein Export ist eine Datei, die Sie in einem Ordner Ihrer Wahl speichern; die Anwendung übermittelt sie nie."
 
-#: tta/core/report.py:685
-msgid "No language has been detected yet."
-msgstr "Noch wurde keine Sprache erkannt."
-
-#: tta/core/report.py:627
-msgid "No reading-ease scores recorded yet."
-msgstr "Noch keine Lesbarkeitswerte erfasst."
-
-#: tta/core/report.py:463
-msgid "No thesis has both a word count and a publication year yet."
-msgstr "Noch hat keine Arbeit sowohl eine Wortzahl als auch ein Veröffentlichungsjahr."
-
-#: tta/core/report.py:829
-msgid "No thesis is an outlier on two or more of the trustworthy metrics ({metrics})."
-msgstr "Keine Arbeit ist bei zwei oder mehr der belastbaren Metriken ein Ausreißer ({metrics})."
-
-#: tta/core/report.py:534
-msgid "No word counts recorded yet."
-msgstr "Noch keine Wortzahlen erfasst."
+#: tta/core/report.py:414
+msgid "No reference data is available in this version of the app; the panels show your theses only."
+msgstr "In dieser Version der Anwendung sind keine Referenzdaten enthalten; die Diagramme zeigen nur Ihre Arbeiten."
 
 #: tta/ui/tk/grid_model.py:28
 msgid "Not applicable for this thesis."
 msgstr "Für diese Arbeit nicht anwendbar."
+
+#: tta/core/report.py:464
+msgid "Not enough data for this selection."
+msgstr "Für diese Auswahl gibt es nicht genug Daten."
 
 #: tta/ui/tk/main_window.py:609
 msgid "Not now"
@@ -750,10 +735,6 @@ msgstr "Jetzt nicht"
 #: tta/ui/tk/grid_model.py:23
 msgid "Not yet analysed - click Run to compute."
 msgstr "Noch nicht analysiert - Analyse starten, um den Wert zu berechnen."
-
-#: tta/core/report.py:895
-msgid "Notable theses"
-msgstr "Auffällige Arbeiten"
 
 #: tta/ui/tk/dialogs.py:145
 msgid "Nothing to export yet - add and analyse theses first."
@@ -799,10 +780,6 @@ msgstr "Projektordner öffnen"
 #: tta/ui/tk/main_window.py:612
 msgid "Open report"
 msgstr "Bericht öffnen"
-
-#: tta/core/report.py:836
-msgid "Outlier on"
-msgstr "Ausreißer bei"
 
 #: tta/ui/tk/dialogs.py:25
 msgid "PDF files"
@@ -870,7 +847,7 @@ msgstr "Veröffentlichungsjahr"
 msgid "Publication year source"
 msgstr "Quelle des Veröffentlichungsjahres"
 
-#: tta/core/report.py:820
+#: tta/core/report.py:378
 msgid "Publication years"
 msgstr "Veröffentlichungsjahre"
 
@@ -878,14 +855,6 @@ msgstr "Veröffentlichungsjahre"
 #: tta/core/privacy_metadata.py:281
 msgid "Purpose"
 msgstr "Zweck"
-
-#: tta/core/report.py:613
-msgid "Q1"
-msgstr "Q1"
-
-#: tta/core/report.py:615
-msgid "Q3"
-msgstr "Q3"
 
 #: tta/ui/tk/main_window.py:107
 msgid "Quit"
@@ -917,10 +886,6 @@ msgstr "Alles neu ausführen, unabhängig vom Zustand."
 msgid "Readability (Flesch)"
 msgstr "Lesbarkeit (Flesch)"
 
-#: tta/core/report.py:893
-msgid "Reading ease distribution"
-msgstr "Verteilung der Lesbarkeit"
-
 #: tta/core/privacy_metadata.py:281
 msgid "Reads"
 msgstr "Liest"
@@ -928,6 +893,14 @@ msgstr "Liest"
 #: tta/ui/tk/main_window.py:189
 msgid "Ready"
 msgstr "Bereit"
+
+#: tta/core/report.py:483
+msgid "Reference 5th-95th percentile"
+msgstr "Referenz 5.–95. Perzentil"
+
+#: tta/core/report.py:420
+msgid "Reference: bachelor's and master's theses from two university repositories (HU Berlin, ETH Zurich), {first}-{last}. Per year, the line is the median and the bands span the 25th-75th and the 5th-95th percentile. A band is shown only where at least {minimum} reference theses have a value."
+msgstr "Referenz: Bachelor- und Masterarbeiten aus zwei Hochschulrepositorien (HU Berlin, ETH Zürich), {first}–{last}. Je Jahr zeigt die Linie den Median, die Bänder reichen vom 25. bis 75. und vom 5. bis 95. Perzentil. Ein Band erscheint nur, wo mindestens {minimum} Referenzarbeiten einen Wert haben."
 
 #: tta/cli/main.py:426
 msgid "Remove a thesis from the project entirely."
@@ -1041,15 +1014,11 @@ msgstr "Analyse läuft... Arbeit {ordinal}: {module} {status}"
 msgid "SQLite database"
 msgstr "SQLite-Datenbank"
 
-#: tta/core/report.py:520
-msgid "Scatter plot of thesis word count against publication year."
-msgstr "Streudiagramm der Wortzahl über dem Veröffentlichungsjahr."
-
 #: tta/ui/tk/grid.py:317
 msgid "Scrub incomplete"
 msgstr "Löschung unvollständig"
 
-#: tta/cli/main.py:956
+#: tta/cli/main.py:958
 #: tta/ui/tk/help_view.py:61
 msgid "See also"
 msgstr "Siehe auch"
@@ -1074,11 +1043,11 @@ msgstr "Anteil der Tokens, die genau einmal vorkommen."
 msgid "Share of word types that occur exactly once."
 msgstr "Anteil der Worttypen, die genau einmal vorkommen."
 
-#: tta/cli/main.py:979
+#: tta/cli/main.py:981
 msgid "Show a help topic - a module, a metric or a concept - in the terminal."
 msgstr "Ein Hilfethema - ein Modul, eine Metrik oder ein Konzept - im Terminal anzeigen."
 
-#: tta/cli/main.py:980
+#: tta/cli/main.py:982
 msgid "Show a help topic - a module, a metric or a concept - in the terminal. Without a topic: the overview page and the list of topics."
 msgstr "Ein Hilfethema - ein Modul, eine Metrik oder ein Konzept - im Terminal anzeigen. Ohne Thema: die Übersichtsseite und die Liste der Themen."
 
@@ -1119,6 +1088,14 @@ msgstr "Status"
 msgid "Stored value"
 msgstr "Gespeicherter Wert"
 
+#: tta/core/report.py:72
+msgid "Style metrics over time"
+msgstr "Stilmaße über die Zeit"
+
+#: tta/core/report.py:80
+msgid "Style metrics that depend little on length: a thesis far outside the band writes differently from most theses of its year, not just longer or shorter."
+msgstr "Stilmaße, die kaum von der Länge abhängen: Eine Arbeit weit außerhalb des Bands schreibt anders als die meisten Arbeiten ihres Jahrgangs, nicht nur länger oder kürzer."
+
 #: tta/core/privacy_metadata.py:219
 msgid "Technical bookkeeping (no personal data)"
 msgstr "Technische Verwaltung (keine personenbezogenen Daten)"
@@ -1130,6 +1107,14 @@ msgstr "Die Textextraktion wurde für diese Arbeit als unlesbar markiert; jede M
 #: tta/ui/tk/main_window.py:649
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr "Dieser Ordner ist noch kein Projekt; es wird beim nächsten Start dort angelegt."
+
+#: tta/core/report.py:611
+msgid "The charts of this report need JavaScript. It runs locally in your browser; nothing is loaded from the network."
+msgstr "Die Diagramme dieses Berichts brauchen JavaScript. Es läuft lokal in Ihrem Browser; nichts wird aus dem Netz geladen."
+
+#: tta/core/report.py:470
+msgid "The field applies to the reference only (the app does not know the subject of your theses). Choose a thesis type and a language to compare with one field."
+msgstr "Das Fach wirkt nur auf die Referenz (die Anwendung kennt das Fach Ihrer Arbeiten nicht). Wählen Sie eine Abschlussart und eine Sprache, um mit einem Fach zu vergleichen."
 
 #: tta/core/privacy_metadata.py:188
 msgid "The person using this application and their institution are responsible for what happens on this machine; the publisher of the application receives no personal data from it (sections 6 and 7)."
@@ -1143,19 +1128,23 @@ msgstr "Das Projekt wird beim nächsten Start geöffnet."
 msgid "The run finished. Open the report for this project now?"
 msgstr "Die Analyse ist abgeschlossen. Bericht für dieses Projekt jetzt öffnen?"
 
-#: tta/core/report.py:817
+#: tta/core/report.py:375
 msgid "Theses analysed"
 msgstr "Analysierte Arbeiten"
 
-#: tta/core/report.py:835
+#: tta/core/report.py:478
+msgid "Theses outside the 5th-95th percentile of the reference: {count}"
+msgstr "Arbeiten außerhalb des 5.–95. Perzentils der Referenz: {count}"
+
+#: tta/core/report.py:480
 msgid "Thesis"
 msgstr "Arbeit"
 
-#: tta/core/report.py:877
-msgid "Thesis Text Analyzer - cohort report {stamp}"
-msgstr "Thesis Text Analyzer - Kohortenbericht {stamp}"
+#: tta/core/report.py:656
+msgid "Thesis Text Analyzer - thesis report {stamp}"
+msgstr "Thesis Text Analyzer – Bericht zu den Abschlussarbeiten {stamp}"
 
-#: tta/core/report.py:882
+#: tta/core/report.py:602
 msgid "Thesis Text Analyzer - {count} analysed thesis(es), generated {stamp}"
 msgstr "Thesis Text Analyzer - {count} analysierte Arbeit(en), erstellt {stamp}"
 
@@ -1167,6 +1156,11 @@ msgstr "Thesis Text Analyzer - {path}"
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr "Thesis Text Analyzer: Textmetriken studentischer Abschlussarbeiten messen und über eine ganze Kohorte hinweg vergleichen."
 
+#: tta/core/report.py:599
+msgid "Thesis report"
+msgstr "Bericht zu den Abschlussarbeiten"
+
+#: tta/core/report.py:404
 #: tta/ui/tk/columns.py:83
 msgid "Thesis type"
 msgstr "Abschlussart"
@@ -1202,6 +1196,10 @@ msgstr ""
 "\n"
 "Die Datei docs/dependencies.md im Repository führt alle Bestandteile mit Zweck und Lizenz auf."
 
+#: tta/core/report.py:578
+msgid "This report may contain personal data."
+msgstr "Dieser Bericht kann personenbezogene Daten enthalten."
+
 #: tta/ui/tk/columns.py:178
 msgid "Total number of sentences detected."
 msgstr "Gesamtzahl der erkannten Sätze."
@@ -1209,14 +1207,6 @@ msgstr "Gesamtzahl der erkannten Sätze."
 #: tta/ui/tk/columns.py:176
 msgid "Total number of words in the extracted text."
 msgstr "Gesamtzahl der Wörter im extrahierten Text."
-
-#: tta/core/report.py:517
-msgid "Trend line needs at least 5 dated theses."
-msgstr "Die Trendlinie benötigt mindestens 5 datierte Arbeiten."
-
-#: tta/core/report.py:889
-msgid "Trends"
-msgstr "Trends"
 
 #: tta/cli/main.py:778
 msgid "Trim history to the latest run per (thesis, module)."
@@ -1238,6 +1228,10 @@ msgstr "Nicht erkannt"
 msgid "Update stale"
 msgstr "Veraltete aktualisieren"
 
+#: tta/core/report.py:482
+msgid "Value"
+msgstr "Wert"
+
 #: tta/ui/tk/columns.py:166
 msgid "Verdict on how reliable the extracted text is (ok vs garbled)."
 msgstr "Einschätzung, wie verlässlich der extrahierte Text ist (ok oder unlesbar)."
@@ -1245,6 +1239,14 @@ msgstr "Einschätzung, wie verlässlich der extrahierte Text ist (ok oder unlesb
 #: tta/ui/tk/main_window.py:115
 msgid "View"
 msgstr "Ansicht"
+
+#: tta/core/report.py:73
+msgid "Vocabulary metrics over time"
+msgstr "Wortschatzmaße über die Zeit"
+
+#: tta/core/report.py:84
+msgid "Vocabulary ratios fall mechanically with text length; read them together with the length panel."
+msgstr "Wortschatzquoten sinken rein rechnerisch mit der Textlänge; lesen Sie sie zusammen mit den Längenmaßen."
 
 #: tta/ui/tk/columns.py:94
 msgid "Vocabulary richness (Guiraud)"
@@ -1258,7 +1260,7 @@ msgstr "Wortschatzreichtum (TTR)"
 msgid "Vocabulary richness (Yule's K)"
 msgstr "Wortschatzreichtum (Yules K)"
 
-#: tta/cli/main.py:912
+#: tta/cli/main.py:914
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr "Wohin geschrieben wird (Vorgabe: <Projekt>/reports/report-<Datum>.html)."
 
@@ -1278,6 +1280,20 @@ msgstr "Wörter"
 msgid "Write the HTML report and open it in a browser when the run finishes (off by default; Sec. 9.8.3, #70)."
 msgstr "Den HTML-Bericht schreiben und nach Ende der Analyse im Browser öffnen (standardmäßig aus; Abschn. 9.8.3, #70)."
 
+#: tta/cli/main.py:900
+msgid "Write the interactive HTML report for your theses."
+msgstr "Den interaktiven HTML-Bericht zu Ihren Arbeiten schreiben."
+
+#: tta/cli/main.py:901
+msgid ""
+"Write the interactive HTML report: your theses over time, compared with the reference corpus shipped with the app.\n"
+"\n"
+"One self-contained file that works offline: every chart, style rule and script is inline and nothing is loaded from the network. It shows file names, paths and links to your PDFs, so it is meant for you, not for sending to the research team (that is what `tta export` is for). The file is written, not opened - a command-line tool must not start a browser unasked. Use `tta run --open-report` to have it opened."
+msgstr ""
+"Den interaktiven HTML-Bericht schreiben: Ihre Arbeiten über die Zeit, verglichen mit dem Referenzkorpus, das die Anwendung mitbringt.\n"
+"\n"
+"Eine in sich geschlossene Datei, die offline funktioniert: Alle Diagramme, Stilregeln und Skripte stehen in der Datei, nichts wird aus dem Netz geladen. Sie zeigt Dateinamen, Pfade und Verweise auf Ihre PDF-Dateien und ist daher für Sie bestimmt, nicht zum Versand an das Forschungsteam (dafür gibt es `tta export`). Die Datei wird geschrieben, nicht geöffnet – ein Kommandozeilenwerkzeug darf nicht ungefragt einen Browser starten. Mit `tta run --open-report` wird sie geöffnet."
+
 #: tta/cli/main.py:765
 msgid "Write the researcher export, free of personal data."
 msgstr "Den Forschungsexport schreiben, frei von personenbezogenen Daten."
@@ -1292,19 +1308,9 @@ msgstr ""
 "\n"
 "Mit --profiling wird stattdessen der flache Laufzeitdatensatz geschrieben: eine CSV-Zeile je Modullauf, mit seiner Dauer und der Größe der PDF-Datei, an der gemessen wurde. Für beide gelten dieselben Regeln - nur Daten, die auf diesem Rechner entstanden sind, und keine identifizierende Spalte."
 
-#: tta/cli/main.py:900
-msgid "Write the stand-alone HTML report for the cohort."
-msgstr "Den eigenständigen HTML-Bericht für die Kohorte schreiben."
-
-#: tta/cli/main.py:901
-msgid ""
-"Write the stand-alone HTML report over the whole cohort.\n"
-"\n"
-"One self-contained file: every style rule and every chart is inline, it makes no request to the network, and it contains no file names, paths, notes or document text. The file is written, not opened - a command-line tool must not start a browser unasked. Use `tta run --open-report` to have it opened."
-msgstr ""
-"Den eigenständigen HTML-Bericht über die gesamte Kohorte schreiben.\n"
-"\n"
-"Eine in sich geschlossene Datei: jede Stilregel und jedes Diagramm liegt eingebettet vor, sie stellt keine Anfrage an das Netz, und sie enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Die Datei wird geschrieben, nicht geöffnet - ein Befehlszeilenwerkzeug darf keinen Browser ungefragt starten. Verwenden Sie `tta run --open-report`, um sie öffnen zu lassen."
+#: tta/core/report.py:481
+msgid "Year"
+msgstr "Jahr"
 
 #: tta/ui/tk/columns.py:153
 msgid "Year the PDF was created, from its metadata."
@@ -1322,6 +1328,22 @@ msgstr "Jahr der letzten Änderung der Datei auf dem Datenträger. Ein schwaches
 msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
 msgstr "Ihr Projekt liegt unter {path}. Alle Daten und Analysen der Arbeiten werden hier gespeichert. Zum Verschieben oder Sichern des Projekts kopieren Sie diesen Ordner. Für einen anderen Ort wählen Sie Datei -> Projekt öffnen..."
 
+#: tta/core/report.py:474
+msgid "Your theses of this type and language are compared with the reference theses of the chosen field."
+msgstr "Ihre Arbeiten dieser Art und Sprache werden mit den Referenzarbeiten des gewählten Fachs verglichen."
+
+#: tta/core/report.py:622
+msgid "Your theses per publication year, for the selected type and language."
+msgstr "Ihre Arbeiten je Veröffentlichungsjahr, für die gewählte Art und Sprache."
+
+#: tta/core/report.py:627
+msgid "Your theses per year"
+msgstr "Ihre Arbeiten je Jahr"
+
+#: tta/core/report.py:636
+msgid "Your theses per year by the application that created the PDF (the PDF producer where the creator is not recognised)."
+msgstr "Ihre Arbeiten je Jahr nach dem Programm, mit dem das PDF erstellt wurde (der PDF-Producer, wo das erstellende Programm nicht erkannt wird)."
+
 #: tta/core/reference.py:107
 msgid "Yule's K"
 msgstr "Yules K"
@@ -1338,6 +1360,18 @@ msgstr "abgebrochen; keine Änderungen vorgenommen"
 #: tta/cli/main.py:664
 msgid "added {count} theses from {paths} input path(s)"
 msgstr "{count} Arbeiten aus {paths} Eingabepfad(en) hinzugefügt"
+
+#: tta/core/report.py:398
+msgid "all fields"
+msgstr "alle Fächer"
+
+#: tta/core/report.py:395
+msgid "all languages"
+msgstr "alle Sprachen"
+
+#: tta/core/report.py:392
+msgid "all types"
+msgstr "alle Arten"
 
 #: tta/cli/main.py:233
 msgid "applied migrations: {versions}"
@@ -1363,7 +1397,7 @@ msgstr "Nachweisspur (Export nur auf Tagesgenauigkeit)"
 msgid "audit trail, profiling"
 msgstr "Nachweisspur, Laufzeitmessung"
 
-#: tta/cli/main.py:1008
+#: tta/cli/main.py:1010
 msgid "available topics:"
 msgstr "verfügbare Themen:"
 
@@ -1536,10 +1570,6 @@ msgstr "Hapax-Anteil an allen Wörtern"
 msgid "hapax share of types"
 msgstr "Hapax-Anteil an den Wortformen"
 
-#: tta/core/report.py:616
-msgid "high whisker"
-msgstr "oberer Whisker"
-
 #: tta/cli/main.py:298
 msgid "id"
 msgstr "ID"
@@ -1583,33 +1613,17 @@ msgstr "Schlüssel zur Gruppierung der Daten nach Herkunft"
 msgid "label of the data origin (institution-level, not personal)"
 msgstr "Bezeichnung der Datenherkunft (auf Ebene der Institution, nicht personenbezogen)"
 
-#: tta/core/report.py:711
-msgid "language"
-msgstr "Sprache"
-
-#: tta/core/report.py:818
-msgid "left out of every aggregate"
-msgstr "aus jeder Auswertung herausgehalten"
+#: tta/core/report.py:376
+msgid "left out of every panel"
+msgstr "in keinem Diagramm enthalten"
 
 #: tta/core/reference.py:97
 msgid "letters"
 msgstr "Buchstaben"
 
-#: tta/core/report.py:507
-msgid "linear trend"
-msgstr "linearer Trend"
-
 #: tta/core/privacy_metadata.py:112
 msgid "locate the cached file in the project folder"
 msgstr "Auffinden der zwischengespeicherten Datei im Projektordner"
-
-#: tta/core/report.py:612
-msgid "low whisker"
-msgstr "unterer Whisker"
-
-#: tta/core/report.py:614
-msgid "median"
-msgstr "Median"
 
 #: tta/cli/main.py:579
 msgid "metrics:   {value}"
@@ -1631,19 +1645,19 @@ msgstr "Moduldiagnose; kann aus Inhalten abgeleitete Werte enthalten"
 msgid "module raised an exception"
 msgstr "Modul hat eine Ausnahme ausgelöst"
 
-#: tta/core/report.py:611
-msgid "n"
-msgstr "n"
-
 #: tta/core/privacy_metadata.py:270
 msgid "no"
 msgstr "nein"
 
-#: tta/cli/main.py:992
+#: tta/core/report.py:463
+msgid "no comparison"
+msgstr "kein Vergleich"
+
+#: tta/cli/main.py:994
 msgid "no help topic {topic}"
 msgstr "kein Hilfethema {topic}"
 
-#: tta/cli/main.py:1012
+#: tta/cli/main.py:1014
 #: tta/ui/tk/help_view.py:60
 msgid "no help topics installed yet"
 msgstr "noch keine Hilfethemen installiert"
@@ -1664,7 +1678,7 @@ msgstr "kein Satz lang genug für Bigramme"
 msgid "no sentences in text"
 msgstr "keine Sätze im Text"
 
-#: tta/core/report.py:811
+#: tta/core/report.py:371
 msgid "no type detected"
 msgstr "keine Abschlussart erkannt"
 
@@ -1686,13 +1700,17 @@ msgstr "ok / nicht anwendbar / Fehler"
 msgid "origin of the thesis row"
 msgstr "Herkunft des Datensatzes der Arbeit"
 
-#: tta/core/report.py:314
-msgid "other ({count} more)"
-msgstr "andere ({count} weitere)"
+#: tta/core/report.py:66
+msgid "other"
+msgstr "andere"
 
-#: tta/core/report.py:617
-msgid "outliers"
-msgstr "Ausreißer"
+#: tta/core/report.py:461
+msgid "outside the 25th-75th percentile"
+msgstr "außerhalb des 25.–75. Perzentils"
+
+#: tta/core/report.py:462
+msgid "outside the 5th-95th percentile"
+msgstr "außerhalb des 5.–95. Perzentils"
 
 #: tta/cli/main.py:192
 msgid "overall: {status}"
@@ -1718,8 +1736,7 @@ msgstr "Laufzeitmessung (QA-RES-Budgets)"
 msgid "project ready at {path}"
 msgstr "Projekt bereit unter {path}"
 
-#: tta/core/report.py:485
-#: tta/core/report.py:523
+#: tta/core/report.py:455
 msgid "publication year"
 msgstr "Veröffentlichungsjahr"
 
@@ -1739,13 +1756,21 @@ msgstr "die Programmmetadaten der PDF-Datei lesen; nur kategorisierte und auf da
 msgid "read the file's size and modification year from the filesystem; only the year is kept"
 msgstr "Größe und Änderungsjahr der Datei aus dem Dateisystem lesen; nur das Jahr wird behalten"
 
-#: tta/core/report.py:678
-msgid "reading ease"
-msgstr "Lesbarkeit"
-
 #: tta/core/reference.py:106
 msgid "reading ease (Flesch / Amstad)"
 msgstr "Lesbarkeit (Flesch / Amstad)"
+
+#: tta/core/report.py:458
+msgid "reference 25th-75th percentile"
+msgstr "Referenz 25.–75. Perzentil"
+
+#: tta/core/report.py:459
+msgid "reference 5th-95th percentile"
+msgstr "Referenz 5.–95. Perzentil"
+
+#: tta/core/report.py:457
+msgid "reference median"
+msgstr "Referenz-Median"
 
 #: tta/cli/main.py:481
 msgid "removed thesis {thesis_id}"
@@ -1759,7 +1784,7 @@ msgstr "Arbeit {thesis_id} entfernt; die Datenbankzeilen wurden gelöscht, aber 
 msgid "repeated word-pair/triple rates"
 msgstr "Anteile wiederholter Wortpaare und Wortdrillinge"
 
-#: tta/cli/main.py:927
+#: tta/cli/main.py:929
 msgid "report over {theses} theses -> {path}"
 msgstr "Bericht über {theses} Arbeiten -> {path}"
 
@@ -1819,9 +1844,7 @@ msgstr "das Forschungssignal: kategorialer Metrikwert"
 msgid "the research signal: numeric metric value"
 msgstr "das Forschungssignal: numerischer Metrikwert"
 
-#: tta/core/report.py:641
-#: tta/core/report.py:689
-#: tta/core/report.py:711
+#: tta/core/report.py:456
 msgid "theses"
 msgstr "Arbeiten"
 
@@ -1839,14 +1862,16 @@ msgid "trigram repetition rate"
 msgstr "Wiederholungsrate von Wortdreiergruppen"
 
 #: tta/cli/main.py:298
-#: tta/core/report.py:523
-#: tta/core/report.py:610
 msgid "type"
 msgstr "Art"
 
 #: tta/core/reference.py:112
 msgid "type-token ratio"
 msgstr "Type-Token-Verhältnis"
+
+#: tta/core/report.py:67
+msgid "unknown"
+msgstr "unbekannt"
 
 #: tta/core/privacy_metadata.py:36
 msgid "until the user deletes the project folder"
@@ -1889,10 +1914,7 @@ msgid "word/sentence/character counts and length statistics"
 msgstr "Wort-, Satz- und Zeichenzahlen sowie Längenstatistiken"
 
 #: tta/core/reference.py:95
-#: tta/core/report.py:486
-#: tta/core/report.py:523
-#: tta/core/report.py:544
-#: tta/core/report.py:821
+#: tta/core/report.py:379
 msgid "words"
 msgstr "Wörter"
 
@@ -1905,22 +1927,34 @@ msgstr "Wörter pro Seite"
 msgid "yes"
 msgstr "ja"
 
-#: tta/core/report.py:674
-msgid "{bins} equal-width bins; series are overlaid, not stacked."
-msgstr "{bins} gleich breite Klassen; die Reihen sind überlagert, nicht gestapelt."
+#: tta/core/report.py:460
+msgid "your theses: inside the 25th-75th percentile"
+msgstr "Ihre Arbeiten: innerhalb des 25.–75. Perzentils"
 
 #: tta/cli/main.py:693
 msgid "{count} (thesis x module) pairs planned"
 msgstr "{count} Paare (Arbeit x Modul) geplant"
+
+#: tta/core/report.py:479
+msgid "{count} more outside the 25th-75th percentile."
+msgstr "Weitere {count} außerhalb des 25.–75. Perzentils."
 
 #: tta/cli/main.py:294
 #: tta/ui/tk/grid.py:48
 msgid "{count} theses"
 msgstr "{count} Arbeiten"
 
-#: tta/core/report.py:863
-msgid "{count} thesis(es) with a garbled text extraction are excluded from every aggregate above and below."
-msgstr "{count} Arbeit(en) mit unlesbarer Textextraktion sind aus allen Auswertungen oben und unten ausgenommen."
+#: tta/core/report.py:465
+msgid "{count} thesis(es) are dated outside the reference years and are shown without a comparison."
+msgstr "{count} Arbeit(en) stammen aus Jahren außerhalb der Referenz und erscheinen ohne Vergleich."
+
+#: tta/core/report.py:567
+msgid "{count} thesis(es) with a garbled text extraction are left out of every panel."
+msgstr "{count} Arbeit(en) mit unbrauchbarer Textextraktion sind in keinem Diagramm enthalten."
+
+#: tta/core/report.py:469
+msgid "{count} thesis(es) without a publication year are not on the time axis."
+msgstr "{count} Arbeit(en) ohne Veröffentlichungsjahr erscheinen nicht auf der Zeitachse."
 
 #: tta/ui/tk/main_window.py:515
 #: tta/ui/tk/main_window.py:523
@@ -1956,30 +1990,6 @@ msgstr "{header} (abst.)"
 #: tta/ui/tk/main_window.py:521
 msgid "{head} - {tail}"
 msgstr "{head} - {tail}"
-
-#: tta/core/report.py:650
-msgid "{label}: {count} thesis(es) between {low} and {high}"
-msgstr "{label}: {count} Arbeit(en) zwischen {low} und {high}"
-
-#: tta/core/report.py:496
-msgid "{label}: {words} words, {year}"
-msgstr "{label}: {words} Wörter, {year}"
-
-#: tta/core/report.py:701
-msgid "{language}: {count} thesis(es)"
-msgstr "{language}: {count} Arbeit(en)"
-
-#: tta/core/report.py:663
-msgid "{low} to {high}"
-msgstr "{low} bis {high}"
-
-#: tta/core/report.py:581
-msgid "{name} outlier: {words} words"
-msgstr "{name}, Ausreißer: {words} Wörter"
-
-#: tta/core/report.py:551
-msgid "{name}: n={n}, median {median}, Q1 {q1}, Q3 {q3}"
-msgstr "{name}: n={n}, Median {median}, Q1 {q1}, Q3 {q3}"
 
 #: tta/cli/main.py:302
 msgid "{ok} ok | {na} na | {error} err | {missing} todo"

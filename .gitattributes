@@ -19,3 +19,7 @@
 *.zip binary
 *.gz binary
 *.exe binary
+
+# Vendored, minified third-party JavaScript: byte-pinned by SHA-256 in
+# tta/core/report.py (#84), never normalised, never diffed as text.
+tta/core/report_assets/*.min.js -text -diff

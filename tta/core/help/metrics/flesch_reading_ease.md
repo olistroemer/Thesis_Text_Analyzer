@@ -18,7 +18,7 @@ Die Formel besteht aus genau zwei Größen: der mittleren Satzlänge in Wörtern
 
 - **Negative Werte sind bei Hochschularbeiten normal.** Fleschs Skala von 0 bis 100 wurde an amerikanischen Schulbüchern und Zeitschriftenprosa kalibriert; wissenschaftliche Texte liegen unterhalb dieser Skala. Die verbreiteten Etiketten („leicht", „schwer", „Hochschulniveau") gelten dort nicht mehr und sind nicht anzuwenden.
 - **Verhältnisse und Abstände sind bedeutungslos.** Die Formel ist rechnerisch linear, die Zuordnung zu Verständlichkeit ist es nicht. Ein Abstand von 10 Punkten bei -40 bedeutet nicht dasselbe wie 10 Punkte bei 60.
-- **Brauchbar ist die Rangordnung innerhalb eines Korpus** einer Sprache: welche Arbeiten liegen weiter oben, welche weiter unten, wie sieht die Verteilung aus. Als solche gehört diese Metrik zu den vier längenstabilen Größen, auf denen der Bericht Ausreißer bestimmt ([Ausreißererkennung](concept:outlier_detection)).
+- **Brauchbar ist die Rangordnung innerhalb eines Korpus** einer Sprache: welche Arbeiten liegen weiter oben, welche weiter unten, wie sieht die Verteilung aus. Als solche gehört diese Metrik zu den vier längenstabilen Größen, deren Abweichung von der Referenz im Bericht am meisten sagt ([Ausreißererkennung](concept:outlier_detection)).
 - **Für Deutsch existiert keine Deutungsgrundlage.** Amstad hat Fleschs Konstanten in den 1970er Jahren an schweizerischem Zeitungsmaterial neu geschätzt. Eine Kalibrierung für deutsche Wissenschaftssprache gibt es in der Literatur nicht.
 
 ## Drei Vorbehalte, die vor jeder Aussage stehen sollten

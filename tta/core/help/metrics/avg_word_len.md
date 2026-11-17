@@ -13,7 +13,7 @@ Buchstaben je Wort: [char_count_alpha](metric:char_count_alpha) geteilt durch [w
 
 ## Warum diese Metrik zählt
 
-Sie ist eine der **vier längenstabilen** Metriken dieses Werkzeugs – die einzigen, die man zwischen einer 8.000-Wort-Bachelorarbeit und einer 60.000-Wort-Masterarbeit überhaupt vergleichen darf. In der Vorarbeit lag ihr Betrag der Korrelation mit der Wortzahl in beiden Sprachen unter 0,3. Deshalb gehört sie zu den vier Metriken, auf denen der Bericht Ausreißer bestimmt ([Ausreißererkennung](concept:outlier_detection)).
+Sie ist eine der **vier längenstabilen** Metriken dieses Werkzeugs – die einzigen, die man zwischen einer 8.000-Wort-Bachelorarbeit und einer 60.000-Wort-Masterarbeit überhaupt vergleichen darf. In der Vorarbeit lag ihr Betrag der Korrelation mit der Wortzahl in beiden Sprachen unter 0,3. Deshalb gehört sie zu den vier Metriken, deren Abweichung von der Referenz im Bericht am meisten sagt ([Ausreißererkennung](concept:outlier_detection)).
 
 Inhaltlich ist sie ein Stellvertreter für **nominalen, fachsprachlichen Stil**: längere Wörter bedeuten meist mehr Fachbegriffe und mehr Substantivierung.
 

@@ -13,7 +13,7 @@ Die Standardabweichung der Satzlängen in Wörtern, gerechnet über alle Sätze 
 
 ## Warum die Metrik interessant wäre
 
-Der Wechsel von Satzlängen gilt als Merkmal lebendigen Schreibens, und ihre Vereinheitlichung als eines der Merkmale, an denen maschinell erzeugter Text auffallen könnte. Zudem ist die Streuung eine der **vier längenstabilen** Metriken (Betrag der Korrelation mit der Wortzahl unter 0,3 in beiden Sprachen) und damit eine der vier, auf denen der Bericht Ausreißer bestimmt ([Ausreißererkennung](concept:outlier_detection)).
+Der Wechsel von Satzlängen gilt als Merkmal lebendigen Schreibens, und ihre Vereinheitlichung als eines der Merkmale, an denen maschinell erzeugter Text auffallen könnte. Zudem ist die Streuung eine der **vier längenstabilen** Metriken (Betrag der Korrelation mit der Wortzahl unter 0,3 in beiden Sprachen) und damit eine der vier, deren Abweichung von der Referenz im Bericht am meisten sagt ([Ausreißererkennung](concept:outlier_detection)).
 
 ## Warum sie in diesem Werkzeug nicht das misst
 

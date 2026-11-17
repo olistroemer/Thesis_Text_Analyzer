@@ -43,7 +43,7 @@ Verschärfend kommt hinzu: Der Umfang hängt an der **Abschlussart**. Bachelorar
 - [yules_k](metric:yules_k)
 - [flesch_reading_ease](metric:flesch_reading_ease)
 
-Diese vier sind die einzigen, die man zwischen Arbeiten sehr unterschiedlichen Umfangs unbesehen vergleichen darf. Sie sind auch die vier, auf denen der Bericht auffällige Arbeiten bestimmt ([Ausreißererkennung](concept:outlier_detection)).
+Diese vier sind die einzigen, die man zwischen Arbeiten sehr unterschiedlichen Umfangs unbesehen vergleichen darf. Im Bericht sagt deshalb eine Abweichung von der Referenz bei diesen vier am meisten ([Ausreißererkennung](concept:outlier_detection)).
 
 ## Was man dagegen tun kann
 

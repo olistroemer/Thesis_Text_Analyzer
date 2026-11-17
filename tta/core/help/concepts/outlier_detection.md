@@ -7,7 +7,7 @@ see_also: [concept:length_confound, metric:avg_word_len, metric:std_sentence_len
 
 # Ausreißererkennung
 
-Ein **Ausreißer** ist in diesem Werkzeug eine Zahl, die im Vergleich zu den übrigen Arbeiten desselben Bestands ungewöhnlich weit außen liegt. Die Tabelle hebt solche Zellen farblich hervor, und der Bericht führt auffällige Arbeiten in einer eigenen Liste.
+Ein **Ausreißer** ist in diesem Werkzeug eine Zahl, die im Vergleich zu den übrigen Arbeiten desselben Bestands ungewöhnlich weit außen liegt. Die Tabelle hebt solche Zellen farblich hervor. Der Bericht vergleicht anders: nicht mit dem eigenen Bestand, sondern mit dem Referenzkorpus (siehe unten).
 
 ## Das Verfahren
 
@@ -27,8 +27,8 @@ Enthält eine Spalte **weniger als vier** Zahlenwerte, wird nichts hervorgehoben
 ## Wo es sichtbar wird
 
 - **In der Tabelle**: je Metrikspalte gerechnet, über die Arbeiten, die tatsächlich einen Wert haben. Fehlende und fehlerhafte Zellen zählen nicht mit.
-- **Im Bericht, Kastendiagramme**: dieselben Grenzen; die Antennen reichen bis zum äußersten Wert **innerhalb** der Grenze, weiter außen liegende Werte werden als einzelne Punkte gezeichnet.
-- **Im Bericht, „Auffällige Arbeiten"**: hier gilt eine strengere Regel. Gerechnet wird nur auf den vier **längenstabilen** Metriken – [avg_word_len](metric:avg_word_len), [std_sentence_len](metric:std_sentence_len), [yules_k](metric:yules_k) und [flesch_reading_ease](metric:flesch_reading_ease) – und aufgeführt wird eine Arbeit erst, wenn sie auf **mindestens zwei** von ihnen auffällt. Das ist Absicht: Eine einzelne auffällige Zelle ist meist ein Artefakt, zwei unabhängige sind ein Hinweis.
+- **Im Bericht, Kastendiagramme „Ihre Arbeiten je Jahr"**: dieselben Grenzen; die Antennen reichen bis zum äußersten Wert **innerhalb** der Grenze, weiter außen liegende Werte werden als einzelne Punkte gezeichnet.
+- **Im Bericht, Diagramme „… über die Zeit"**: hier ist der Maßstab nicht der eigene Bestand, sondern das **Referenzkorpus** desselben Jahres (bei gewählter Art und Sprache auch desselben Fachs). Hervorgehoben wird eine Arbeit, deren Wert außerhalb des 25.–75. Perzentils der Referenz liegt, stärker, wenn er außerhalb des 5.–95. Perzentils liegt. Diese Arbeiten listet das Diagramm darunter mit einem Verweis auf das PDF auf. Die vier **längenstabilen** Metriken – [avg_word_len](metric:avg_word_len), [std_sentence_len](metric:std_sentence_len), [yules_k](metric:yules_k) und [flesch_reading_ease](metric:flesch_reading_ease) – sind dabei die aussagekräftigsten.
 
 ## Was ein Ausreißer nicht ist
 
@@ -36,7 +36,7 @@ Enthält eine Spalte **weniger als vier** Zahlenwerte, wird nichts hervorgehoben
 
 **Keine Eigenschaft der Arbeit, sondern des Bestands.** Die Grenzen werden aus den vorhandenen Zeilen berechnet. Kommen Arbeiten hinzu oder wird gefiltert, verschieben sich die Grenzen, und dieselbe Arbeit kann aufhören, ein Ausreißer zu sein. Bei kleinen Beständen von etwa zehn Arbeiten sind die Grenzen weitgehend beliebig.
 
-**Auf einer längenabhängigen Metrik nur ein Hinweis auf die Länge.** Ein Ausreißer auf [ttr](metric:ttr) ist meist eine besonders kurze oder besonders lange Arbeit und keine Auffälligkeit des Wortschatzes. Genau deshalb rechnet die Liste im Bericht nur auf den vier längenstabilen Metriken. Siehe [Längenabhängigkeit von Metriken](concept:length_confound).
+**Auf einer längenabhängigen Metrik nur ein Hinweis auf die Länge.** Ein Ausreißer auf [ttr](metric:ttr) ist meist eine besonders kurze oder besonders lange Arbeit und keine Auffälligkeit des Wortschatzes. Deshalb sind im Bericht die vier längenstabilen Metriken die aussagekräftigsten. Siehe [Längenabhängigkeit von Metriken](concept:length_confound).
 
 **Häufig ein Datenfehler.** Die erste Frage bei einer hervorgehobenen Zelle sollte lauten, ob die Textextraktion dieser Arbeit in Ordnung war: [extraction_quality](metric:extraction_quality) prüfen und ebenso, ob [language_code](metric:language_code) plausibel ist. Zeichenmüll und falsch erkannte Sprachen sind die häufigsten Ursachen extremer Werte.
 
