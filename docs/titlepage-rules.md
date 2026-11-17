@@ -4,7 +4,7 @@ The versioned rule catalogue of the two title-page modules (SDD [§7.4](SDD.md#7
 
 - **Date rules v1** - `mod_determine_publication_year` 0.2.0 (#81, [ADR-0022](adr/0022-publication-date-rules.md)).
 - **Type markers v1** - `mod_classify_thesis_type` 0.3.0 (#82, [ADR-0019](adr/0019-thesis-type-by-detection.md) rev. 3).
-- **Cover-page hook** - shared by both, no rules by default; researcher rulesets live outside the package ([ADR-0023](adr/0023-researcher-cover-rulesets.md)).
+- **Researcher rulesets** - a hook shared by both, **no rules by default**: every rule tied to one repository's or institution's layout lives outside the package and applies only with `tta run --cover-rules FILE` ([ADR-0023](adr/0023-researcher-cover-rulesets.md)).
 
 Every rule below comes from the October 2026 exploration of the reference corpus (cached `raw_text` of 3,262 ETH Research Collection and HU edoc files; 212 hand-labelled theses for dates, 268 for types). A rule without corpus evidence says so and gives its reason. Corpus examples name the file (repository handle) and a short snippet; personal names are replaced by `<name>`, and lines are separated by `|`.
 
@@ -17,13 +17,11 @@ Every rule below comes from the October 2026 exploration of the reference corpus
 | Term | Definition |
 |---|---|
 | page | `raw_text` split at form feeds (`mod_extract_pymupdf` writes one per page); the first 16 pages are read |
-| cover page | a leading page matched by a rule of a researcher cover ruleset (ADR-0023). **None by default**: the shipped app never skips a page |
+| cover page | a leading page matched by a `covers` rule of a researcher ruleset (section 4). **None by default**: the shipped app never skips a page |
 | own pages | the pages after the cover pages (all pages by default) |
 | title page | the first own page with at least **30 non-space characters** (blank and near-blank leading pages exist, e.g. `18452_14941`, whose date is on page 5 but only 381 characters in) |
-| repository metadata page | a page carrying at least **two** of the generic deposit labels `Publication date:`, `Permanent link:`, `Rights / license:` (after normalisation). Evidence on it is ignored by both modules; the page is **not** skipped and still counts for positions and windows |
 | normalisation (types) | case-fold, `ß` -> `ss`, apostrophes dropped, accents/umlauts stripped (NFKD), whitespace collapsed; letter-spaced words of at least five letters are joined ("M A S T E R T H E S I S" -> "masterthesis") |
 
-The repository-metadata-page check is generic: it names no repository and needs no cover marker text. In the reference corpus it fires on the ETH Research Collection cover page (both layouts, 2,093 files), whose type line equals the repository's metadata in 2,093 of 2,093 files and whose `Publication date:` is the deposit date.
 
 ---
 
@@ -75,7 +73,6 @@ A **negative cue** is looked for on the same line before the candidate (up to 40
 | access dates (`access`) | Stand, Zugriff, abgerufen, aufgerufen, Abrufdatum, accessed, retrieved, visited, besucht, geprüft, last checked, last modified, "online;" - whole words ("Understanding" contains "stand") | 19 files | `18452_26298.2`: "zuletzt aufgerufen: 30. Dez. 2022" |
 | revisions (`revision`) | überarbeitet, korrigiert, revised, revision, corrected, "version with" | 11 files | `18452_20236`: "Berlin, März 2018 \| [überarbeitet im August 2018]"; `18452_14941`: "Version with minor changes, January 1, 2017" |
 | build stamps (`build`) | compiled, kompiliert, generated, printed, "erstellt am", "geändert am" | 1 sample file | `20.500.11850_722911`: "This document was compiled on Tuesday 30th May, 2023" |
-| repository label (`repository`) | "publication date" | 2,093 files | ETH cover page: "Publication date: \| 2021-07-19" (`20.500.11850_502040`; the title page itself says "July 19, 2021") |
 
 Further exclusions:
 
@@ -86,7 +83,6 @@ Further exclusions:
 | `bare_year_position` | a bare year (or `acad`, `num_my`) that meets none of the conditions of 2.4 | 1,483 candidates in 593 files (years in titles or running text) | `18452_18885`: "... SEIT 1945"; `18452_14669`: "Der Nordek-Prozess 1968-70" |
 | `after_title_page` | a day/month/semester date after the title page without a submission cue, a "Place, (den/am/im)" prefix or a line of its own | running text | "Im Juli 2005 gründete ..." |
 | `implausible_year` | year < 1900 or > run year + 1 | | drawings: `20.500.11850_149453`: "2038" |
-| `repository_metadata_page` | every candidate on a repository metadata page (section 1) | 2,093 files | the ETH cover's "Publication date" and any year in the cover title |
 
 DOIs, handles, ISSNs and student numbers ("10.3929/ethz-b-000502040", "10.18452/21371", "16-917-759") produce no candidates thanks to the digit-run guards of the patterns.
 
@@ -119,7 +115,7 @@ After the title page a day/month/semester date counts only with one of these cue
 ### 2.7 Stored result
 
 - Metrics: `publication_year`, `publication_year_source` (`title_page` / `pdf_creation` / `pdf_modification` / `none`), `publication_date_precision` (`day` / `month` / `semester` / `year` / `year_range`; `year` for a PDF-metadata year; NULL for `none`).
-- `diagnostics` (local-only, never exported): the stated date at its own precision (`2014-05-12`, `2014-05`, `2014`), the matched form id, the deciding rule (`submission_cue` / `most_precise_on_page`), the surface text, the page (relative to the title page and absolute), every considered candidate with its rejection reason (first 40), the PDF years, and the cover-rule record of section 4.
+- `diagnostics` (local-only, never exported): the stated date at its own precision (`2014-05-12`, `2014-05`, `2014`), the matched form id, the deciding rule (`submission_cue` / `most_precise_on_page`), the surface text, the page (relative to the title page and absolute), every considered candidate with its rejection reason (first 40), the PDF years, and the ruleset record of section 4.
 - **Fallback** unchanged: no valid candidate -> PDF creation year, then modification year; the source says so.
 
 ---
@@ -161,7 +157,7 @@ Regexes run on the normalised window. "Docs (p0)": corpus docs with the marker o
 | doctoral | Doctor of Sciences / Doktorgrad | doctor of science(s)/philosophy, doktorgrad, (grad(es) / degree) (eines / einer / of) doktor(s)/doctor | **0** | 0 | - | no corpus evidence |
 | doctoral | Doctoral thesis / Doktorarbeit | doctoral thesis, doktorarbeit | **0** | 0 | - | no corpus evidence |
 
-"Semester thesis" is mostly *mentioned* (acknowledgements, ETH declaration of originality): as any occurrence its precision is 0.17, as the earliest marker 1.00. "Masterarbeit / master's thesis" also appears in Magister abstracts ("in my master's thesis"), hence 0.96 as any occurrence; earliest-wins resolves it.
+"Semester thesis" is mostly *mentioned* (acknowledgements, declaration forms): as any occurrence its precision is 0.17, as the earliest marker 1.00. "Masterarbeit / master's thesis" also appears in Magister abstracts ("in my master's thesis"), hence 0.96 as any occurrence; earliest-wins resolves it.
 
 ### 3.3 Tier-2 markers
 
@@ -174,15 +170,13 @@ Regexes run on the normalised window. "Docs (p0)": corpus docs with the marker o
 
 **Never markers** (precision as a document-level marker on own page 0 of the sample in brackets): B.Sc./BSc (0.00), M.Sc./MSc on their own, M.A. (0.09), Dipl.-X such as Dipl.-Ing., Dipl.-Inform. (0.40), Dr. sc. (0.00), Dr. rer. nat./phil., PhD (0.00), lic. phil., bare "Dissertation", "Masterstudiengang / master programme", bare "Diplom", bare "Master..." (Masterplan, Mastertabelle). They are author, supervisor and examiner titles, study programmes or topics; using them lowers the sample accuracy from 98 % to 93 %. Corpus contexts on own pages 0-4: abbreviated degree next to a name 633 docs, study programme 299, bare "Master..." words 229, bare "Dissertation(en)" 27 (e.g. "Online-Dissertationen" as a title topic).
 
-**Exclusions** (the marker does not count):
+**Exclusion** (the marker does not count):
 
 | Exclusion | Rule | Corpus | Example |
 |---|---|---:|---|
-| declaration of originality | inside "(component of every / Bestandteil jeder) ... (degree paper / Abschlussarbeit / Arbeit)" (<= 160 characters) plus 40 characters | 40 docs; changes the result in 4 | ETH declaration: "... is a component of every semester paper, Bachelor's thesis, Master's thesis and any other degree paper ..." |
 | "Nachdiplom..." | "Nachdiplomarbeit" is not "Diplomarbeit" (negative lookbehind) | 15 ETH docs | `20.500.11850_146844` |
-| repository metadata page | every marker on a repository metadata page (section 1) | 2,093 files | ETH cover page: "<title> \| Master Thesis \| <name> \| Publication date: ..." - the repository's type, wrong for ~15 % of ETH files (274 Diplomarbeiten, 24 MAS papers, 4 Lizentiatsarbeiten in the ETH "master" set) |
 
-A possessive/third-party exclusion ("his/her doctoral thesis", "in ihrer Dissertation") was tested in the exploration and changed no result in the corpus; it is not part of v1.
+The ETH declaration of originality and repository metadata pages were excluded in the exploration; those rules are researcher data now (section 4). A possessive/third-party exclusion ("his/her doctoral thesis", "in ihrer Dissertation") was tested in the exploration and changed no result in the corpus; it is not part of v1.
 
 ### 3.5 Classes
 
@@ -205,17 +199,64 @@ Only `bachelor` and `master` enter reference-corpus statistics (`tta.core.types.
 ### 3.6 Stored result
 
 - Metric: `thesis_type`.
-- `diagnostics` (local-only): the deciding rule (`earliest_marker`, `earliest_marker_tier2`, either with `+mas_override`), the winning marker (class, marker id, own page, tier), every marker hit in the window with its exclusion reason (first 40), and the cover-rule record of section 4.
+- `diagnostics` (local-only): the deciding rule (`earliest_marker`, `earliest_marker_tier2`, either with `+mas_override`), the winning marker (class, marker id, own page, tier), every marker hit in the window with its exclusion reason (first 40), and the ruleset record of section 4.
 
 ---
 
-## 4. Cover-page hook
+## 4. Researcher rulesets
 
-Rule-agnostic, empty by default ([ADR-0023](adr/0023-researcher-cover-rulesets.md)). A researcher ruleset (TOML, `tta run --cover-rules FILE`) lists rules; a rule matches a page when every `all_of` string and (if given) one `any_of` string occurs in the normalised page. Leading pages are skipped while they match, at most `max_pages` (default 3). Both modules record in `diagnostics`:
+Rules derived from one repository's or institution's layout are **not** part of the shipped app ([ADR-0023](adr/0023-researcher-cover-rulesets.md)). Without a ruleset every thesis is read unmodified. A researcher applies one with `tta run --cover-rules FILE`; the format is documented in `tta/core/cover_rules.py`.
+
+| Kind | Effect |
+|---|---|
+| `covers` | leading pages matching a page rule are skipped before the title page is located (at most `max_pages`, default 3) |
+| `not_evidence_pages` | pages matching a page rule are kept (positions and windows unchanged) but supply no date candidate and no type marker |
+| `date_cues` | extra negative date cues (regex, case-insensitive), checked like the built-in cues of 2.3 |
+| `type_passages` | regex passages on the normalised type window (plus `tail` characters) whose markers do not count |
+
+A page rule matches when the page contains every `all_of` string and at least `min_any` (default 1) of the `any_of` strings, after normalisation. Rejected candidates and excluded markers carry the reason `ruleset:<rule id>`.
+
+Both modules record in `diagnostics`:
 
 - `cover_rules`: `null` on the default path, else `{id, version, fingerprint, rules, source}`;
-- `cover_pages`: `[{page, rule}]` for every skipped page.
+- `cover_pages` and `not_evidence_pages`: `[{page, rule}]`.
 
 With a ruleset both module versions carry `+covers.<id>.<hash>`, so the planner re-runs them when the choice changes.
 
-The one ruleset kept in the repository is `research/cover_rules/eth_research_collection.toml` (rule `eth-rc-download-cover`: the sentence "This page was generated automatically upon download from the ETH Zurich Research Collection"; 2,093 of 2,283 ETH files, 4 with two stacked covers: `20.500.11850_156350` in the older layout, `_590186`, `_697973`, `_784413`).
+### 4.1 The ETH ruleset (`research/cover_rules/eth_research_collection.toml`, version 2)
+
+| Kind | Rule id | Rule | Corpus | Example |
+|---|---|---|---:|---|
+| `covers` | `eth-rc-download-cover` | the page contains "This page was generated automatically upon download from the ETH Zurich Research Collection" | 2,093 of 2,283 ETH files; 4 with two stacked covers | `20.500.11850_156350` (older layout), `_590186`, `_697973`, `_784413` |
+| `not_evidence_pages` | `eth-rc-metadata-block` | at least 2 of `Publication date:`, `Permanent link:`, `Rights / license:` (a cover page the cover rule did not skip) | all 2,093 cover pages carry all three | ETH cover: "<title> \| Master Thesis \| <name> \| Publication date: ..." - the repository's type, wrong for ~15 % of ETH files (274 Diplomarbeiten, 24 MAS papers, 4 Lizentiatsarbeiten in the ETH "master" set) |
+| `date_cues` | `eth-rc-publication-date-label` | `publication date` before the date | 2,093 files | `20.500.11850_502040`: "Publication date: \| 2021-07-19" (the title page itself says "July 19, 2021") |
+| `type_passages` | `eth-declaration-of-originality` | inside "(component of every / Bestandteil jeder) ... (degree paper / Abschlussarbeit / Arbeit)" (<= 160 characters) plus 40 characters | 40 docs; changes the result in 4 | "... is a component of every semester paper, Bachelor's thesis, Master's thesis and any other degree paper ..." |
+
+---
+
+## 5. What the default path excludes
+
+The owner's line (ADR-0023): only generic detection rules tied to no repository or institution apply without a ruleset. Every rule on the default path that makes the modules ignore or reject text:
+
+**Date rules (section 2)**
+
+1. **Blank leading pages** do not become the title page (< 30 non-space characters).
+2. **Window:** nothing after title page + 3 pages is read.
+3. **Negative linguistic cues** (same line before the date, or a ":" label line directly above): birth, defence/oral exam/acceptance, copyright, access dates, revisions, build stamps (2.3).
+4. **Citations:** bare years / academic years in brackets or followed by ")", "]", ";", ":".
+5. **Range starts:** the first date of "X - Y", "X bis Y", "X to Y", "X until Y".
+6. **Bare-year positions:** a bare year counts only alone on its line, as "Place, YYYY", at the end of a title-page line not after a preposition or ":", or with a submission cue (2.4).
+7. **After the title page:** a day/month/semester date counts only with a submission cue, a "Place, (den/am/im)" prefix or on a line of its own.
+8. **Implausible years:** before 1900 or after the run year + 1.
+9. **Not matched at all:** French month names, Italian semester names, two-digit-year dates.
+
+**Type markers (section 3)**
+
+1. **Window:** nothing after own page 4 is read.
+2. **Never markers:** abbreviated degrees and titles (B.Sc., M.Sc., M.A., Dipl.-X, Dr. sc., Dr. rer./phil., PhD, lic. phil.), bare "Dissertation", "Masterstudiengang", bare "Diplom", bare "Master..." - by not being in the marker catalogue.
+3. **"Nachdiplom..."** is not a Diplom marker (negative lookbehind).
+4. **"Master of Advanced Studies"** is not a master marker (`(?! of advanced)`), and turns a master on the same page into `mas` (MAS override).
+5. **Tier 2** ("Bachelor/Master of <field>") is ignored when a tier-1 marker exists.
+6. **Earliest marker wins:** every later marker is ignored.
+
+Nothing else: no page is skipped, no page is ignored, and no passage is excluded because of where the PDF came from.

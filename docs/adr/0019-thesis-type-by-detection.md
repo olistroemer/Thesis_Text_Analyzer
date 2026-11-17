@@ -49,9 +49,9 @@ The #82 exploration (cached `raw_text` of the 3,262-file reference corpus, 268 h
 - **Window:** the document's own pages 0-4 (99 % of first true markers), normalised as before plus letter-spaced words collapsed.
 - **Markers are spelled-out type/degree phrases only** (Bachelorarbeit, Master's Thesis, "for the degree of Master", Diplomarbeit, Diplom-Ingenieur, Magisterarbeit, Lizentiatsarbeit, Master of Advanced Studies, Nachdiplomarbeit, Semesterarbeit, Studienarbeit, ...). **Never markers:** abbreviations (B.Sc., M.Sc., M.A., Dipl.-X, Dr. sc., Dr. rer./phil., PhD, lic. phil.), bare "Dissertation", "Masterstudiengang", bare "Diplom", bare "Master..." - rev. 2's `m.sc`/`b.sc`/`m.eng`/`b.eng` keywords are dropped. Marker choice is what matters: the broad catalogue with abbreviations gives 93 % on the sample, the strong markers 98 %.
 - **The earliest valid marker wins** (251 of 253 labelled documents with a marker). **MAS override:** a "Master of Advanced Studies / MAS-Programm" marker on the same page as a winning master marker gives `mas`. "Nachdiplomarbeit" is not "Diplomarbeit".
-- **One exclusion:** the ETH declaration of originality, which lists every paper type. A possessive exclusion ("his doctoral thesis") was tested and changed nothing; it is not adopted.
+- **No exclusion tied to a repository or institution.** The exploration excluded the ETH declaration of originality (it lists every paper type); that rule is researcher data now ([ADR-0023](0023-researcher-cover-rulesets.md)), as is any rule for a repository's pages. A possessive exclusion ("his doctoral thesis") was tested and changed nothing; it is not adopted.
 - **Tier 2:** a bare "Bachelor/Master of <field>" counts only when no tier-1 marker is in the window (net positive in the corpus: ~7 right, 1-3 wrong - the author's previous degree).
-- **Repository pages:** markers on a *repository metadata page* (at least two of the generic labels `Publication date:`, `Permanent link:`, `Rights / license:`) do not count; the page is not skipped. No repository-specific rule ships; researchers can load cover-page rules through the CLI ([ADR-0023](0023-researcher-cover-rulesets.md)).
+- **Repository pages are read unmodified.** A download cover page in front of the title page is own page 0, and its type line counts like any other marker. Researchers can load a ruleset through the CLI that skips cover pages, ignores metadata pages and excludes form passages ([ADR-0023](0023-researcher-cover-rulesets.md)).
 - **Evidence** goes to `diagnostics`: the deciding rule, the winning marker (class, marker id, own page, tier) and every marker hit with its exclusion reason.
 
 **Class set.** {`bachelor`, `master`, `diploma`, `magister`, `mas`, `licentiate`, `semester`, `doctoral`, `unspecified`} (`tta.core.types.THESIS_TYPES`):
@@ -68,7 +68,7 @@ Baccalaureate is **not** added (topic mentions only). "Not a thesis" is not a cl
 
 **Reference statistics vs reporting.** Only `bachelor` and `master` enter reference-corpus statistics (`tta.core.types.REFERENCE_THESIS_TYPES`, for #49); the research question is about them and the other classes are too rare to carry a baseline. Every class is **reported** to the user - grid, report (by-type counts, length-by-type) - under a translated label (`THESIS_TYPE_LABELS`), so a professor sees each thesis identified as what it is. The raw value stays the identity in the DB, the export and the CLI.
 
-**Results.** Exploration: 98.1 % on the sample (98.9 % weighted), tuned on that sample. Subset check of the implementation (63 type-labelled documents, see ADR-0023): identical to the exploration rule on 63 of 63; 60 of 63 right on the default path.
+**Results.** Exploration: 98.1 % on the sample (98.9 % weighted), tuned on that sample. Subset check of the implementation (63 type-labelled documents, see ADR-0023): with the ETH researcher ruleset identical to the exploration rule on 63 of 63 (60 right); on the default path 50 of 63 right - on the 22 ETH files with a cover page the cover's type line wins (11 of 22 right), HU is unaffected (30 of 30).
 
 ## US-PROF-ATTRS ↔ US-RES-LOW-FRICTION resolution
 
