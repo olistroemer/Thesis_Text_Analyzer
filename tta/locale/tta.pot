@@ -15,7 +15,7 @@ msgstr ""
 msgid " | cancelled"
 msgstr ""
 
-#: tta/ui/tk/grid.py:296
+#: tta/ui/tk/grid.py:318
 msgid ""
 "\"{filename}\" was excluded and its analysis records were removed, but some cached files could not be deleted:\n"
 "\n"
@@ -253,7 +253,7 @@ msgid ""
 "Nothing is changed - the database is opened read-only and no migration is applied. The command exits with a non-zero status if any check fails, so it can be used in a script."
 msgstr ""
 
-#: tta/ui/tk/grid.py:46
+#: tta/ui/tk/grid.py:47
 msgid "Column name: {name}"
 msgstr ""
 
@@ -261,7 +261,7 @@ msgstr ""
 msgid "Compact the project database file."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:56
+#: tta/ui/tk/help_view.py:70
 msgid "Concepts"
 msgstr ""
 
@@ -365,7 +365,7 @@ msgstr ""
 msgid "Error: {reason}"
 msgstr ""
 
-#: tta/ui/tk/grid.py:271
+#: tta/ui/tk/grid.py:293
 msgid ""
 "Exclude \"{filename}\" and permanently delete its cached analysis from this machine (extracted text, tokens, PDF metadata and all metric values)?\n"
 "\n"
@@ -383,7 +383,7 @@ msgid ""
 "This is the command-line form of the Excluded checkbox in the window. If the thesis has already been analysed, its cached analysis is deleted from this machine: the extracted text, the tokens and the PDF metadata, together with its metric values and its run history. That cannot be undone. The source PDF is never touched. Excluding a thesis before it is analysed simply prevents any analysis from being cached."
 msgstr ""
 
-#: tta/ui/tk/grid.py:270
+#: tta/ui/tk/grid.py:292
 msgid "Exclude thesis"
 msgstr ""
 
@@ -493,7 +493,7 @@ msgstr ""
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr ""
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:59
 #: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr ""
@@ -594,7 +594,7 @@ msgstr ""
 msgid "Median length"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:55
+#: tta/ui/tk/help_view.py:69
 msgid "Metrics"
 msgstr ""
 
@@ -606,7 +606,7 @@ msgstr ""
 msgid "Module"
 msgstr ""
 
-#: tta/ui/tk/help_view.py:54
+#: tta/ui/tk/help_view.py:68
 msgid "Modules"
 msgstr ""
 
@@ -738,8 +738,8 @@ msgstr ""
 msgid "Print the plan without executing."
 msgstr ""
 
+#: tta/ui/tk/help_view.py:63
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:658
 msgid "Privacy statement"
 msgstr ""
 
@@ -848,7 +848,7 @@ msgstr ""
 msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
 msgstr ""
 
-#: tta/ui/tk/grid.py:118
+#: tta/ui/tk/grid.py:135
 msgid "Remove thesis..."
 msgstr ""
 
@@ -927,12 +927,12 @@ msgstr ""
 msgid "Scatter plot of thesis word count against publication year."
 msgstr ""
 
-#: tta/ui/tk/grid.py:295
+#: tta/ui/tk/grid.py:317
 msgid "Scrub incomplete"
 msgstr ""
 
 #: tta/cli/main.py:952
-#: tta/ui/tk/help_view.py:49
+#: tta/ui/tk/help_view.py:61
 msgid "See also"
 msgstr ""
 
@@ -1457,7 +1457,7 @@ msgid "no help topic {topic}"
 msgstr ""
 
 #: tta/cli/main.py:982
-#: tta/ui/tk/help_view.py:48
+#: tta/ui/tk/help_view.py:60
 msgid "no help topics installed yet"
 msgstr ""
 
@@ -1694,7 +1694,7 @@ msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
 #: tta/cli/main.py:290
-#: tta/ui/tk/grid.py:47
+#: tta/ui/tk/grid.py:48
 msgid "{count} theses"
 msgstr ""
 
@@ -1707,7 +1707,7 @@ msgstr ""
 msgid "{done}/{total} pairs"
 msgstr ""
 
-#: tta/ui/tk/grid.py:45
+#: tta/ui/tk/grid.py:46
 msgid "{filename} - {label}"
 msgstr ""
 
@@ -1720,11 +1720,11 @@ msgid ""
 "They are never exported. Delete that folder manually to remove them."
 msgstr ""
 
-#: tta/ui/tk/grid.py:43
+#: tta/ui/tk/grid.py:44
 msgid "{header} (asc)"
 msgstr ""
 
-#: tta/ui/tk/grid.py:44
+#: tta/ui/tk/grid.py:45
 msgid "{header} (desc)"
 msgstr ""
 

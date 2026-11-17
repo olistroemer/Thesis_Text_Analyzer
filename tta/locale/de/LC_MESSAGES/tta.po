@@ -25,7 +25,7 @@ msgstr ""
 msgid " | cancelled"
 msgstr " | abgebrochen"
 
-#: tta/ui/tk/grid.py:296
+#: tta/ui/tk/grid.py:318
 msgid ""
 "\"{filename}\" was excluded and its analysis records were removed, but some cached files could not be deleted:\n"
 "\n"
@@ -278,7 +278,7 @@ msgstr ""
 "\n"
 "Es wird nichts verändert - die Datenbank wird nur lesend geöffnet und keine Migration angewandt. Der Befehl endet mit einem Status ungleich null, wenn eine Prüfung fehlschlägt, und ist so in Skripten verwendbar."
 
-#: tta/ui/tk/grid.py:46
+#: tta/ui/tk/grid.py:47
 msgid "Column name: {name}"
 msgstr "Spaltenname: {name}"
 
@@ -286,7 +286,7 @@ msgstr "Spaltenname: {name}"
 msgid "Compact the project database file."
 msgstr "Die Datei der Projektdatenbank verdichten."
 
-#: tta/ui/tk/help_view.py:56
+#: tta/ui/tk/help_view.py:70
 msgid "Concepts"
 msgstr "Konzepte"
 
@@ -394,7 +394,7 @@ msgstr "Die Laufzeiten je Lauf als CSV ausgeben statt des Kohortenexports (QA-RE
 msgid "Error: {reason}"
 msgstr "Fehler: {reason}"
 
-#: tta/ui/tk/grid.py:271
+#: tta/ui/tk/grid.py:293
 msgid ""
 "Exclude \"{filename}\" and permanently delete its cached analysis from this machine (extracted text, tokens, PDF metadata and all metric values)?\n"
 "\n"
@@ -418,7 +418,7 @@ msgstr ""
 "\n"
 "Dies ist die Befehlszeilenform des Kontrollkästchens \"Ausgeschlossen\" im Fenster. Ist die Arbeit bereits analysiert, so wird ihre zwischengespeicherte Analyse von diesem Rechner gelöscht: der extrahierte Text, die Tokens und die PDF-Metadaten, dazu ihre Metrikwerte und ihre Laufhistorie. Das kann nicht rückgängig gemacht werden. Die PDF-Quelldatei wird nie angetastet. Wird eine Arbeit vor der Analyse ausgeschlossen, so verhindert das einfach, dass überhaupt eine Analyse zwischengespeichert wird."
 
-#: tta/ui/tk/grid.py:270
+#: tta/ui/tk/grid.py:292
 msgid "Exclude thesis"
 msgstr "Arbeit ausschließen"
 
@@ -534,7 +534,7 @@ msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: s
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
 
-#: tta/ui/tk/help_view.py:47
+#: tta/ui/tk/help_view.py:59
 #: tta/ui/tk/main_window.py:124
 msgid "Help"
 msgstr "Hilfe"
@@ -635,7 +635,7 @@ msgstr "Master"
 msgid "Median length"
 msgstr "Medianlänge"
 
-#: tta/ui/tk/help_view.py:55
+#: tta/ui/tk/help_view.py:69
 msgid "Metrics"
 msgstr "Metriken"
 
@@ -647,7 +647,7 @@ msgstr "Geändert (Jahr)"
 msgid "Module"
 msgstr "Modul"
 
-#: tta/ui/tk/help_view.py:54
+#: tta/ui/tk/help_view.py:68
 msgid "Modules"
 msgstr "Module"
 
@@ -781,8 +781,8 @@ msgstr "Planung..."
 msgid "Print the plan without executing."
 msgstr "Den Plan ausgeben, ohne ihn auszuführen."
 
+#: tta/ui/tk/help_view.py:63
 #: tta/ui/tk/main_window.py:119
-#: tta/ui/tk/main_window.py:658
 msgid "Privacy statement"
 msgstr "Datenschutzerklärung"
 
@@ -897,7 +897,7 @@ msgstr "Arbeit entfernen"
 msgid "Remove thesis {thesis_id} ({filename}) from the project and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? The thesis is forgotten entirely - this cannot be undone, and the source PDF is not touched."
 msgstr "Arbeit {thesis_id} ({filename}) vollständig aus dem Projekt entfernen und ihre zwischengespeicherte Analyse dauerhaft von diesem Rechner löschen (Artefakte, Metriken, Laufhistorie)? Die Arbeit wird vollständig vergessen - dies kann nicht rückgängig gemacht werden, und die PDF-Quelldatei wird nicht angetastet."
 
-#: tta/ui/tk/grid.py:118
+#: tta/ui/tk/grid.py:135
 msgid "Remove thesis..."
 msgstr "Arbeit entfernen..."
 
@@ -981,12 +981,12 @@ msgstr "SQLite-Datenbank"
 msgid "Scatter plot of thesis word count against publication year."
 msgstr "Streudiagramm der Wortzahl über dem Veröffentlichungsjahr."
 
-#: tta/ui/tk/grid.py:295
+#: tta/ui/tk/grid.py:317
 msgid "Scrub incomplete"
 msgstr "Löschung unvollständig"
 
 #: tta/cli/main.py:952
-#: tta/ui/tk/help_view.py:49
+#: tta/ui/tk/help_view.py:61
 msgid "See also"
 msgstr "Siehe auch"
 
@@ -1524,7 +1524,7 @@ msgid "no help topic {topic}"
 msgstr "kein Hilfethema {topic}"
 
 #: tta/cli/main.py:982
-#: tta/ui/tk/help_view.py:48
+#: tta/ui/tk/help_view.py:60
 msgid "no help topics installed yet"
 msgstr "noch keine Hilfethemen installiert"
 
@@ -1761,7 +1761,7 @@ msgid "{count} (thesis x module) pairs planned"
 msgstr "{count} Paare (Arbeit x Modul) geplant"
 
 #: tta/cli/main.py:290
-#: tta/ui/tk/grid.py:47
+#: tta/ui/tk/grid.py:48
 msgid "{count} theses"
 msgstr "{count} Arbeiten"
 
@@ -1774,7 +1774,7 @@ msgstr "{count} Arbeit(en) mit unlesbarer Textextraktion sind aus allen Auswertu
 msgid "{done}/{total} pairs"
 msgstr "{done}/{total} Paare"
 
-#: tta/ui/tk/grid.py:45
+#: tta/ui/tk/grid.py:46
 msgid "{filename} - {label}"
 msgstr "{filename} - {label}"
 
@@ -1792,11 +1792,11 @@ msgstr ""
 "\n"
 "Sie werden nie exportiert. Löschen Sie diesen Ordner manuell, um sie zu entfernen."
 
-#: tta/ui/tk/grid.py:43
+#: tta/ui/tk/grid.py:44
 msgid "{header} (asc)"
 msgstr "{header} (aufst.)"
 
-#: tta/ui/tk/grid.py:44
+#: tta/ui/tk/grid.py:45
 msgid "{header} (desc)"
 msgstr "{header} (abst.)"
 
