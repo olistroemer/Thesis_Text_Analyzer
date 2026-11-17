@@ -29,7 +29,7 @@ LEAD_COLUMNS = ("excluded", "state", "file", "type")
 
 #: Artefact-presence columns, extended mode only (Sec. 9.2). Named here so
 #: the grid, the sort keys and COLUMN_HELP all agree on the set and order.
-ARTEFACT_COLUMNS = ("raw_text", "language", "tokens", "pdf_metadata")
+ARTEFACT_COLUMNS = ("raw_text", "prose_text", "language", "tokens", "pdf_metadata")
 
 #: Curated basic-mode metric subset (Sec. 9.3 "limited columns visible by default").
 BASIC_METRICS = (
@@ -60,12 +60,15 @@ COLUMN_LABELS: dict[str, str] = {
     # not collide with the metric on the same subject - the `language`
     # artefact column and the `language_code` metric sit side by side.
     "raw_text": N_("Cached text"),
+    "prose_text": N_("Cached prose text"),
     "language": N_("Cached language"),
     "tokens": N_("Cached tokens"),
     "pdf_metadata": N_("Cached PDF metadata"),
     # metrics
     "text_chars": N_("Characters (extracted)"),
     "n_pages": N_("Pages"),
+    "removed_monospace_chars": N_("Removed characters (monospace)"),
+    "removed_math_chars": N_("Removed characters (math fonts)"),
     "n_images": N_("Images"),
     "page_count_meta": N_("Pages (PDF metadata)"),
     "producer_category": N_("Producer tool"),
@@ -122,12 +125,27 @@ COLUMN_HELP: dict[str, str] = {
     ),
     # artefact presence columns (extended mode)
     "raw_text": N_("Cached extracted plain text. Double-click to open it."),
+    "prose_text": N_(
+        "Cached extracted text without code and formulas, the input of the "
+        "text metrics. Double-click to open it."
+    ),
     "language": N_("Cached language-detection artefact. Double-click to open it."),
     "tokens": N_("Cached tokenisation artefact. Double-click to open it."),
     "pdf_metadata": N_("Cached full PDF metadata artefact. Double-click to open it."),
     # metrics
-    "text_chars": N_("Number of characters in the text extracted from the PDF."),
+    "text_chars": N_(
+        "Number of characters in the text extracted from the PDF, without "
+        "code and formulas."
+    ),
     "n_pages": N_("Page count from the PDF text layer."),
+    "removed_monospace_chars": N_(
+        "Characters removed from the text because they are set in a "
+        "monospaced font (code, often also URLs)."
+    ),
+    "removed_math_chars": N_(
+        "Characters removed from the text because they are set in a math "
+        "font (formulas)."
+    ),
     "n_images": N_("Number of embedded images detected in the PDF."),
     "page_count_meta": N_("Page count reported by the PDF's own metadata."),
     "producer_category": N_("Category of the PDF 'Producer' tool (e.g. LaTeX, Word)."),

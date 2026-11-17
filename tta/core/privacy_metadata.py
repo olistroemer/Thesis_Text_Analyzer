@@ -116,7 +116,7 @@ FIELDS: tuple[Field, ...] = (
 
 MODULES: tuple[ModuleEntry, ...] = (
     ModuleEntry("mod_extract_pymupdf", (Category.CONTENT,), (Category.CONTENT, Category.METRIC),
-                N_("extract the plain text from the PDF; count pages and characters")),
+                N_("extract the plain text from the PDF, once unfiltered and once without code and formulas; count pages and characters")),
     ModuleEntry("mod_check_extraction_quality", (Category.CONTENT,), (Category.METRIC,),
                 N_("flag garbled or sparse text extractions so bad data is visible")),
     ModuleEntry("mod_classify_language", (Category.CONTENT,), (Category.METRIC,),
@@ -146,6 +146,7 @@ MODULES: tuple[ModuleEntry, ...] = (
 
 ARTEFACT_KINDS: tuple[ArtefactKindEntry, ...] = (
     ArtefactKindEntry("raw_text", Category.CONTENT, N_("full extracted thesis text (UTF-8 file)"), False),
+    ArtefactKindEntry("prose_text", Category.CONTENT, N_("extracted thesis text without code and formulas, input of the text metrics (UTF-8 file)"), False),
     ArtefactKindEntry("language", Category.METRIC, N_("detected language code + confidence (JSON)"), False),
     ArtefactKindEntry("tokens", Category.CONTENT, N_("sentence/word tokenisation of the full text (JSON)"), False),
     ArtefactKindEntry("pdf_metadata", Category.IDENTIFYING, N_("complete PDF Info dict + XMP, incl. Author/Title (JSON)"), False),

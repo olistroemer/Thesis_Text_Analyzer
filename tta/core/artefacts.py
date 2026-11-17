@@ -15,6 +15,7 @@ from tta.core import artefact_kinds
 #: Canonical on-disk filename per kind (SDD Sec. 8.2).
 KIND_FILENAMES = {
     artefact_kinds.RAW_TEXT: "raw_text.txt",
+    artefact_kinds.PROSE_TEXT: "prose_text.txt",
     artefact_kinds.LANGUAGE: "language.json",
     artefact_kinds.TOKENS: "tokens.json",
     artefact_kinds.PDF_METADATA: "pdf_metadata.json",
@@ -39,8 +40,8 @@ class ArtefactStore:
 
     def purge(self, thesis_id: int) -> None:
         """Delete a thesis's entire on-disk artefact subtree
-        ``artefacts/<thesis_id>/`` (the PII-bearing files: raw_text, tokens,
-        pdf_metadata). Used by the excluded-thesis scrub (US-PROF-EXCLUDE,
+        ``artefacts/<thesis_id>/`` (the PII-bearing files: raw_text, prose_text,
+        tokens, pdf_metadata). Used by the excluded-thesis scrub (US-PROF-EXCLUDE,
         ADR-0006 rev. 5, #11).
 
         A no-op if the subtree does not exist (a thesis excluded before it was

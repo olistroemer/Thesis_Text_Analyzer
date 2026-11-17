@@ -32,6 +32,7 @@ Out of MVP scope but architecturally accommodated: LM-based modules (perplexity,
 | **Derived metric** | A metric computed from other metrics (e.g. Flesch reading ease from word, sentence, and syllable counts). |
 | **Artefact** | An intermediate file produced by a module (e.g. extracted plain text). |
 | **Artefact kind** | A documented identifier for the on-disk shape of an artefact (e.g. `raw_text`, `tokens`). Vocabulary in [`core/artefact_kinds.py`](#64-artefact-kinds-vocabulary). |
+| **Text view** | One of the two texts the extractor writes from a single extraction pass ([ADR-0024](adr/0024-two-text-views.md)): `raw_text`, everything in the PDF's text layer, and `prose_text`, the same text without code (monospaced spans) and math (math-font spans). Detection modules read `raw_text`; the text metrics read `prose_text`. |
 | **Run** | One execution of a module on a thesis; recorded in `module_runs`. |
 | **Producer** | A module that produces a given artefact kind. Multiple producers per kind are allowed; the active one is selected by configuration ([ADR-005](adr/0005-producer-swap-deferred.md)). |
 | **Source** | The provider of data in the database — either `local` (the user's own analyses) or `imported` (a researcher's import of a professor's export). |
@@ -262,9 +263,9 @@ flowchart TD
     PDF --> M10[mod_extract_pdf_metadata]
     M1 -->|raw_text| M2[mod_check_extraction_quality]
     M1 -->|raw_text| M3[mod_classify_language]
-    M1 -->|raw_text| M4[mod_tokenize]
+    M1 -->|prose_text| M4[mod_tokenize]
     M3 -->|language| M4
-    M1 -->|raw_text| M7[mod_readability]
+    M1 -->|prose_text| M7[mod_readability]
     M3 -->|language| M7
     M4 -->|tokens| M5[mod_surface_counts]
     M4 -->|tokens| M6[mod_vocabulary]
@@ -274,7 +275,7 @@ flowchart TD
     M10 -->|pdf_metadata| M12
 ```
 
-Three "root" modules read the PDF directly; everything else flows downstream from `mod_extract_pymupdf` and `mod_classify_language`. `mod_classify_thesis_type` (#9) sits off `raw_text` next to `mod_check_extraction_quality`; `mod_determine_publication_year` (#17, #81) fuses two upstreams — `raw_text` (the date stated on the title page) and the `pdf_metadata` artefact (PDF `creation_year`/`modification_year`). Detailed module specs in [§7](#7-module-catalogue).
+Three "root" modules read the PDF directly; everything else flows downstream from `mod_extract_pymupdf` and `mod_classify_language`. The extractor writes two text views from one pass ([ADR-0024](adr/0024-two-text-views.md), #22): the detection modules (extraction quality, language, thesis type, publication year) read the unfiltered `raw_text`, the text metrics (tokenisation and everything after it, readability) read `prose_text`, which has code and math removed. `mod_classify_thesis_type` (#9) sits off `raw_text` next to `mod_check_extraction_quality`; `mod_determine_publication_year` (#17, #81) fuses two upstreams — `raw_text` (the date stated on the title page) and the `pdf_metadata` artefact (PDF `creation_year`/`modification_year`). Detailed module specs in [§7](#7-module-catalogue).
 
 ## 5.4 Persistence
 
@@ -488,34 +489,37 @@ stateDiagram-v2
 
 ## 6.4 Artefact kinds vocabulary
 
-Four kinds in MVP. The vocabulary file (`core/artefact_kinds.py`) is the documented source of truth; module declarations are checked against it at registration.
+Five kinds in MVP. The vocabulary file (`core/artefact_kinds.py`) is the documented source of truth; module declarations are checked against it at registration.
 
 | Kind | Format | Producer (MVP) | Privacy class |
 |---|---|---|---|
-| `raw_text` | UTF-8 plain text file | `mod_extract_pymupdf` | Content (PII risk; never exported) |
+| `raw_text` | UTF-8 plain text file, pages joined by form feed | `mod_extract_pymupdf` | Content (PII risk; never exported) |
+| `prose_text` | UTF-8 plain text file, same layout as `raw_text`, monospaced and math-font spans removed ([§7.4](#74-notes-on-specific-modules), #22) | `mod_extract_pymupdf` | Content (PII risk; never exported) |
 | `language` | JSON: `{"code": "en", "confidence": 0.99}` | `mod_classify_language` | Metric (no PII) |
 | `tokens` | JSON: `{"sentences": [["w","w"],…], "language": "en"}` | `mod_tokenize` | Content (PII in aggregate; never exported) |
 | `pdf_metadata` | JSON: full PDF Info dict + XMP | `mod_extract_pdf_metadata` | Identifying (may include author/title; never exported) |
 
 Artefact files are stored under the filesystem layout in [§5.4](#54-persistence) and never travel in exports ([ADR-007](adr/0007-export-format.md)).
 
+**Encoding rule (#95).** Every text and JSON artefact is written as strict UTF-8. A PDF text layer or Info dict can yield **lone surrogates** (code points U+D800-U+DFFF without a partner, e.g. `\udc5b`), which UTF-8 cannot encode: the write failed with `UnicodeEncodeError`, and the module's `error` cascaded to `na` for every dependent. One helper (`core/modules/_textio.py`) therefore replaces each lone surrogate with U+FFFD (the Unicode replacement character) in the final string immediately before it is written and returns how many it replaced; the producing module records the count as `surrogates_replaced` in its `diagnostics`. The rule applies to `raw_text`, `prose_text`, `pdf_metadata` and `tokens`. One code point becomes one code point, so character counts do not move, and a thesis without lone surrogates produces byte-identical artefacts.
+
 ---
 
 # 7. Module Catalogue
 
-Thirteen modules, thirty-two metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
+Thirteen modules, thirty-four metrics. See [ADR-011](adr/0011-mvp-module-catalogue.md) for the catalogue decision; each module also has a help page at `core/help/modules/<name>.md`.
 
 ## 7.1 Overview
 
 | # | Module | Inputs (artefacts) | Produces (artefacts) | Produces (metrics) | Notes |
 |---|---|---|---|---|---|
-| 1 | `mod_extract_pymupdf` | — (PDF directly) | `raw_text` | `text_chars`, `n_pages` | PyMuPDF (AGPL); ships under the project copyleft licence (ADR-0017) |
+| 1 | `mod_extract_pymupdf` | — (PDF directly) | `raw_text`, `prose_text` | `text_chars` (of `prose_text`), `n_pages`, `removed_monospace_chars`, `removed_math_chars` | PyMuPDF (AGPL); ships under the project copyleft licence (ADR-0017). Two text views from one pass, font filter of Exp #22 arm B ([ADR-0024](adr/0024-two-text-views.md), #22); rule in [§7.4](#74-notes-on-specific-modules) |
 | 2 | `mod_check_extraction_quality` | `raw_text` | — | `extraction_quality` (text: `ok`/`garbled`/`sparse`) | heuristic from `harvester/GARBLED_EXTRACTIONS.md` |
 | 3 | `mod_classify_language` | `raw_text` | `language` | `language_code`, `language_confidence` | langdetect |
-| 4 | `mod_tokenize` | `raw_text`, `language` | `tokens` | — | NLTK punkt_tab |
+| 4 | `mod_tokenize` | `prose_text`, `language` | `tokens` | — | NLTK punkt_tab |
 | 5 | `mod_surface_counts` | `tokens` | — | `word_count`, `char_count_alpha`, `sentence_count`, `avg_word_len`, `avg_sentence_len`, `std_sentence_len` | stdlib |
 | 6 | `mod_vocabulary` | `tokens` | — | `ttr`, `root_ttr`, `hapax_token_ratio`, `hapax_type_ratio`, `yules_k` | stdlib; both hapax variants (V1/N and V1/V) ship for comparison |
-| 7 | `mod_readability` | `raw_text`, `language` | — | `flesch_reading_ease` | textstat (Flesch en / Amstad de) |
+| 7 | `mod_readability` | `prose_text`, `language` | — | `flesch_reading_ease` | textstat (Flesch en / Amstad de) |
 | 8 | `mod_redundancy` | `tokens` | — | `bigram_repetition_rate`, `trigram_repetition_rate` | stdlib |
 | 9 | `mod_count_images` | — (PDF directly) | — | `n_images` | pypdf object model; counts from the PDF structure, **never decodes an image**, ignores images under 3 px per side (#85, [ADR-0021](adr/0021-image-counting.md)). Counting rule below the table and in [§7.4](#74-notes-on-specific-modules) |
 | 10 | `mod_extract_pdf_metadata` | — (PDF directly) | `pdf_metadata` | `page_count_meta`, `producer_category`, `creator_category`, `creation_year`, `modification_year`, `has_outline` | pypdf |
@@ -540,7 +544,7 @@ heuristics.
 | `mod_extract_pymupdf` | file extension is `.pdf` | not a PDF |
 | `mod_check_extraction_quality` | `raw_text` exists | upstream extraction failed |
 | `mod_classify_language` | `raw_text` exists and has ≥ 200 chars | text too short for confident detection |
-| `mod_tokenize` | `language.code` ∈ {`en`, `de`} **and** `raw_text` yields at least one sentence | unsupported language / no sentences in text (an empty `tokens` artefact is never written) |
+| `mod_tokenize` | `language.code` ∈ {`en`, `de`} **and** `prose_text` yields at least one sentence | unsupported language / no sentences in text (an empty `tokens` artefact is never written) |
 | `mod_surface_counts` / `mod_vocabulary` / `mod_redundancy` | `tokens` exists | upstream NA cascade |
 | `mod_readability` | `language.code` ∈ {`en`, `de`} | no Flesch formula for language |
 | `mod_count_images` | file is a PDF | not a PDF |
@@ -551,13 +555,27 @@ heuristics.
 
 ## 7.3 Library comparison study placement
 
-Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf`, `mod_extract_pdfplumber`, `mod_extract_poppler`) are added during the project for the comparison study described in [§2.1.1](#211-methodological-output-library-comparison-study). They share the artefact kind but live in separate module files. **In MVP, exactly one producer per kind is registered**; comparing different libraries is done by swapping registrations and re-running into a separate database (per ADR-005). Runtime selection via config or CLI is deferred ([§12](#12-out-of-mvp-scope)).
+Alternative producers for `raw_text` (`mod_extract_pdfminer`, `mod_extract_pypdf`, `mod_extract_pdfplumber`, `mod_extract_poppler`) are added during the project for the comparison study described in [§2.1.1](#211-methodological-output-library-comparison-study). They share the artefact kind but live in separate module files. Since [ADR-0024](adr/0024-two-text-views.md) a candidate replaces the producer of **both** text views: it must also write `prose_text` (its own font filter, or `prose_text` equal to `raw_text` with the two removed-character counts NULL, stated as such in its comparison). **In MVP, exactly one producer per kind is registered**; comparing different libraries is done by swapping registrations and re-running into a separate database (per ADR-005). Runtime selection via config or CLI is deferred ([§12](#12-out-of-mvp-scope)).
 
 ## 7.4 Notes on specific modules
 
 **`mod_extract_pymupdf`** is the initial implementation. The AGPL release gate that previously required replacing it before the first distributed `.exe` is retired by [ADR-0017](adr/0017-license.md) (the project adopts a copyleft licence, so PyMuPDF may ship); alternative extractors are now compared on quality, not licence ([§2.1.1](#211-methodological-output-library-comparison-study)).
 
-**`mod_tokenize`** must never produce an **empty `tokens` artefact**: three of the thirteen modules read `tokens` (`mod_surface_counts`, `mod_vocabulary`, `mod_redundancy`) and between them carry thirteen of the thirty-two metrics, so an empty-but-`ok` artefact would silently zero out nearly half the catalogue (#34). Two failure modes are therefore made loud rather than silent. (1) If segmentation yields no sentences at all (empty, whitespace-only or word-less `raw_text`), the module raises `NotApplicable` and the run is recorded `na` with a reason — dependents cascade to `na` honestly instead of measuring nothing. (2) If the bundled NLTK **punkt_tab** model cannot be resolved, the module raises a `RuntimeError` naming the missing model, the language and the searched data paths. This is an environment defect, not a property of the thesis, so it is an `error` outcome, never `na`. The message is re-worded deliberately: NLTK's own `LookupError` advises `nltk.download()`, which is wrong here — the model is bundled at build time ([ADR-0014](adr/0014-distribution.md)) and the app never downloads anything (QA-PRIV). Its text also opens with blank lines, so the runner's one-line `reason` ([§6.3](#63-run-lifecycle)) degraded to a bare `LookupError:` with no diagnostic content — the actual defect behind #34.
+Since 0.2.0 (#22, [ADR-0024](adr/0024-two-text-views.md)) it writes **two text views from one extraction pass**. Each page is parsed once into a PyMuPDF `TextPage` with the plain-text flags (`TEXTFLAGS_TEXT`); both views are serialised from that one object:
+
+- **`raw_text`** is the `TextPage`'s plain-text output, i.e. exactly what `page.get_text("text")` returned before, pages joined by form feed. It is unchanged so that the detection modules reading it (extraction quality, language, thesis type, publication year) keep their results.
+- **`prose_text`** is rebuilt line by line from the same `TextPage`'s `dict` output under **"font filter v1"**, the rule of Exp #22 arm B:
+  - A span is **monospace** if PyMuPDF sets its monospaced font flag (`TEXT_FONT_MONOSPACED`, bit value 8). This catches code listings and inline code, and also URLs and DOIs set in a typewriter font.
+  - A span is **math** if its font name, without the six-letter subset tag (`ABCDEF+`), contains `math` (any case: Cambria Math, STIX Two Math, Latin Modern Math, `LMMathItalic`, XITS Math) or starts with one of the TeX math families `cmmi`, `cmsy`, `cmbsy`, `cmex`, `msam`, `msbm`, `eufm`, `rsfs`, `stmary`. `Symbol` is deliberately not matched (Word sets bullets in it).
+  - A span that is both counts as **monospace**: the flag is checked first. The flag is a property of the font program, the name list a heuristic, so the stronger signal decides. Exp #22 arm B used the same order.
+  - Removed spans are dropped; the remaining spans of a line are joined in order, every kept line ends in a newline, and a line whose spans were all removed disappears. Pages are joined by form feed as in `raw_text`.
+  - **Whole-document guard.** A category whose spans hold more than **80 %** of the document's non-whitespace characters (over all pages) is **not filtered** for that document. Such a share means the body text is set in that font, e.g. a thesis typed entirely in Courier or a Word body in Cambria Math. The other category is decided on its own. The threshold and the Exp #22 distribution behind it are in [ADR-0024](adr/0024-two-text-views.md) decision 2a.
+- **Metrics.** `text_chars` is now the length of `prose_text` (all characters, whitespace and page separators included, as before). `n_pages` is unaffected by the filter (the page count is the same for both views). Two new counts record what the filter removed, over the whole document: **`removed_monospace_chars`** and **`removed_math_chars`**, each the number of **non-whitespace** characters in the removed spans of that category; 0 for a category the guard left in. Whitespace is not counted because the extractor synthesises part of it, differently per PDF producer. No share is stored; a share is derivable and a count keeps the definition exact.
+- **Diagnostics** (local only) carry the eight fonts that lost the most characters per category, so a false positive (a body text font matched as math) can be inspected; `filter_skipped`, the categories the guard left in, each with its share and the characters it would have removed; and the surrogate counts of the encoding rule ([§6.4](#64-artefact-kinds-vocabulary)) per view.
+- **Comparability.** `text_chars` and every metric computed from `prose_text` (`mod_tokenize` and the three modules reading `tokens`, `mod_readability`) are **not comparable** with values from the unfiltered extraction. The affected modules have new versions, so planning re-runs them. On the Exp #22 reference corpus (n = 3,195) the change per metric was small (median change at most 1.3 %, rank correlation 0.91-0.99 with the unfiltered values) and concentrated in computer science, maths and physics; the reference corpus is re-run with the new extraction in the follow-up project. Known limits of the filter: [`model-limitations.md`](model-limitations.md).
+- **Scope.** Code and math only. Tables, tables of contents and running heads stay in `prose_text`; a line heuristic for them is a separate experiment (#97).
+
+**`mod_tokenize`** must never produce an **empty `tokens` artefact**: three of the thirteen modules read `tokens` (`mod_surface_counts`, `mod_vocabulary`, `mod_redundancy`) and between them carry thirteen of the thirty-four metrics, so an empty-but-`ok` artefact would silently zero out over a third of the catalogue (#34). Two failure modes are therefore made loud rather than silent. (1) If segmentation yields no sentences at all (empty, whitespace-only or word-less `prose_text`; the whole-document guard of the font filter keeps a thesis set entirely in a monospaced or math font from being emptied), the module raises `NotApplicable` and the run is recorded `na` with a reason — dependents cascade to `na` honestly instead of measuring nothing. (2) If the bundled NLTK **punkt_tab** model cannot be resolved, the module raises a `RuntimeError` naming the missing model, the language and the searched data paths. This is an environment defect, not a property of the thesis, so it is an `error` outcome, never `na`. The message is re-worded deliberately: NLTK's own `LookupError` advises `nltk.download()`, which is wrong here — the model is bundled at build time ([ADR-0014](adr/0014-distribution.md)) and the app never downloads anything (QA-PRIV). Its text also opens with blank lines, so the runner's one-line `reason` ([§6.3](#63-run-lifecycle)) degraded to a bare `LookupError:` with no diagnostic content — the actual defect behind #34.
 
 **`mod_readability`** must never reach the network (#75, QA-PRIV). `textstat` uses NLTK's **CMUdict** corpus for English syllable counting and, when it is absent, calls `nltk.download('cmudict', quiet=True)` on its own - an outbound connection the application promises never to make, with the failure silently swallowed. The module therefore disables `nltk.download` for the duration of the textstat call, so no attempt is possible even on a machine that lacks the corpus, and converts the resulting `LookupError` into an `error` whose message names `cmudict` and how to obtain it. German is unaffected (CMUdict is English-only) and keeps working without it; English cannot be computed without it and says so rather than failing obscurely. Release builds bundle the corpus ([ADR-014](adr/0014-distribution.md)), so this path is a from-source concern only. It must also leave **no per-text state** behind (#86): workers are long-lived ([ADR-013 Worker reuse](adr/0013-runner-orchestration.md#worker-reuse)), and textstat's per-text `lru_cache`s plus pyphen's unbounded per-word hyphenation cache grew a worker by ~2.4 MB per thesis. Both are pure caches, so the module clears them after every run (results unchanged, version unchanged). The clearing reaches into library internals and is therefore defensive: whatever it cannot find in a future textstat/pyphen it skips, and it never fails the run.
 
@@ -669,12 +687,13 @@ Full DDL is the single source of truth at [`core/db/migrations/0001_initial.sql`
         <thesis_id>/
             <run_id>/
                 raw_text.txt
+                prose_text.txt
                 tokens.json
                 language.json
                 pdf_metadata.json
 ```
 
-`<thesis_id>` and `<run_id>` are integers; the layout is filesystem-safe on all OSes. These artefact files (`raw_text`, `tokens`, `pdf_metadata`) are the PII-bearing outputs ([ADR-0009](adr/0009-privacy-as-code.md)) and never leave the machine ([§8.3.1](#831-anonymisation-rules)). **Excluding an already-analysed thesis** deletes its entire `artefacts/<thesis_id>/` subtree locally, together with its DB analysis rows, via `Repository.purge_analysis` / `ArtefactStore.purge` (US-PROF-EXCLUDE, [ADR-0006](adr/0006-schema.md) rev. 5, #11) — the source PDF is untouched.
+`<thesis_id>` and `<run_id>` are integers; the layout is filesystem-safe on all OSes. These artefact files (`raw_text`, `prose_text`, `tokens`, `pdf_metadata`) are the PII-bearing outputs ([ADR-0009](adr/0009-privacy-as-code.md)) and never leave the machine ([§8.3.1](#831-anonymisation-rules)). **Excluding an already-analysed thesis** deletes its entire `artefacts/<thesis_id>/` subtree locally, together with its DB analysis rows, via `Repository.purge_analysis` / `ArtefactStore.purge` (US-PROF-EXCLUDE, [ADR-0006](adr/0006-schema.md) rev. 5, #11) — the source PDF is untouched.
 
 ## 8.3 Export format
 
@@ -783,7 +802,7 @@ Both modes open with the same four **lead columns**, left to right (`columns.LEA
 
 `publication_year` is in the basic set because the publication year is the project's primary research axis ([§2.1](#21-problem-statement)) and the professor persona *defaults* to basic mode — the axis the whole tool exists to study must not require a mode switch to see.
 
-**Extended mode** shows the same lead columns, then the four **artefact-presence** columns (`raw_text`, `language`, `tokens`, `pdf_metadata`; `columns.ARTEFACT_COLUMNS`), then **every** metric in the catalogue in module topological order — `publication_year_source`, `thesis_type` and the rest included.
+**Extended mode** shows the same lead columns, then the five **artefact-presence** columns (`raw_text`, `prose_text`, `language`, `tokens`, `pdf_metadata`; `columns.ARTEFACT_COLUMNS`), then **every** metric in the catalogue in module topological order — `publication_year_source`, `thesis_type` and the rest included.
 
 Mode toggle in `View → Mode → Extended`. State persisted in `tta.toml`.
 
@@ -1050,7 +1069,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | 0008 | (retired — separate researcher schema; superseded by ADR-006) | Superseded |
 | [0009](adr/0009-privacy-as-code.md) | Privacy metadata as code; statement is rendered | Accepted |
 | [0010](adr/0010-sdd-authoring.md) | SDD authoring — markdown + Mermaid + pandoc/xelatex | Accepted |
-| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 13 modules / 32 metrics | Accepted (rev. 6; AGPL gate superseded by 0017) |
+| [0011](adr/0011-mvp-module-catalogue.md) | MVP module catalogue — 13 modules / 34 metrics | Accepted (rev. 7; AGPL gate superseded by 0017) |
 | [0012](adr/0012-help-content.md) | Help-content authoring conventions | Accepted |
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |
@@ -1063,6 +1082,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0021](adr/0021-image-counting.md) | Image counting from the PDF structure, without decoding, with a minimum image size of 3 px per side | Accepted |
 | [0022](adr/0022-publication-date-rules.md) | Publication date from the title page — defined, versioned rules and a stored precision | Accepted |
 | [0023](adr/0023-researcher-cover-rulesets.md) | Repository-specific rules — rule-agnostic hook, rules as researcher data (CLI only), none shipped | Accepted |
+| [0024](adr/0024-two-text-views.md) | Two text views from one extraction — unfiltered `raw_text` for detection, `prose_text` without code and math for the text metrics | Accepted |
 
 ---
 

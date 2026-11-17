@@ -2,7 +2,7 @@
 slug: mod_tokenize
 title: In Sätze und Wörter zerlegen
 kind: module
-consumes: [raw_text, language]
+consumes: [prose_text, language]
 produces_artefacts: [tokens]
 produces_metrics: []
 applicability: Läuft, wenn die erkannte Sprache `de` oder `en` ist und mindestens ein Satz gefunden wird. Sonst lautet das Ergebnis „nicht anwendbar" – und die drei abhängigen Module entfallen mit.
@@ -12,7 +12,7 @@ see_also: [module:mod_classify_language, module:mod_surface_counts, module:mod_v
 
 # In Sätze und Wörter zerlegen
 
-Dieses Modul erzeugt **keine einzige Metrik** – und ist trotzdem das einflussreichste der ganzen Kette. Es zerlegt den extrahierten Text in Sätze und diese in Wörter und legt das Ergebnis als Zwischenergebnis `tokens` ab. Daraus rechnen [mod_surface_counts](module:mod_surface_counts), [mod_vocabulary](module:mod_vocabulary) und [mod_redundancy](module:mod_redundancy) **13 der 31 Metriken**. Jeder Zerlegungsfehler geht unbemerkt in alle 13 ein.
+Dieses Modul erzeugt **keine einzige Metrik** – und ist trotzdem das einflussreichste der ganzen Kette. Es zerlegt den extrahierten Text ohne Code und Formeln (`prose_text`, siehe [mod_extract_pymupdf](module:mod_extract_pymupdf)) in Sätze und diese in Wörter und legt das Ergebnis als Zwischenergebnis `tokens` ab. Daraus rechnen [mod_surface_counts](module:mod_surface_counts), [mod_vocabulary](module:mod_vocabulary) und [mod_redundancy](module:mod_redundancy) **13 der 34 Metriken**. Jeder Zerlegungsfehler geht unbemerkt in alle 13 ein.
 
 ## Verfahren
 

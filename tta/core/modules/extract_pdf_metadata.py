@@ -18,6 +18,7 @@ from pypdf import PdfReader
 
 from tta.core import artefact_kinds
 from tta.core.i18n import N_
+from tta.core.modules._textio import write_text_artefact
 from tta.core.modules.base import Applicability, Module, ModuleSpec, RunContext, RunResult
 from tta.core.types import Thesis
 
@@ -101,7 +102,7 @@ class ExtractPdfMetadata(Module):
             "has_xfa": has_xfa,
         }
         out_path = ctx.workdir / "pdf_metadata.json"
-        out_path.write_text(json.dumps(artefact, ensure_ascii=False), encoding="utf-8")
+        replaced = write_text_artefact(out_path, json.dumps(artefact, ensure_ascii=False))
 
         return RunResult(
             metrics={
@@ -113,4 +114,5 @@ class ExtractPdfMetadata(Module):
                 "has_outline": has_outline,
             },
             artefacts={artefact_kinds.PDF_METADATA: out_path},
+            diagnostics={"surrogates_replaced": replaced},
         )

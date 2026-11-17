@@ -29,6 +29,6 @@ Deutsche Hochschularbeiten stellen konventionell **beides** voran – einen engl
 - Bei [extraction_quality](metric:extraction_quality) ungleich `ok` ist die Sprachangabe wertlos: Auch Zeichenmüll hat eine Zeichenverteilung und wird zuverlässig irgendeiner Sprache zugeordnet.
 - Es gibt **eine** Antwort je Dokument. Eine deutsche Arbeit mit englischen Methodenkapiteln wandert Richtung `en`, ohne dass die Mischung sichtbar wird.
 - Die Angabe ist grob (`de`, `en`) – österreichisches, schweizerisches und bundesdeutsches Deutsch sind ein Wert.
-- Ist die Sprache weder `de` noch `en`, entfallen Zerlegung und Lesbarkeit vollständig, und damit 14 der 31 Metriken.
+- Ist die Sprache weder `de` noch `en`, entfallen Zerlegung und Lesbarkeit vollständig, und damit 14 der 34 Metriken.
 
 **Immer nach Sprache getrennt auswerten**, niemals über Sprachen hinweg: [Vergleich über Sprachgrenzen](concept:cross_language_comparison).

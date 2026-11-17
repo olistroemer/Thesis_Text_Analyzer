@@ -10,6 +10,8 @@ In MVP, **exactly one module is registered as the producer for each artefact kin
 
 Comparison of different libraries is done by **running the analysis twice into separate databases** with different code (e.g. swap `mod_extract_pymupdf` for `mod_extract_pdfminer` in the registry), then comparing the resulting DBs externally. No in-DB pivot is supported in MVP.
 
+**Note (2026-11-17, #22, [ADR-0024](0024-two-text-views.md)).** One module may produce several kinds: `mod_extract_pymupdf` produces both `raw_text` and `prose_text`. "Exactly one producer per kind" still holds; a swapped-in extractor replaces the producer of both views, so it must also write `prose_text` (SDD §7.3).
+
 ## Future selection mechanism (deferred)
 
 When this feature is un-deferred (see SDD §12), the design adds a three-layer producer selection: (1) module-declared default, (2) `tta.toml [producers]` table, (3) `--producer KIND=MODULE` CLI override. None of these exist in MVP.

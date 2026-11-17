@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-#: UTF-8 plain text file extracted from the PDF. Content - PII risk; never exported.
+#: UTF-8 plain text file extracted from the PDF, unfiltered. Content - PII risk; never exported.
 RAW_TEXT = "raw_text"
+
+#: UTF-8 plain text file: ``raw_text`` without monospaced and math-font spans
+#: (font filter v1, ADR-0024). Content - PII risk; never exported.
+PROSE_TEXT = "prose_text"
 
 #: JSON ``{"code": "en", "confidence": 0.99}``. Metric - no PII.
 LANGUAGE = "language"
@@ -21,7 +25,7 @@ TOKENS = "tokens"
 #: JSON: full PDF Info dict + XMP. Identifying (may include author/title); never exported.
 PDF_METADATA = "pdf_metadata"
 
-ALL_KINDS: frozenset[str] = frozenset({RAW_TEXT, LANGUAGE, TOKENS, PDF_METADATA})
+ALL_KINDS: frozenset[str] = frozenset({RAW_TEXT, PROSE_TEXT, LANGUAGE, TOKENS, PDF_METADATA})
 
 
 def validate_kinds(kinds: Iterable[str], *, owner: str = "<unknown>") -> None:

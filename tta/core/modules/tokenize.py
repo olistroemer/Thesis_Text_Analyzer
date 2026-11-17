@@ -14,7 +14,7 @@ in every spawned worker. Same pattern as `mod_extract_pymupdf`'s lazy
 unsupported language never pays it at all.
 
 Both failure modes are deliberately loud (#34, SDD Sec. 7.4): three
-modules and thirteen of the thirty-two metrics read `tokens`, so an
+modules and thirteen of the thirty-four metrics read `tokens`, so an
 empty-but-successful artefact would zero out nearly half the catalogue
 with no visible cause.
 """
@@ -25,6 +25,7 @@ import json
 
 from tta.core import artefact_kinds
 from tta.core.i18n import N_
+from tta.core.modules._textio import write_text_artefact
 from tta.core.modules.base import Module, ModuleSpec, NotApplicable, RunContext, RunResult
 
 #: Supported language codes -> NLTK language names (SDD Sec. 7.2).
@@ -65,8 +66,8 @@ def _segment(text: str, nltk_language: str) -> list[str]:
 class Tokenize(Module):
     spec = ModuleSpec(
         name="mod_tokenize",
-        version="0.2.0",
-        consumes=(artefact_kinds.RAW_TEXT, artefact_kinds.LANGUAGE),
+        version="0.3.0",  # 0.3.0: reads prose_text (#22, ADR-0024)
+        consumes=(artefact_kinds.PROSE_TEXT, artefact_kinds.LANGUAGE),
         produces_artefacts=(artefact_kinds.TOKENS,),
     )
 
@@ -78,7 +79,7 @@ class Tokenize(Module):
             raise NotApplicable(f"unsupported language: {language}")
         import nltk  # lazy: see the module docstring (#74)
 
-        text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
+        text = ctx.artefacts[artefact_kinds.PROSE_TEXT].read_text(encoding="utf-8")
         nltk_language = NLTK_LANGUAGES[language]
         sentences = [
             nltk.word_tokenize(sentence, language=nltk_language)
@@ -90,8 +91,10 @@ class Tokenize(Module):
             # honestly, an empty `tokens` file measures nothing (#34).
             raise NotApplicable(N_("no sentences in text"))
         out_path = ctx.workdir / "tokens.json"
-        out_path.write_text(
-            json.dumps({"sentences": sentences, "language": language}, ensure_ascii=False),
-            encoding="utf-8",
+        replaced = write_text_artefact(
+            out_path, json.dumps({"sentences": sentences, "language": language}, ensure_ascii=False)
         )
-        return RunResult(artefacts={artefact_kinds.TOKENS: out_path})
+        return RunResult(
+            artefacts={artefact_kinds.TOKENS: out_path},
+            diagnostics={"surrogates_replaced": replaced},
+        )

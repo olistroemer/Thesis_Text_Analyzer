@@ -118,7 +118,14 @@ def english_thesis(english_pdf):
 def build_ctx(tmp_path):
     """Factory for module RunContexts with inline artefact content."""
 
-    def _build(thesis=None, raw_text=None, language=None, tokens=None, pdf_metadata=None):
+    def _build(
+        thesis=None,
+        raw_text=None,
+        language=None,
+        tokens=None,
+        pdf_metadata=None,
+        prose_text=None,
+    ):
         workdir = tmp_path / "module_workdir"
         workdir.mkdir(exist_ok=True)
         artefacts = {}
@@ -126,6 +133,10 @@ def build_ctx(tmp_path):
             path = tmp_path / "raw_text.txt"
             path.write_text(raw_text, encoding="utf-8")
             artefacts[artefact_kinds.RAW_TEXT] = path
+        if prose_text is not None:
+            path = tmp_path / "prose_text.txt"
+            path.write_text(prose_text, encoding="utf-8")
+            artefacts[artefact_kinds.PROSE_TEXT] = path
         if language is not None:
             path = tmp_path / "language.json"
             path.write_text(json.dumps(language), encoding="utf-8")

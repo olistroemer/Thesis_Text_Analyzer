@@ -6,7 +6,7 @@ from tta.core import artefact_kinds
 
 
 def test_mvp_vocabulary_is_exactly_four_kinds():
-    assert artefact_kinds.ALL_KINDS == {"raw_text", "language", "tokens", "pdf_metadata"}
+    assert artefact_kinds.ALL_KINDS == {"raw_text", "prose_text", "language", "tokens", "pdf_metadata"}
 
 
 def test_validate_kinds_accepts_known_kinds():

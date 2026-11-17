@@ -7,7 +7,7 @@ see_also: [metric:avg_word_len, metric:flesch_reading_ease, metric:ttr, metric:b
 
 # Redundanz zwischen Metriken
 
-Das Werkzeug zeigt 31 Metriken. Sie messen keine 31 verschiedenen Dinge. Mehrere Paare laufen so eng zusammen, dass sie praktisch dieselbe Zahl sind – und wer beide berichtet, berichtet einen Befund zweimal und lässt ihn dadurch gewichtiger erscheinen, als er ist.
+Das Werkzeug zeigt 34 Metriken. Sie messen keine 34 verschiedenen Dinge. Mehrere Paare laufen so eng zusammen, dass sie praktisch dieselbe Zahl sind – und wer beide berichtet, berichtet einen Befund zweimal und lässt ihn dadurch gewichtiger erscheinen, als er ist.
 
 ## Die belegten Paare
 

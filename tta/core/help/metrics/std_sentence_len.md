@@ -17,7 +17,7 @@ Der Wechsel von Satzlängen gilt als Merkmal lebendigen Schreibens, und ihre Ver
 
 ## Warum sie in diesem Werkzeug nicht das misst
 
-Bei Hochschularbeiten liegt sie bei etwa 12 bis 15, gegenüber ungefähr 6 bis 10 in einem Korpus aus Aufsätzen. Dieser Unterschied ist **kein Stilunterschied**. Er entsteht daraus, dass der extrahierte Text nicht aus Prosa besteht, sondern aus Prosa **plus** Bildunterschriften, Tabellenzellen, Formelfragmenten, Programmcode, Überschriften und dem Literaturverzeichnis – alles unmarkiert, alles mit vollem Gewicht, und alles mit extremen Längen in beide Richtungen. Dazu kommen die Pseudo-Sätze der Satzerkennung, die den Wert weiter treiben.
+Bei Hochschularbeiten liegt sie bei etwa 12 bis 15, gegenüber ungefähr 6 bis 10 in einem Korpus aus Aufsätzen. Dieser Unterschied ist **kein Stilunterschied**. Er entsteht daraus, dass der extrahierte Text nicht aus Prosa besteht, sondern aus Prosa **plus** Bildunterschriften, Tabellenzellen, Überschriften und dem Literaturverzeichnis – alles unmarkiert, alles mit vollem Gewicht, und alles mit extremen Längen in beide Richtungen. Programmcode und Formeln sind vorher entfernt, Formelreste in normaler Schrift aber nicht. Dazu kommen die Pseudo-Sätze der Satzerkennung, die den Wert weiter treiben.
 
 **Auf rohem, aus PDF extrahiertem Text kann diese Metrik Schreibstil und Layoutartefakt nicht trennen.** Wer sie ernsthaft nutzen will, muss den Fließtext vorher bereinigen – Literaturverzeichnis, Code und Bildunterschriften entfernen –, oder das hohe Grundrauschen ausdrücklich als Grenze der Aussage benennen.
 

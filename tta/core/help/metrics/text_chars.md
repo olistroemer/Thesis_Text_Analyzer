@@ -4,12 +4,12 @@ title: Zeichen (extrahiert)
 kind: metric
 produced_by: mod_extract_pymupdf
 applicability: Immer vorhanden, sobald die Textextraktion gelaufen ist.
-see_also: [module:mod_extract_pymupdf, metric:char_count_alpha, metric:word_count]
+see_also: [module:mod_extract_pymupdf, metric:char_count_alpha, metric:word_count, metric:removed_monospace_chars, metric:removed_math_chars]
 ---
 
 # Zeichen (extrahiert) (`text_chars`)
 
-Die Zahl aller Zeichen im Text, den [mod_extract_pymupdf](module:mod_extract_pymupdf) aus der PDF-Datei gewonnen hat – **einschließlich** Leerzeichen, Zeilenumbrüchen, Ziffern und Satzzeichen.
+Die Zahl aller Zeichen im Text, den [mod_extract_pymupdf](module:mod_extract_pymupdf) aus der PDF-Datei gewonnen hat – **einschließlich** Leerzeichen, Zeilenumbrüchen, Ziffern und Satzzeichen, aber **ohne** Programmcode und Formeln. Was dafür entfernt wurde, zeigen [removed_monospace_chars](metric:removed_monospace_chars) und [removed_math_chars](metric:removed_math_chars). Werte aus früheren Programmversionen, die Code und Formeln noch mitgezählt haben, sind damit nicht vergleichbar.
 
 ## Wie man den Wert liest
 

@@ -177,9 +177,9 @@ def test_every_metric_has_a_help_page(pages, catalogue):
 
 
 def test_the_catalogue_is_the_size_the_documentation_claims(catalogue):
-    """SDD Sec. 7 / ADR-0011 rev. 6 and ADR-0012 rev. 3 all say 13 and 32."""
+    """SDD Sec. 7 / ADR-0011 rev. 7 and ADR-0012 rev. 3 all say 13 and 34."""
     modules, metrics = catalogue
-    assert (len(modules), len(metrics)) == (13, 32)
+    assert (len(modules), len(metrics)) == (13, 34)
 
 
 # -- check 3: cross-references ------------------------------------------------
@@ -415,12 +415,12 @@ def test_the_privacy_stubs_are_not_part_of_the_corpus(pages):
 
 
 def test_the_corpus_is_the_size_the_sdd_claims(pages):
-    """SDD Sec. 9.4: 13 module + 32 metric + 5 concept pages."""
+    """SDD Sec. 9.4: 13 module + 34 metric + 5 concept pages."""
     counts = {section: 0 for section in SECTIONS}
     for page in pages:
         if page.section in counts:
             counts[page.section] += 1
-    assert counts == {"modules": 13, "metrics": 32, "concepts": 5}
+    assert counts == {"modules": 13, "metrics": 34, "concepts": 5}
 
 
 # --- guide pages (ADR-0012 rev. 6, #92) ----------------------------------------

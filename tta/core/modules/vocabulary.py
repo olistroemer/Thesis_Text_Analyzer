@@ -23,7 +23,9 @@ from tta.core.modules.base import Module, ModuleSpec, RunContext, RunResult
 class Vocabulary(Module):
     spec = ModuleSpec(
         name="mod_vocabulary",
-        version="0.2.0",  # 0.2.0: hapax_ratio split into token- and type-variant
+        # 0.2.0: hapax_ratio split into token- and type-variant;
+        # 0.3.0: tokens come from prose_text (#22, ADR-0024)
+        version="0.3.0",
         consumes=(artefact_kinds.TOKENS,),
         produces_metrics=("ttr", "root_ttr", "hapax_token_ratio", "hapax_type_ratio", "yules_k"),
     )
