@@ -31,10 +31,12 @@ The matrix in `.github/workflows/ci.yml` (`build`) is one job per target, each r
 |---|---|---|
 | `linux-x86_64` | `ubuntu-latest` | `tta`, `tta-gui` |
 | `windows-x86_64` | `windows-latest` | `tta.exe`, `tta-gui.exe` |
-| `macos-arm64` | `macos-14` | `tta`, `tta-gui` |
+| `macos-arm64` | `macos-15` | `tta`, `tta-gui` |
 | `macos-x86_64` | `macos-15-intel` | `tta`, `tta-gui` |
 
 **Revision (2026-10-12): `macos-13` -> `macos-15-intel`.** GitHub retired the `macos-13` runner image, so the `macos-x86_64` job no longer failed - it never *started*: it sat queued until the run was cancelled hours later, and the `release` job that `needs` it was cancelled with it. `macos-15-intel` is GitHub's remaining Intel macOS image. The target is unchanged; only the machine that freezes it moved. The SDD's macOS 12+ floor is a property of the Python build the binary embeds, not of the runner's OS, and is not re-measured by this change.
+
+**Revision (2026-11-17): `macos-14` -> `macos-15`.** The `macos-arm64` job of run 44111150029 ended after about one second as *cancelled* with "The configuration 'macos-14-arm64-us-xl' is not supported": GitHub no longer accepts the `macos-14` image (it last built on 2026-10-14). The job now runs on `macos-15`, GitHub's current Apple-silicon image. As with the Intel move, only the build machine changes; the target and the per-target size ceiling stay, and the ceiling is confirmed by the next green run rather than re-measured here.
 
 Every push and pull request builds all four (a build that only runs on tags is a build that is broken on tag day). `fail-fast` is off, so one platform's failure still yields evidence about the other three. A push of a `v*` tag additionally runs a `release` job that collects the four artefacts and opens a **draft** GitHub release. The draft is deliberate: publishing is the step that needs the #8 licence sign-off, and that is a human decision, not CI's. (The second gate originally named here, the #6 GDPR statement, was closed on 2026-10-12: sections 6–7 are finalised as project-team wording, and the points a legal review would cover were settled by the project owner the same day ([ADR-0009](0009-privacy-as-code.md)), so #8 is the only remaining gate.)
 
