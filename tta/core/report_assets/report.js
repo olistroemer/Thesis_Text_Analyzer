@@ -265,7 +265,7 @@
     var div = el("g-tools"), counts = {}, years = {};
     visible(sel).forEach(function (t) {
       if (t.year === null) { return; }
-      years[t.year] = true;
+      years[t.year] = (years[t.year] || 0) + 1;
       var key = t.tool + "|" + t.year;
       counts[key] = (counts[key] || 0) + 1;
     });
@@ -282,10 +282,11 @@
         hovertemplate: D.tools[tool] + ": %{y}<extra>%{x}</extra>"
       });
     });
+    var peak = Math.max.apply(null, xs.map(function (y) { return years[y]; }));
     draw(div, traces, layout({
       barmode: "stack", bargap: 0.25,
       yaxis: { type: "linear", title: { text: S.theses }, rangemode: "tozero", gridcolor: C.grid,
-        linecolor: C.line, zeroline: false, tickformat: "d" }
+        linecolor: C.line, zeroline: false, dtick: peak <= 10 ? 1 : null, tickformat: "d" }
     }));
   }
 
