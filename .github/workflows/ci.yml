@@ -244,10 +244,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-tk tk-dev xvfb
 
-      # build extra = PyInstaller + pip-licenses; pymupdf extra = the fitz
-      # extractor the default module registry uses (ADR-0017 permits it).
+      # build extra = PyInstaller + pip-licenses. PyMuPDF (the fitz extractor
+      # the default module registry uses, ADR-0017) is a regular dependency.
       - name: Install build dependencies
-        run: pip install -e '.[build,pymupdf]'
+        run: pip install -e '.[build]'
 
       # Both are collected into the binary's nltk_data/ by the spec; a
       # missing cmudict made the binary download it at run time (#75).

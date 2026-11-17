@@ -116,7 +116,7 @@ def parse_requirement(spec):
     return name, extras
 
 
-def declared_closure(root="tta", extras=("pymupdf",)):
+def declared_closure(root="tta", extras=()):
     """Transitive closure of the DECLARED dependencies of ``root``.
 
     This is the set of components the binary is *supposed* to contain, read
