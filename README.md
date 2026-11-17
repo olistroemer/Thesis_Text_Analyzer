@@ -55,6 +55,8 @@ python -m pytest -q
 
 Änderungen am Verhalten werden zuerst im SDD bzw. in einem ADR beschrieben und danach umgesetzt. Das Bauen der ausführbaren Dateien beschreibt [ADR-0014](docs/adr/0014-distribution.md).
 
+Die Screenshots für die Projektdokumentation erzeugt `python tools/screenshots.py --out <Ordner>` (unter Windows, aus synthetischen Beispieldaten; einzelne Bilder mit `--only <Name> ...`, Liste mit `--list`). Details: [SDD §5.6.5](docs/SDD.md#565-documentation-screenshots) und der Docstring des Skripts.
+
 ## Lizenz
 
 GPL-3.0-or-later, siehe [`LICENSE`](LICENSE) und [ADR-0017](docs/adr/0017-license.md).

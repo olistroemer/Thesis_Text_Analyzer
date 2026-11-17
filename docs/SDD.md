@@ -238,6 +238,7 @@ tta/                              # repository root
 │   ├── core/                     # tested without any UI
 │   ├── modules/                  # per-module unit tests (QA-TEST)
 │   └── integration/              # exercises the CLI
+├── tools/                        # developer tooling, never frozen into a binary (§5.6.5)
 ├── docs/                         # this SDD, ADRs, user stories
 ├── research/cover_rules/        # researcher rulesets (repository-specific rules), never packaged (ADR-0023)
 └── pyproject.toml
@@ -359,6 +360,16 @@ One GitHub Actions workflow, `.github/workflows/ci.yml`, runs on every push, eve
 **The reference for what each step does and why is the comment above that step in `ci.yml`**, next to the code it explains; this section does not repeat it. `tests/packaging/test_ci_workflow.py` pins the gates themselves, so removing one fails the fast suite.
 
 **Action runtimes.** Only GitHub's own JavaScript actions are used (`checkout`, `setup-python`, `upload-artifact`, `download-artifact`), each pinned to a major tag whose `action.yml` declares `runs.using: node24`. GitHub deprecated the Node 20 runtime in 2025 and forces Node 20 actions onto Node 24 with a warning on every job; a major that still declares `node20` is therefore not used, and the suite rejects one (#35). To bump: read `runs.using` in the new major's `action.yml` and its release notes for breaking changes, before changing the tag.
+
+### 5.6.5 Documentation screenshots
+
+The screenshots of the GUI, the HTML report and the CLI used in the project documentation are produced by `tools/screenshots.py`, not by hand, so they can be regenerated after every UI change and stay comparable between runs. It is developer tooling in the sense of `packaging/`: not part of the `tta` package, not frozen into either binary, and with **no dependency beyond the dev environment** of §5.6.3.
+
+- **Demo data, never user data.** The tool generates synthetic PDFs (PyMuPDF, already in the `dev` extra) with invented titles and placeholder authors, builds a fresh project from them in a scratch directory and opens it directly with `Project.open` - not through `open_startup_project` - so neither the user's default project nor its last-project pointer is read or written (US-PROF-NO-TRACES). Its only writes are that scratch project and the output directory.
+- **Fixed conditions.** German UI (`[ui] locale = "de"` in the demo project, ADR-0020), fixed window sizes, a fixed worker count and a fixed report timestamp (`REPORT_TIMESTAMP`, 30 April 1916 10:24 - Claude Shannon's birthday, at 2^10 minutes past midnight). The in-progress image pauses the run thread on a gated event queue after a set number of finished theses, so it does not depend on timing.
+- **Capture.** Tk windows and the native export message box are captured with Win32 `PrintWindow` through `ctypes` and written as PNG by a small stdlib encoder (Pillow stays out, ADR-0014). The report and the CLI transcript - rendered by rich as SVG - are rasterised by a headless Chromium-family browser (Edge on Windows) running on a throwaway profile. Windows is the supported platform; the browser-rendered images also work on Linux.
+- **Selections.** `--only NAME ...` builds a subset; `--readme` builds the four images the repository README shows (main window after a run, report, help viewer, CLI). The details-panel image shows an `error` cell, because an `ok` cell opens no panel (§9.9).
+- **GUI hooks.** None: everything is driven through the `MainWindow`, `GridView` and help-viewer methods the GUI tests already use. A UI change that breaks the tool is caught by its smoke test (`tests/ui/test_screenshots_tool.py`, display-gated like the other GUI tests).
 
 ---
 
