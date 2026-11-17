@@ -1,0 +1,62 @@
+# Researcher ruleset (ADR-0023, #81, #82): rules derived from the ETH Zurich
+# Research Collection and from ETH's own forms.
+#
+# NOT shipped: this file lives outside the `tta` package, is never bundled
+# into a binary, and is applied only when a researcher passes it explicitly:
+#
+#     tta run --cover-rules research/cover_rules/eth_research_collection.toml
+#
+# Without it the app reads every thesis unmodified. Format: see
+# tta/core/cover_rules.py. Bump `version` on every change; the title-page
+# modules carry a hash of the rules in their version, so a changed ruleset
+# re-runs the affected theses.
+
+id = "eth-research-collection"
+version = "2"
+description = "ETH Zurich Research Collection download cover, its metadata block, and the ETH declaration of originality."
+max_pages = 3
+
+[[covers]]
+id = "eth-rc-download-cover"
+description = "ETH Research Collection download cover (current and older 'Research Collection ... Publication Date:' layout)."
+all_of = ["This page was generated automatically upon download from the ETH Zurich Research Collection"]
+evidence = """
+Reference corpus (2026-10 run): 2,093 of 2,283 ETH files start with it; none
+above ~35 MiB (the server stamps only smaller files, #20). 4 files carry two
+stacked covers, one in the older layout (20.500.11850_156350, _590186,
+_697973, _784413). The page holds repository metadata only: its type line
+equals the repository type and its 'Publication date:' the deposit date.
+"""
+
+[[not_evidence_pages]]
+id = "eth-rc-metadata-block"
+description = "A page carrying the Research Collection metadata block that was not skipped as a cover (e.g. a third stacked cover)."
+any_of = ["Publication date:", "Permanent link:", "Rights / license:"]
+min_any = 2
+evidence = """
+All 2,093 ETH cover pages carry all three labels (both layouts). Without the
+cover rule, the type line on such a page won in 11 of 22 cover-bearing files
+of the #81/#82 subset check, echoing the repository's type.
+"""
+
+[[date_cues]]
+id = "eth-rc-publication-date-label"
+description = "The Research Collection label 'Publication date:' precedes the deposit date, not the thesis date."
+pattern = "publication date"
+evidence = """
+ETH cover page, e.g. 20.500.11850_502040: 'Publication date: | 2021-07-19'
+(the title page itself says 'July 19, 2021'); equal to the OAI metadata date
+in 2,093 of 2,093 files.
+"""
+
+[[type_passages]]
+id = "eth-declaration-of-originality"
+description = "The ETH declaration of originality lists every paper type; its markers are no type statement."
+pattern = '(?:component of every|bestandteil jeder).{0,160}?(?:degree paper|abschlussarbeit|arbeit)'
+tail = 40
+evidence = """
+'The signed declaration of originality is a component of every semester
+paper, Bachelor's thesis, Master's thesis and any other degree paper ...' -
+on own pages 0-4 of 40 corpus docs; without the exclusion 4 of them would be
+classified 'semester' (#82 exploration).
+"""

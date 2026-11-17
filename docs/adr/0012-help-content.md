@@ -54,7 +54,7 @@ front matter with the one core parser, in its strict mode.
   (its metric row is the single `metric_values.value_num`/`value_text` pair).
   The single source of truth for the metric catalogue is
   `ModuleSpec.produces_metrics` over `core.modules.registry.default_registry()`,
-  which is what the gate reads. 13 modules, 31 metrics.
+  which is what the gate reads. 13 modules, 32 metrics (31 until `publication_date_precision`, #81).
 - **Check 4** said `core/help/references.bib`. The bibliography already exists
   as **`docs/references.bib`**, cited by the SDD, `docs/model-limitations.md`
   and `docs/dependencies.md`, and that file is authoritative. A second copy

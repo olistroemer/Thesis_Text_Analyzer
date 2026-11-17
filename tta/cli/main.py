@@ -28,6 +28,7 @@ from tta.core import events
 from tta.core import i18n
 from tta.core import privacy_metadata
 from tta.core.config import load_config
+from tta.core.cover_rules import CoverRulesError, load_cover_ruleset
 from tta.core.db import migrator
 from tta.core.discovery import collect_pdfs
 from tta.core.export import ExportPolicy, export_database, export_profiling
@@ -609,15 +610,46 @@ def _collect_pdfs(inputs: tuple[Path, ...]) -> list[Path]:
 @click.option("--open-report", is_flag=True,
               help=_("Write the HTML report and open it in a browser when the run "
                      "finishes (off by default; Sec. 9.8.3, #70)."))
+@click.option("--cover-rules", "cover_rules_path",
+              type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None,
+              help=_("Researcher option: apply the repository rules in this file "
+                     "(skip cover pages, ignore pages and passages that are no "
+                     "evidence) when reading the title page. Without it every thesis "
+                     "is read unmodified. Theses analysed with and without a ruleset "
+                     "are kept apart: changing the choice re-analyses the title-page "
+                     "modules."))
 @click.option("--format", "fmt", type=click.Choice(["human", "json"]), default="human")
 @click.pass_context
-def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None:
+def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report,
+        cover_rules_path) -> None:
     """Add INPUTS (PDF files or directories) and run analyses.
 
     Without INPUTS, runs on all known theses. Default mode runs missing,
     stale, and previously-errored pairs; --rerun runs everything. Thesis type
     is detected during the run (mod_classify_thesis_type), not set on add.
+
+    --cover-rules is the researcher-only ruleset of ADR-0023 (a CLI-only
+    option under ADR-0003 rev. 2026-11-17). Without it no repository rule
+    applies and the text is read unmodified, exactly as in the GUI. With it
+    the two title-page modules carry the ruleset in their version, so the
+    planner re-runs them whenever the choice changes and runs with and
+    without it are never mixed.
     """
+    cover_rules = None
+    if cover_rules_path is not None:
+        try:
+            cover_rules = load_cover_ruleset(cover_rules_path)
+        except CoverRulesError as exc:
+            raise click.BadParameter(str(exc), param_hint="--cover-rules") from exc
+        stderr.print(
+            _("cover rules: {id} version {version} ({fingerprint}), {count} rule(s)").format(
+                id=cover_rules.id,
+                version=cover_rules.version,
+                fingerprint=cover_rules.fingerprint(),
+                count=len(cover_rules.rule_ids()),
+            ),
+            markup=False,
+        )
     with open_project(ctx, create=True) as project:
         pdfs = _collect_pdfs(inputs)
         if pdfs:
@@ -642,7 +674,9 @@ def run(ctx, inputs, modules, rerun, dry_run, workers, fmt, open_report) -> None
             events.ThesisCompleted,
             lambda e: stderr.print(f"thesis {e.thesis_id} done: {e.summary}", markup=False),
         )
-        runner = project.make_runner(bus=bus, workers=workers)
+        runner = project.make_runner(
+            registry=default_registry(cover_rules), bus=bus, workers=workers
+        )
         try:
             plan = runner.plan(modules=list(modules) or None, rerun=rerun)
         except KeyError as exc:

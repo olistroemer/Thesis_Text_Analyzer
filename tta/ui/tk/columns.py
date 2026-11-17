@@ -74,6 +74,7 @@ COLUMN_LABELS: dict[str, str] = {
     "modification_year": N_("Modified (year)"),
     "publication_year": N_("Publication year"),
     "publication_year_source": N_("Publication year source"),
+    "publication_date_precision": N_("Publication date precision"),
     "has_outline": N_("Bookmarks"),
     "extraction_quality": N_("Extraction quality"),
     "thesis_type": N_("Thesis type"),
@@ -116,7 +117,8 @@ COLUMN_HELP: dict[str, str] = {
     ),
     "file": N_("File name of the thesis PDF. Double-click to open the PDF."),
     "type": N_(
-        "Detected thesis type (bachelor / master / unspecified); blank until analysed."
+        "Detected thesis type (bachelor, master, diploma, magister, ...); "
+        "blank until analysed."
     ),
     # artefact presence columns (extended mode)
     "raw_text": N_("Cached extracted plain text. Double-click to open it."),
@@ -138,12 +140,17 @@ COLUMN_HELP: dict[str, str] = {
     "publication_year_source": N_(
         "Which signal set the publication year (title page vs PDF metadata)."
     ),
+    "publication_date_precision": N_(
+        "How precise the date behind the publication year is: day, month, "
+        "semester, year or year range."
+    ),
     "has_outline": N_("Whether the PDF carries a bookmarks/outline tree."),
     "extraction_quality": N_(
         "Verdict on how reliable the extracted text is (ok vs garbled)."
     ),
     "thesis_type": N_(
-        "Detected degree from the title page: bachelor, master, or unspecified."
+        "Detected degree from the first pages: bachelor, master, diploma, "
+        "magister, MAS, licentiate, semester paper, doctoral or unspecified."
     ),
     "language_code": N_("Detected primary language as an ISO 639 code."),
     "language_confidence": N_("Confidence of the language detection, from 0 to 1."),

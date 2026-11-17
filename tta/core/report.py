@@ -32,6 +32,7 @@ from pathlib import Path
 import tta
 from tta.core.db.repository import Repository
 from tta.core.i18n import _, active_locale, format_datetime, format_integer, format_number
+from tta.core.types import thesis_type_label
 
 TRUSTWORTHY_METRICS = ("avg_word_len", "std_sentence_len", "yules_k", "flesch_reading_ease")
 
@@ -463,7 +464,9 @@ def _chart_length_over_time(data: ReportData) -> str:
     grouped: dict[str, list[tuple[int, float]]] = {}
     for year, word_count, thesis_type in points:
         grouped.setdefault(thesis_type, []).append((year, word_count))
-    series = _fold_series(sorted(grouped.items()))
+    series = _fold_series(
+        [(thesis_type_label(name), pairs) for name, pairs in sorted(grouped.items())]
+    )
     years = [year for year, _words, _type in points]
     words = [count for _year, count, _type in points]
 
@@ -505,7 +508,7 @@ def _chart_length_over_time(data: ReportData) -> str:
             + "</title></line>"
         )
     rows = [
-        [_fmt_year(year), thesis_type, _fmt(word_count)]
+        [_fmt_year(year), thesis_type_label(thesis_type), _fmt(word_count)]
         for year, word_count, thesis_type in sorted(points)
     ]
     caption = '<p class="note">%s</p>' % _esc(
@@ -522,7 +525,11 @@ def _chart_length_over_time(data: ReportData) -> str:
 
 
 def _chart_length_by_type(data: ReportData) -> str:
-    present = [(name, values) for name, values in sorted(data.words_by_type.items()) if values]
+    present = [
+        (thesis_type_label(name), values)
+        for name, values in sorted(data.words_by_type.items())
+        if values
+    ]
     if not present:
         return _empty(_("No word counts recorded yet."))
     boxes = [(name, box_stats(values), values) for name, values in present]
@@ -799,7 +806,9 @@ def _card(term: str, value: str, note: str = "") -> str:
 def _summary_cards(data: ReportData) -> str:
     languages = " ".join(f"{k}={n}" for k, n in sorted(data.by_language.items())) or "-"
     years = f"{data.year_range[0]}-{data.year_range[1]}" if data.year_range else "-"
-    types = " | ".join(f"{k}: {n}" for k, n in sorted(data.by_type.items())) or _(
+    types = " | ".join(
+        f"{thesis_type_label(k)}: {n}" for k, n in sorted(data.by_type.items())
+    ) or _(
         "no type detected"
     )
     median = format_number(data.median_words, 0) if data.median_words is not None else "-"

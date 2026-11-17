@@ -1,7 +1,7 @@
 # ADR-0019: Thesis type by detection — no add-time dialog, override columns dropped
 
-**Status:** Accepted (revision 2 - `diploma` added as a third detected type, #67)
-**Date:** 2026-07-22 (rev. 2: 2026-08-26)
+**Status:** Accepted (revision 3 - corpus-grounded markers over the first five pages, classes `magister`, `mas`, `licentiate`, `semester`, `doctoral` added, #82; revision 2 - `diploma` added as a third detected type, #67)
+**Date:** 2026-07-22 (rev. 2: 2026-08-26, rev. 3: 2026-11-17)
 **Drivers:** US-PROF-ATTRS (group analyses by bachelor/master), US-PROF-COMPARE (bachelor-vs-master side-by-side), US-RES-LOW-FRICTION (five-step contribute loop, no friction on add), ADR-0004 (modules only ever write metrics), ADR-0006 rev. 4 (lazy hashing / instant add), ADR-0011 (module catalogue). Resolves #9. (ADR-0018 is the ASCII-source policy — this is the next free number.)
 
 ## Context
@@ -40,6 +40,36 @@ akademischen Grades Diplom-Ingenieur") is a strong genuine signal and the abbrev
 actually appears on title pages is `Dipl.-Ing.`, which does not contain it. The residual risk is a supervisor
 credited with the unabbreviated title; accepted, and revisitable with the labeled-set validation below.
 
+## Rev. 3: markers grounded in the reference corpus, eight classes (#82)
+
+The #82 exploration (cached `raw_text` of the 3,262-file reference corpus, 268 hand-labelled documents) found the rev. 2 classifier right for only 57 % of the sample (73 % weighted to the corpus). Three causes: on 92 % of ETH files the first page is the repository's download cover, whose type line is the repository's metadata (equal to it in 2,063 of 2,093 files); the HU series reprints state the type in an imprint on page 3-4, outside a one-page window; and the abbreviations in the keyword set (`m.sc`, `b.sc`, ...) are author and supervisor titles. The repository's own type is wrong for about 1 thesis in 7 (the ETH "master" set holds 274 Diplomarbeiten, 24 MAS papers, 4 Lizentiatsarbeiten; the HU "master" set 63 Diplomarbeiten and 52 Magisterarbeiten), so it cannot replace detection either.
+
+**Decision ("type markers v1"; catalogue with corpus evidence per marker: [`titlepage-rules.md`](../titlepage-rules.md) section 3):**
+
+- **Window:** the document's own pages 0-4 (99 % of first true markers), normalised as before plus letter-spaced words collapsed.
+- **Markers are spelled-out type/degree phrases only** (Bachelorarbeit, Master's Thesis, "for the degree of Master", Diplomarbeit, Diplom-Ingenieur, Magisterarbeit, Lizentiatsarbeit, Master of Advanced Studies, Nachdiplomarbeit, Semesterarbeit, Studienarbeit, ...). **Never markers:** abbreviations (B.Sc., M.Sc., M.A., Dipl.-X, Dr. sc., Dr. rer./phil., PhD, lic. phil.), bare "Dissertation", "Masterstudiengang", bare "Diplom", bare "Master..." - rev. 2's `m.sc`/`b.sc`/`m.eng`/`b.eng` keywords are dropped. Marker choice is what matters: the broad catalogue with abbreviations gives 93 % on the sample, the strong markers 98 %.
+- **The earliest valid marker wins** (251 of 253 labelled documents with a marker). **MAS override:** a "Master of Advanced Studies / MAS-Programm" marker on the same page as a winning master marker gives `mas`. "Nachdiplomarbeit" is not "Diplomarbeit".
+- **No exclusion tied to a repository or institution.** The exploration excluded the ETH declaration of originality (it lists every paper type); that rule is researcher data now ([ADR-0023](0023-researcher-cover-rulesets.md)), as is any rule for a repository's pages. A possessive exclusion ("his doctoral thesis") was tested and changed nothing; it is not adopted.
+- **Tier 2:** a bare "Bachelor/Master of <field>" counts only when no tier-1 marker is in the window (net positive in the corpus: ~7 right, 1-3 wrong - the author's previous degree).
+- **Repository pages are read unmodified.** A download cover page in front of the title page is own page 0, and its type line counts like any other marker. Researchers can load a ruleset through the CLI that skips cover pages, ignores metadata pages and excludes form passages ([ADR-0023](0023-researcher-cover-rulesets.md)).
+- **Evidence** goes to `diagnostics`: the deciding rule, the winning marker (class, marker id, own page, tier) and every marker hit with its exclusion reason.
+
+**Class set.** {`bachelor`, `master`, `diploma`, `magister`, `mas`, `licentiate`, `semester`, `doctoral`, `unspecified`} (`tta.core.types.THESIS_TYPES`):
+
+| Class | Corpus docs | Why |
+|---|---:|---|
+| `magister` | 53 | unambiguous markers, precision 1.0 |
+| `mas` | 24 | Master of Advanced Studies / Nachdiplom: continuing education, not the consecutive master |
+| `licentiate` | 4 | Lizentiatsarbeit, precision 1.0 |
+| `semester` | 5 | Semester-/Studienarbeit, Focus Work; reliable as the earliest marker only |
+| `doctoral` | 0 | **no corpus evidence** - added because professors supervise doctorates (and ETH has a doctoral collection whose PDFs were never downloaded). Its markers are degree phrases only and produce 0 hits in the corpus, so they cost nothing there |
+
+Baccalaureate is **not** added (topic mentions only). "Not a thesis" is not a class: type markers cannot detect it.
+
+**Reference statistics vs reporting.** Only `bachelor` and `master` enter reference-corpus statistics (`tta.core.types.REFERENCE_THESIS_TYPES`, for #49); the research question is about them and the other classes are too rare to carry a baseline. Every class is **reported** to the user - grid, report (by-type counts, length-by-type) - under a translated label (`THESIS_TYPE_LABELS`), so a professor sees each thesis identified as what it is. The raw value stays the identity in the DB, the export and the CLI.
+
+**Results.** Exploration: 98.1 % on the sample (98.9 % weighted), tuned on that sample. Subset check of the implementation (63 type-labelled documents, see ADR-0023): with the ETH researcher ruleset identical to the exploration rule on 63 of 63 (60 right); on the default path 50 of 63 right - on the 22 ETH files with a cover page the cover's type line wins (11 of 22 right), HU is unaffected (30 of 30).
+
 ## US-PROF-ATTRS ↔ US-RES-LOW-FRICTION resolution
 
 Both stories are honoured: the professor still gets a bachelor/master grouping (US-PROF-ATTRS, US-PROF-COMPARE) — it is simply **computed** rather than entered, so the contribute loop keeps its five friction-free steps (US-RES-LOW-FRICTION). Correcting a mis-detected value is deferred to **editable metrics (#10)**: correction becomes a uniform property of *metrics* rather than a per-column override on `theses`, which is cleaner and gives one correction mechanism for every detected value. `theses.excluded` is unaffected — it is a genuine control field that must be set *before* a run (QA-PRIV), and stays a column (its toggle is #11).
@@ -62,8 +92,12 @@ Between this ADR (#9) and editable metrics (#10) there is **no in-app way to cor
 - ⚠️ No in-app correction until #10 (see interim gap).
 - ✅ Pre-Bologna German theses get their actual degree instead of `unspecified` (rev. 2, #67).
 - ⚠️ Detection quality rests on the title page naming the degree; a validation pass (F1 / confusion matrix) against the labeled exploration-harvest dataset is a deferred follow-up (the dataset is not part of this repo).
+- ✅ Rev. 3: the type the document states, not the repository's metadata, for the ~1 thesis in 7 where they differ; Magister, MAS, Lizentiat and semester papers no longer pass as master (#82).
+- ⚠️ Rev. 3: the `doctoral` markers have no corpus evidence; their precision is unknown until doctoral theses are analysed.
 
 ## Revisit when
 
 - Editable metrics (#10) land — the interim correction gap closes.
 - The labeled-set validation shows the heuristic needs more keywords/languages or an ML classifier — including whether `diplom-ingenieur` produces supervisor-title false positives in practice (#50 measures F1 / the confusion matrix over the value set as it now stands).
+- Doctoral theses enter a corpus: measure the `doctoral` markers.
+- Single-document marker forms seen in the exploration ("lavoro di diploma", "Assessorarbeit", "Master Project", "Thesis elective") gain more evidence.

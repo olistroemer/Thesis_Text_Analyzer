@@ -1,7 +1,7 @@
 # ADR-0003: CLI as first-class primary adapter
 
-**Status:** Accepted
-**Date:** 2026-06-03
+**Status:** Accepted (revision 2026-11-17 - the CLI's feature set is a superset of the GUI's)
+**Date:** 2026-06-03 (rev. 2026-10-12, rev. 2026-11-17)
 **Drivers:** US-RES-CLI, QA-TEST.
 
 ## Decision
@@ -32,6 +32,14 @@ tta doctor      dump diagnostics for a support / bug report
 
 **Revision (2026-10-12): the CLI reaches its users from source, not as a release binary.** Its users are the research team and technically versed power users, who check out the repository and run `pip install -e .` anyway; professors use the GUI. Releases therefore ship only `tta-gui` per target ([ADR-0014](0014-distribution.md)). The CLI is still frozen on every CI run, because the frozen CLI is the vehicle of the packaged-binary acceptance check (run -> list -> export on every target), but that binary is a test artefact and is not uploaded. "Peer of the GUI" now describes the feature surface, not the download. One consequence: `tta doctor` is not in a professor's hands as a frozen tool, so a professor's bug report goes through the research team, who run it from source.
 
+**Revision (2026-11-17): the CLI's feature set is a superset of the GUI's.** "Peer of the GUI" (and the SDD's former "equal in capability to the GUI") is sharpened into a rule with a direction:
+
+- **Everything the GUI can do, the CLI can do.** A GUI feature without a CLI path is a defect, not a design choice, unless decided as below.
+- **The CLI may additionally offer researcher and developer options** that a professor never needs and that the GUI therefore does not show. The first is the researcher ruleset of repository-specific rules, `tta run --cover-rules` ([ADR-0023](0023-researcher-cover-rulesets.md), #81/#82): it changes what the title-page modules read, is applied to the reference corpus by the research team, and has no meaning for a professor's own collection.
+- **Any other divergence is a deliberate, recorded decision.** A GUI-only feature, or a new CLI-only option, is weighed on its own and recorded in an ADR (a new one or a revision of the ADR that owns the feature) - it must not just happen because one adapter was extended and the other was not.
+
+This fits the revision above: the CLI reaches researchers from source, the GUI reaches professors as the release binary, so the extra surface lives exactly where its users are. CLI-only options must keep results distinguishable from the GUI's default behaviour wherever they change what a module computes (for the cover rules: the module version and `diagnostics` record the ruleset, ADR-0023), so data produced by the two adapters is never silently mixed.
+
 ## Output rules
 
 - Default to a pretty human-readable table on stdout.
@@ -60,4 +68,4 @@ The researcher persona iterates on modules and runs analyses headlessly. A CLI i
 
 ## Revisit when
 
-If the GUI grows features the CLI cannot easily mirror (e.g., interactive comparison views). The asymmetry should be documented but the CLI itself remains in scope.
+If the GUI grows features the CLI cannot easily mirror (e.g., interactive comparison views). Under the superset rule (revision 2026-11-17) such a feature is a recorded exception, decided in an ADR; the CLI itself remains in scope.

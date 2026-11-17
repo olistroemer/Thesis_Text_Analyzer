@@ -12,6 +12,7 @@ from tksheet import Sheet, num2alpha
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import Repository
 from tta.core.i18n import N_, _, format_integer
+from tta.core.types import thesis_type_label
 from tta.ui.tk import detail, grid_model
 from tta.ui.tk.columns import (
     ARTEFACT_COLUMNS,
@@ -171,7 +172,7 @@ class GridView(ttk.Frame):
                 bool(row.thesis.excluded),
                 STATE_GARBLED if row.garbled else "",
                 row.thesis.pdf_filename,
-                row.thesis_type,
+                thesis_type_label(row.thesis_type) if row.thesis_type else "",
             ]
             # bools, rendered as read-only checkboxes by _apply_artefact_columns
             line += [kind in row.artefacts for kind in self.artefact_kinds]

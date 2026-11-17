@@ -122,7 +122,7 @@ MODULES: tuple[ModuleEntry, ...] = (
     ModuleEntry("mod_classify_language", (Category.CONTENT,), (Category.METRIC,),
                 N_("detect the thesis language to select language-aware analyses")),
     ModuleEntry("mod_classify_thesis_type", (Category.CONTENT,), (Category.METRIC,),
-                N_("detect the degree (bachelor/master/diploma) from title-page keywords for grouping")),
+                N_("detect the degree (bachelor, master, diploma, magister, ...) from the first pages for grouping")),
     ModuleEntry("mod_tokenize", (Category.CONTENT,), (Category.CONTENT,),
                 N_("split the text into sentences and words for counting modules")),
     ModuleEntry("mod_surface_counts", (Category.CONTENT,), (Category.METRIC,),

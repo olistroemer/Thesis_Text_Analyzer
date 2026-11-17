@@ -82,8 +82,8 @@ def test_default_registry_matches_catalogue():
     assert names.index("mod_extract_pdf_metadata") < names.index(
         "mod_determine_publication_year"
     )
-    # 31 metrics across the catalogue (ADR-0011 rev. 3: +thesis_type,
+    # 32 metrics across the catalogue (ADR-0011 rev. 3: +thesis_type,
     # +publication_year, +publication_year_source; rev. 4: +file_size_bytes,
-    # +fs_modified_year)
+    # +fs_modified_year; rev. 6: +publication_date_precision, #81)
     metric_count = sum(len(m.spec.produces_metrics) for m in registry.in_topological_order())
-    assert metric_count == 31
+    assert metric_count == 32

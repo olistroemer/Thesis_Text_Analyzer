@@ -145,9 +145,9 @@ def test_every_metric_has_a_help_page(pages, catalogue):
 
 
 def test_the_catalogue_is_the_size_the_documentation_claims(catalogue):
-    """SDD Sec. 7 / ADR-0011 rev. 4 and ADR-0012 rev. 3 all say 13 and 31."""
+    """SDD Sec. 7 / ADR-0011 rev. 6 and ADR-0012 rev. 3 all say 13 and 32."""
     modules, metrics = catalogue
-    assert (len(modules), len(metrics)) == (13, 31)
+    assert (len(modules), len(metrics)) == (13, 32)
 
 
 # -- check 3: cross-references ------------------------------------------------
@@ -383,11 +383,11 @@ def test_the_privacy_stubs_are_not_part_of_the_corpus(pages):
 
 
 def test_the_corpus_is_the_size_the_sdd_claims(pages):
-    """SDD Sec. 9.4: 13 module + 31 metric + 5 concept pages."""
+    """SDD Sec. 9.4: 13 module + 32 metric + 5 concept pages."""
     counts = {section: 0 for section in SECTIONS}
     for page in pages:
         counts[page.section] += 1
-    assert counts == {"modules": 13, "metrics": 31, "concepts": 5}
+    assert counts == {"modules": 13, "metrics": 32, "concepts": 5}
 
 
 # --- the label/title gate (#79) ---------------------------------------------
