@@ -1,8 +1,11 @@
 """Runner: deterministic plan phase + stateful execute phase (ADR-0013).
 
 - ``plan()`` is side-effect-free and returns a ``RunPlan``.
-- ``execute()`` spawns one worker process per concurrent thesis; modules
-  within a thesis run serially in topological order inside the worker.
+- ``execute()`` runs up to ``workers`` theses concurrently, each in a
+  long-lived worker process that takes one thesis after another (ADR-0013
+  "Worker reuse", #86); modules within a thesis run serially in topological
+  order inside the worker. A worker that had to be killed or died is replaced
+  lazily; one that has served long enough is recycled.
 - Workers compute in isolation and stream results over a queue; the main
   process is the sole DB writer (one transaction per thesis) and the sole
   event publisher.
@@ -21,14 +24,16 @@ import logging
 import multiprocessing
 import queue as queue_mod
 import shutil
+import signal
 import tempfile
 import time
 import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tta.core import events
+from tta.core import events, procmem
 from tta.core.artefacts import ArtefactStore
 from tta.core.db.repository import TIMEOUT_REASON_PREFIX, Repository
 from tta.core.modules.base import Module, NotApplicable, RunContext, RunResult
@@ -39,8 +44,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODULE_TIMEOUT_S = 300.0
 
-#: Wall-clock ceiling for one thesis, measured from its worker's spawn
-#: (ADR-0013 "Timeouts", #56). The per-module timeout alone left one document
+#: Wall-clock ceiling for one thesis, measured from its hand-over to a worker
+#: (ADR-0013 "Timeouts", #56; from the worker's spawn until workers became
+#: long-lived, #86). The per-module timeout alone left one document
 #: able to burn ``module_timeout x modules attempted`` - up to ~60 min with the
 #: 12-module catalogue - and is blind to time spent *between* modules. Derived
 #: from ADR-0015: <= 15 s per thesis on the supported tier, ~4x slower on the
@@ -76,6 +82,23 @@ DEAD_WORKER_GRACE_S = 0.25
 #: Seconds to wait for a terminated worker to actually exit before escalating
 #: ``terminate()`` (SIGTERM) to ``kill()`` (SIGKILL).
 JOIN_TIMEOUT_S = 5.0
+
+#: Theses one long-lived worker serves before it is retired and a fresh one
+#: takes its slot (ADR-0013 "Recycling", #86). A safeguard, not a fix: with
+#: mod_readability's cache sweep a worker plateaus at ~330-350 MB, and this
+#: bounds a growth a future library could bring back. One start-up (~2.6 s)
+#: per 250 theses is ~10 ms per thesis. ``0`` disables it.
+DEFAULT_RECYCLE_AFTER_THESES = 250
+
+#: Resident set (MiB) above which a worker is retired after its thesis (#86):
+#: ADR-0015's per-worker memory budget. Read *after* the thesis, so a large
+#: PDF's transient peak that is given back does not trigger it. ``0`` disables
+#: it; where no stdlib probe exists (macOS) only the thesis count applies.
+DEFAULT_RECYCLE_ABOVE_RSS_MB = 1024.0
+
+#: How often an idle worker checks that the process that spawned it is still
+#: alive, so a hard-killed main process cannot leave workers waiting forever.
+WORKER_IDLE_POLL_S = 1.0
 
 # Plan reasons per run mode (SDD Sec. 5.5): default = missing + stale +
 # errored; --rerun = everything; --stale-only = the default set minus missing.
@@ -134,6 +157,9 @@ class RunSummary:
     error: int = 0
     cancelled: bool = False
     duration_s: float = 0.0
+    #: worker processes started by this run - one per slot plus replacements
+    #: and recycles (ADR-0013 "Worker reuse", #86)
+    workers_spawned: int = 0
 
 
 @dataclass
@@ -257,12 +283,59 @@ def _worker_main(thesis_plan: ThesisPlan, queue) -> None:
     queue.put(("thesis_done", None))
 
 
+def _worker_loop(tasks, results) -> None:
+    """Long-lived worker process (ADR-0013 "Worker reuse", #86).
+
+    Takes one ``ThesisPlan`` after another from its own task queue and runs
+    each through ``_worker_main``, so the libraries a module imports stay
+    loaded for the next thesis. Exits on the ``None`` sentinel, on a broken
+    queue, or when its parent process is gone.
+
+    SIGINT is ignored: a terminal delivers Ctrl-C to every process in its
+    foreground group (on Windows: on its console), but cancelling is the main
+    process's decision (ADR-0013 "Cancellation"). A worker killed by it would
+    be recorded as a worker death, and a cancelled pair must stay ``missing``.
+    """
+    with contextlib.suppress(ValueError, OSError, AttributeError):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    parent = multiprocessing.parent_process()
+    while True:
+        try:
+            thesis_plan = tasks.get(timeout=WORKER_IDLE_POLL_S)
+        except queue_mod.Empty:
+            if parent is not None and not parent.is_alive():
+                return  # orphaned: nobody will ever hand over a thesis again
+            continue
+        except (EOFError, OSError):
+            return
+        if thesis_plan is None:
+            return
+        _worker_main(thesis_plan, results)
+
+
+@dataclass(eq=False)
+class _Slot:
+    """One long-lived worker process with its own task and result queues.
+
+    Each worker gets its *own* result queue, so a message can always be
+    attributed to the one thesis in flight on that worker - the property every
+    liveness guard relies on (#86)."""
+
+    process: multiprocessing.Process
+    tasks: object
+    results: object
+    #: theses handed over to this worker so far (recycling, #86)
+    served: int = 0
+    #: monotonic stamp of the retirement sentinel, None while in service
+    retired_monotonic: float | None = None
+
+
 @dataclass
 class _ActiveWorker:
     process: multiprocessing.Process
     queue: object
     plan: ThesisPlan
-    #: monotonic stamp taken at spawn, for the per-thesis deadline (#56)
+    #: monotonic stamp taken at hand-over, for the per-thesis deadline (#56, #86)
     started_monotonic: float = field(default_factory=time.monotonic)
     outcomes: list[_ModuleOutcome] = field(default_factory=list)
     current_module: str | None = None
@@ -272,6 +345,10 @@ class _ActiveWorker:
     dead_since: float | None = None
     #: terminated by a cancel rather than finishing or failing (#57)
     abandoned: bool = False
+    #: the long-lived worker this thesis was handed to (#86)
+    slot: _Slot | None = None
+    #: the runner terminated the process; it must never take another thesis
+    terminated: bool = False
 
 
 class Runner:
@@ -285,6 +362,9 @@ class Runner:
         module_timeout_s: float | None = None,
         thesis_timeout_s: float | None = None,
         cancel_grace_s: float | None = None,
+        recycle_after_theses: int | None = None,
+        recycle_above_rss_mb: float | None = None,
+        rss_probe: Callable[[int], int | None] | None = None,
     ):
         self.repo = repo
         self.store = store
@@ -301,6 +381,15 @@ class Runner:
         self.cancel_grace_s = (
             DEFAULT_CANCEL_GRACE_S if cancel_grace_s is None else cancel_grace_s
         )
+        # ADR-0013 "Recycling" (#86): two safeguards, 0 disables either.
+        self.recycle_after_theses = int(
+            DEFAULT_RECYCLE_AFTER_THESES if recycle_after_theses is None else recycle_after_theses
+        )
+        self.recycle_above_rss_mb = float(
+            DEFAULT_RECYCLE_ABOVE_RSS_MB if recycle_above_rss_mb is None else recycle_above_rss_mb
+        )
+        #: pid -> resident bytes or None; injectable so tests need no real leak
+        self.rss_probe = rss_probe or procmem.rss_bytes
         self._cancelled = False
         self._cancel_requested_monotonic: float | None = None
 
@@ -489,42 +578,72 @@ class Runner:
         # 'spawn' start method (#32): the GUI calls execute() on a background
         # thread, and forking a multi-threaded process risks deadlocks (and
         # emits a DeprecationWarning on Linux). spawn is thread-safe and
-        # matches the macOS/Windows default. _worker_main is module-level and
-        # its args (ThesisPlan with frozen ModuleSpec instances) pickle cleanly.
+        # matches the macOS/Windows default. _worker_loop is module-level and
+        # its ThesisPlans (frozen ModuleSpec instances) pickle cleanly.
         ctx = multiprocessing.get_context("spawn")
         pending = list(plan.theses)
         active: list[_ActiveWorker] = []
+        # Long-lived workers (ADR-0013 "Worker reuse", #86). ``slots`` is every
+        # worker this run started that has not been reaped yet, whatever its
+        # state - the ``finally`` below needs all of them; ``idle`` holds live
+        # workers waiting for a thesis; ``retiring`` those sent the sentinel.
+        slots: list[_Slot] = []
+        idle: list[_Slot] = []
+        retiring: list[_Slot] = []
 
-        while pending or active:
-            while pending and len(active) < self.workers and not self._cancelled:
-                tp = pending.pop(0)
-                queue = ctx.Queue()
-                process = ctx.Process(target=_worker_main, args=(tp, queue), daemon=True)
-                process.start()
-                active.append(_ActiveWorker(process=process, queue=queue, plan=tp))
-                self.bus.publish(events.ThesisStarted(tp.thesis.id))
-            if self._cancelled and not active:
-                break
+        try:
+            while pending or active:
+                while pending and len(active) < self.workers and not self._cancelled:
+                    tp = pending.pop(0)
+                    slot = self._take_idle(idle, slots)
+                    if slot is None:
+                        slot = self._spawn_slot(ctx, slots, summary)
+                    slot.tasks.put(tp)
+                    slot.served += 1
+                    logger.debug(
+                        "thesis %s -> worker pid %s (thesis no. %d on it)",
+                        tp.thesis.id, slot.process.pid, slot.served,
+                    )
+                    active.append(
+                        _ActiveWorker(
+                            process=slot.process, queue=slot.results, plan=tp, slot=slot
+                        )
+                    )
+                    self.bus.publish(events.ThesisStarted(tp.thesis.id))
+                if idle and (not pending or self._cancelled):
+                    # Nothing left to hand over: let idle workers go now
+                    # rather than hold their memory through the run's tail.
+                    while idle:
+                        self._retire(idle.pop(), retiring)
+                self._reap_retiring(retiring, slots)
+                if self._cancelled and not active:
+                    break
 
-            for worker in active:
-                self._drain_queue(worker)
-                if worker.done:
-                    continue
-                if self._cancel_grace_elapsed():
-                    self._abandon_worker(worker)
-                elif self._module_timed_out(worker):
-                    self._kill_timed_out(worker)
-                elif self._thesis_timed_out(worker):
-                    self._kill_over_deadline(worker)
-                elif self._worker_died(worker):
-                    self._reap_dead_worker(worker)
-            finished = [w for w in active if w.done]
-            active = [w for w in active if not w.done]
-            for worker in finished:
-                worker.process.join(timeout=5)
-                self._commit_thesis(worker, summary)
-            if active:
-                time.sleep(0.02)
+                for worker in active:
+                    self._drain_queue(worker)
+                    if worker.done:
+                        continue
+                    if self._cancel_grace_elapsed():
+                        self._abandon_worker(worker)
+                    elif self._module_timed_out(worker):
+                        self._kill_timed_out(worker)
+                    elif self._thesis_timed_out(worker):
+                        self._kill_over_deadline(worker)
+                    elif self._worker_died(worker):
+                        self._reap_dead_worker(worker)
+                finished = [w for w in active if w.done]
+                active = [w for w in active if not w.done]
+                # Every finished worker is placed (idle / retiring / dropped)
+                # before any commit, so a commit that raises cannot strand a
+                # process outside the bookkeeping the ``finally`` relies on.
+                for worker in finished:
+                    self._release(worker, idle, retiring, slots)
+                for worker in finished:
+                    self._commit_thesis(worker, summary)
+                if active:
+                    time.sleep(0.02)
+        finally:
+            self._shutdown_slots(slots, idle, retiring)
 
         summary.theses_skipped = len(pending)
         # A cancel that caught the last thesis of a batch in flight skips
@@ -544,6 +663,168 @@ class Runner:
         else:
             self.bus.publish(events.RunCompleted(summary))
         return summary
+
+    # -- worker slots (ADR-0013 "Worker reuse", #86) --------------------------
+
+    def _spawn_slot(self, ctx, slots: list[_Slot], summary: RunSummary) -> _Slot:
+        tasks, results = ctx.Queue(), ctx.Queue()
+        process = ctx.Process(target=_worker_loop, args=(tasks, results), daemon=True)
+        slot = _Slot(process=process, tasks=tasks, results=results)
+        slots.append(slot)  # tracked before start(), so the finally sees it
+        process.start()
+        summary.workers_spawned += 1
+        logger.debug("spawned worker pid %s", process.pid)
+        return slot
+
+    def _take_idle(self, idle: list[_Slot], slots: list[_Slot]) -> _Slot | None:
+        """A live idle worker for the next thesis, or None. A worker that died
+        while idle held no thesis, so it is dropped without any record."""
+        while idle:
+            slot = idle.pop()
+            if slot.process.is_alive():
+                return slot
+            logger.warning(
+                "idle worker pid %s died (exitcode=%s) - replacing it",
+                slot.process.pid,
+                slot.process.exitcode,
+            )
+            self._drop_slot(slot, slots)
+        return None
+
+    def _release(
+        self,
+        worker: _ActiveWorker,
+        idle: list[_Slot],
+        retiring: list[_Slot],
+        slots: list[_Slot],
+    ) -> None:
+        """Place a finished thesis's worker: back to ``idle`` if it may take
+        another thesis, to ``retiring`` if it is due for recycling, dropped if
+        it was terminated or died (a replacement is spawned lazily)."""
+        slot = worker.slot
+        if slot is None:  # not one of ours (unit tests drive guards directly)
+            return
+        if worker.terminated or not slot.process.is_alive():
+            self._drop_slot(slot, slots)
+        elif self._due_for_recycling(slot):
+            self._retire(slot, retiring)
+        else:
+            idle.append(slot)
+
+    def _due_for_recycling(self, slot: _Slot) -> bool:
+        """ADR-0013 "Recycling": a safeguard against growth, read after each
+        thesis. The probe may report None (macOS, an exited process); then
+        only the thesis count applies."""
+        if self.recycle_after_theses > 0 and slot.served >= self.recycle_after_theses:
+            logger.info(
+                "recycling worker pid %s after %d theses", slot.process.pid, slot.served
+            )
+            return True
+        if self.recycle_above_rss_mb > 0:
+            try:
+                rss = self.rss_probe(slot.process.pid)
+            except Exception:  # noqa: BLE001 - a probe must never fail the run
+                rss = None
+            if rss is not None and rss > self.recycle_above_rss_mb * 1024 * 1024:
+                logger.info(
+                    "recycling worker pid %s: resident set %.0f MiB above %.0f MiB",
+                    slot.process.pid,
+                    rss / (1024 * 1024),
+                    self.recycle_above_rss_mb,
+                )
+                return True
+        return False
+
+    def _retire(self, slot: _Slot, retiring: list[_Slot]) -> None:
+        """Ask an idle worker to exit (sentinel); it is reaped once gone."""
+        with contextlib.suppress(Exception):
+            slot.tasks.put(None)
+        slot.retired_monotonic = time.monotonic()
+        retiring.append(slot)
+
+    def _reap_retiring(self, retiring: list[_Slot], slots: list[_Slot]) -> None:
+        """Drop retired workers that have exited; stop one that ignores the
+        sentinel for longer than the join timeout. Does not block otherwise."""
+        for slot in list(retiring):
+            overdue = (
+                slot.retired_monotonic is not None
+                and time.monotonic() - slot.retired_monotonic > JOIN_TIMEOUT_S
+            )
+            if slot.process.is_alive():
+                if not overdue:
+                    continue
+                logger.warning(
+                    "retired worker pid %s ignored its sentinel - stopping it",
+                    slot.process.pid,
+                )
+                self._stop_process(slot.process)
+            retiring.remove(slot)
+            self._drop_slot(slot, slots)
+
+    def _drop_slot(self, slot: _Slot, slots: list[_Slot]) -> None:
+        """Forget a worker that has exited: reap it and close both of its
+        queues. One that somehow still runs stays tracked for the finally."""
+        slot.process.join(timeout=0 if not slot.process.is_alive() else JOIN_TIMEOUT_S)
+        if slot.process.is_alive():
+            return
+        self._close_queues(slot)
+        if slot in slots:
+            slots.remove(slot)
+
+    @staticmethod
+    def _close_queues(slot: _Slot) -> None:
+        for q in (slot.tasks, slot.results):
+            with contextlib.suppress(Exception):
+                # The reader may be dead with data still buffered; never let
+                # the feeder thread block the interpreter's exit on it.
+                q.cancel_join_thread()
+            with contextlib.suppress(Exception):
+                q.close()
+
+    def _shutdown_slots(
+        self, slots: list[_Slot], idle: list[_Slot], retiring: list[_Slot]
+    ) -> None:
+        """No worker outlives ``execute()`` - on a normal end, on cancel, and
+        when an exception escapes the loop (#86).
+
+        Idle and retiring workers get the sentinel and a bounded join; any
+        other live worker can only be one still holding a thesis (an exception
+        escaped mid-run), and is terminated at once. Whatever has not exited
+        by the deadline is terminated, then killed."""
+        resting = set(map(id, idle)) | set(map(id, retiring))
+        for slot in slots:
+            with contextlib.suppress(Exception):
+                if not slot.process.is_alive():
+                    continue
+                if id(slot) not in resting:
+                    slot.process.terminate()
+                elif slot.retired_monotonic is None:
+                    slot.tasks.put(None)
+        deadline = time.monotonic() + JOIN_TIMEOUT_S
+        for slot in slots:
+            with contextlib.suppress(Exception):
+                slot.process.join(timeout=max(0.0, deadline - time.monotonic()))
+        for slot in slots:
+            with contextlib.suppress(Exception):
+                if slot.process.is_alive():
+                    logger.warning(
+                        "worker pid %s did not exit at shutdown - stopping it",
+                        slot.process.pid,
+                    )
+                    self._stop_process(slot.process)
+            self._close_queues(slot)
+        slots.clear()
+        idle.clear()
+        retiring.clear()
+
+    @staticmethod
+    def _stop_process(process) -> None:
+        """SIGTERM, then SIGKILL if it will not go. Bounded by construction."""
+        process.terminate()
+        process.join(timeout=JOIN_TIMEOUT_S)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=JOIN_TIMEOUT_S)
 
     # -- execute internals --------------------------------------------------
 
@@ -708,7 +989,9 @@ class Runner:
         )
 
     def _terminate(self, worker: _ActiveWorker) -> None:
-        """SIGTERM, then SIGKILL if it will not go. Bounded by construction."""
+        """SIGTERM, then SIGKILL if it will not go. Bounded by construction.
+        A terminated worker is never handed another thesis (#86)."""
+        worker.terminated = True
         worker.process.terminate()
         worker.process.join(timeout=JOIN_TIMEOUT_S)
         if worker.process.is_alive():

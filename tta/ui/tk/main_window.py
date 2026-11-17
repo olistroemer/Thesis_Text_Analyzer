@@ -376,6 +376,12 @@ class MainWindow:
         self._run_workers = 1  # Runner.workers: theses run concurrently (#54)
         self._run_theses_total = 0  # len(plan.theses) - the n/N denominator (#58)
         self._run_theses_done = 0  # ThesisCompleted count (#58)
+        # #86: the theses handed to fresh workers - the first ``workers`` of the
+        # plan - carry the one-off library start-up inside their module timers,
+        # so their observations stay out of the in-run fit; the start-up is a
+        # separate, counted-down term instead (progress.WORKER_STARTUP_MS).
+        self._run_cold: set[int] = set()
+        self._run_started: float | None = None  # monotonic, at RunStarted
         self._run_thesis_ordinals: dict[int, int] = {}  # thesis id -> 1-based plan position
         self._eta_shown: float | None = None  # damped ETA actually on screen
 
@@ -404,6 +410,8 @@ class MainWindow:
         self._run_workers = max(1, runner_workers or self.project.config.workers or 1)
         self._run_theses_total = len(plan.theses)
         self._run_theses_done = 0
+        self._run_cold = {tp.thesis.id for tp in plan.theses[: self._run_workers]}
+        self._run_started = time.monotonic()
         self._run_thesis_ordinals = {
             tp.thesis.id: index for index, tp in enumerate(plan.theses, start=1)
         }
@@ -436,7 +444,8 @@ class MainWindow:
         self._run_in_flight.pop(pair, None)
         self._run_done += 1
         size = self._run_sizes.get(event.thesis_id, 0)
-        if event.status == "ok" and event.duration_ms and size > 0:
+        cold = event.thesis_id in self._run_cold  # carries the start-up (#86)
+        if event.status == "ok" and event.duration_ms and size > 0 and not cold:
             self._run_obs.setdefault(event.module_name, []).append(
                 (float(size), float(event.duration_ms))
             )
@@ -477,9 +486,18 @@ class MainWindow:
             theses_total=self._run_theses_total,
             theses_done=self._run_theses_done,
             thesis_floors=self._run_floors,
+            startup_ms=self._startup_ahead_ms(now),
         )
         self._eta_shown = progress.damp_eta(self._eta_shown, est.eta_seconds)
         self._progress_label.configure(text=self._progress_text(est, self._eta_shown))
+
+    def _startup_ahead_ms(self, now: float) -> float:
+        """The workers' one-off start-up still ahead of the run (#86): they
+        start in parallel at RunStarted, so it counts down with the run's own
+        elapsed time and is spent after ~``WORKER_STARTUP_MS``."""
+        if self._run_started is None:
+            return 0.0
+        return max(progress.WORKER_STARTUP_MS - (now - self._run_started) * 1000.0, 0.0)
 
     def _progress_text(self, est: progress.Progress, eta: float | None) -> str:
         """Label for the run progress bar (SDD Sec. 9.2, #58).

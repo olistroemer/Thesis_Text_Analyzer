@@ -42,7 +42,7 @@ REPO_ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
 # get_cmudict) and NLTK's LazyCorpusLoader caches the reader, so once any test
 # in this process has loaded cmudict from the real data path, no monkeypatching
 # of nltk.data.path can make it look absent again. A subprocess is also what a
-# real run is - one process per thesis, spawned.
+# real run is - a spawned worker process (ADR-0013).
 _PROBE = r"""
 import json, os, socket, sys
 
@@ -162,3 +162,112 @@ def test_no_outbound_connection_when_cmudict_is_missing(tmp_path):
     assert "cmudict" in result["en"]
     assert "nltk.downloader cmudict" in result["en"]
     assert "QA-PRIV" in result["en"]
+
+
+# -- #86: no per-text state survives a run in a reused worker ----------------
+
+LONG_GERMAN = (
+    "Die Hyphenierungsbibliothek merkt sich jedes Wort, das sie jemals getrennt "
+    "hat. Ein langlebiger Arbeitsprozess darf deshalb nicht mit dem Korpus "
+    "wachsen. Donaudampfschifffahrtsgesellschaftskapitaensmuetze."
+)
+
+
+def _textstat_cache_sizes():
+    """currsize of every lru cache textstat exposes, minus the kept loaders."""
+    import sys
+
+    from tta.core.modules.readability import _KEPT_TEXTSTAT_CACHES
+
+    sizes = {}
+    for name, module in list(sys.modules.items()):
+        if module is None or not name.startswith("textstat"):
+            continue
+        for attr, obj in vars(module).items():
+            info = getattr(obj, "cache_info", None)
+            if attr not in _KEPT_TEXTSTAT_CACHES and callable(info):
+                sizes[f"{name}.{attr}"] = info().currsize
+    return sizes
+
+
+def _pyphen_word_cache_sizes():
+    import pyphen
+
+    return {str(path): len(hd.cache) for path, hd in pyphen.hdcache.items()}
+
+
+def test_run_leaves_no_per_text_cache_behind(build_ctx):
+    """Workers are long-lived (#86): textstat's text-keyed lru caches and
+    pyphen's unbounded per-word cache grew a worker by ~2.4 MB per thesis.
+    After a run both must be empty, while the per-language loaders stay warm."""
+    import textstat
+
+    from tta.core.modules.readability import flesch_reading_ease
+
+    # without the sweep, a raw textstat call does fill both caches
+    textstat.set_lang("de")
+    flesch_reading_ease(LONG_GERMAN)
+    assert any(_textstat_cache_sizes().values())
+    assert any(_pyphen_word_cache_sizes().values())
+
+    for language, text in (("de", LONG_GERMAN), ("en", ENGLISH)):
+        Readability().run(build_ctx(raw_text=text, language={"code": language, "confidence": 1.0}))
+        assert not any(_textstat_cache_sizes().values()), _textstat_cache_sizes()
+        assert not any(_pyphen_word_cache_sizes().values()), _pyphen_word_cache_sizes()
+
+    from textstat.backend.utils import get_pyphen
+
+    assert get_pyphen.cache_info().currsize >= 1  # the dictionary stays loaded
+
+
+def test_clearing_the_caches_changes_no_result(build_ctx):
+    """The caches are pure: a score computed after a sweep equals the score
+    computed with warm caches, so no module version bump is needed (#86)."""
+    import textstat
+
+    from tta.core.modules.readability import drop_text_caches, flesch_reading_ease
+
+    for language, text in (("de", LONG_GERMAN), ("en", ENGLISH)):
+        textstat.set_lang(language)
+        warm = [flesch_reading_ease(text) for _ in range(2)]
+        drop_text_caches()
+        cold = Readability().run(
+            build_ctx(raw_text=text, language={"code": language, "confidence": 1.0})
+        ).metrics["flesch_reading_ease"]
+        again = Readability().run(
+            build_ctx(raw_text=text, language={"code": language, "confidence": 1.0})
+        ).metrics["flesch_reading_ease"]
+        assert warm[0] == warm[1] == cold == again
+
+
+def test_cache_sweep_survives_changed_library_internals(build_ctx, monkeypatch):
+    """The sweep reaches into textstat/pyphen internals, so a future version
+    that renames or retypes them must not fail the module (#86)."""
+    import pyphen
+    import textstat
+
+    class Exploding:
+        def cache_clear(self):
+            raise RuntimeError("internals changed")
+
+    monkeypatch.setattr(pyphen, "hdcache", object(), raising=False)  # no .values()
+    monkeypatch.setattr(textstat, "_tta_test_exploding", Exploding(), raising=False)
+    metrics = Readability().run(
+        build_ctx(raw_text=ENGLISH, language={"code": "en", "confidence": 1.0})
+    ).metrics
+    assert metrics["flesch_reading_ease"] > 80
+
+    class OddDict:
+        cache = None  # not a dict any more
+
+    monkeypatch.setattr(pyphen, "hdcache", {"x": OddDict()}, raising=False)
+    metrics = Readability().run(
+        build_ctx(raw_text=GERMAN, language={"code": "de", "confidence": 1.0})
+    ).metrics
+    assert "flesch_reading_ease" in metrics
+
+    monkeypatch.delattr(pyphen, "hdcache")  # gone altogether
+    metrics = Readability().run(
+        build_ctx(raw_text=GERMAN, language={"code": "de", "confidence": 1.0})
+    ).metrics
+    assert "flesch_reading_ease" in metrics

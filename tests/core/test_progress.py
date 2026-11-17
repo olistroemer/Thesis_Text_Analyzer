@@ -44,12 +44,12 @@ def test_before_any_evidence_no_eta_but_bar_still_advances():
 
 
 def test_a_pair_in_flight_is_enough_evidence_for_a_prior_estimate():
-    """Once the run is actually running, the ADR-0015 priors give a number - the
+    """Once the run is actually running, the measured priors give a number - the
     label does not sit on 'estimating...' waiting for the first completion."""
     est = progress.estimate(
         0, 5, [(1, "mod_tokenize", NOMINAL)], {}, in_flight={(1, "mod_tokenize"): 0.0}
     )
-    assert est.eta_seconds == pytest.approx(4.0)  # mod_tokenize budget: 4 s
+    assert est.eta_seconds == pytest.approx(progress.MODULE_PRIOR_MS["mod_tokenize"] / 1000)
 
 
 # -- affine cost model (#54 defect 3) ---------------------------------------
@@ -86,12 +86,12 @@ def test_unknown_module_uses_its_own_prior_not_the_mean_of_known_rates():
     """#54 defect 3: on a first run only the extractor has reported, and the old
     mean-of-known-rates fallback priced every other module at the extractor's
     rate - the visible 'grossly inflated' ETA. Each module gets its own
-    ADR-0015 prior instead."""
+    measured prior instead (#86)."""
     extractor = {"mod_extract_pymupdf": (0.0, 6000.0 / NOMINAL)}  # 6 s at nominal size
-    est = progress.estimate(
-        1, 2, [(1, "mod_surface_counts", NOMINAL)], extractor  # 200 ms budget
+    est = progress.estimate(1, 2, [(1, "mod_surface_counts", NOMINAL)], extractor)
+    assert est.eta_seconds == pytest.approx(
+        progress.MODULE_PRIOR_MS["mod_surface_counts"] / 1000
     )
-    assert est.eta_seconds == pytest.approx(0.2)
     assert est.eta_seconds < 6.0  # not priced at the extractor's rate
 
 
@@ -101,13 +101,42 @@ def test_zero_or_degenerate_cost_model_falls_back_to_the_prior():
     assert est.eta_seconds == pytest.approx(progress.prior_cost("mod_tokenize")[0] / 1000)
 
 
-def test_prior_cost_reproduces_the_adr_0015_budget_at_nominal_size():
+def test_prior_cost_reproduces_the_measured_prior_at_nominal_size():
     intercept, slope = progress.prior_cost("mod_tokenize")
-    assert intercept + slope * NOMINAL == pytest.approx(progress.MODULE_BUDGET_MS["mod_tokenize"])
+    assert intercept + slope * NOMINAL == pytest.approx(progress.MODULE_PRIOR_MS["mod_tokenize"])
     assert intercept > 0 and slope > 0  # split, so a huge PDF is not free either
-    # a module ADR-0015 does not budget gets the documented default
+    # a module absent from the table gets the documented default
     unknown = progress.prior_cost("mod_not_in_the_table")
-    assert unknown[0] + unknown[1] * NOMINAL == pytest.approx(progress.DEFAULT_BUDGET_MS)
+    assert unknown[0] + unknown[1] * NOMINAL == pytest.approx(progress.DEFAULT_PRIOR_MS)
+
+
+def test_priors_cover_the_catalogue_and_describe_a_warm_worker():
+    """#86: the priors are a reused worker's per-thesis cost (~0.83 s in sum
+    on the reference machine), no longer ADR-0015's ceilings (15 s), which
+    contained the per-thesis library start-up."""
+    from tta.core.modules.registry import default_registry
+
+    names = {m.spec.name for m in default_registry().in_topological_order(None)}
+    assert names <= set(progress.MODULE_PRIOR_MS)
+    assert 500.0 < sum(progress.MODULE_PRIOR_MS.values()) < 2000.0
+
+
+def test_worker_start_up_is_added_once_not_per_thesis():
+    """Long-lived workers pay the library start-up once each, in parallel
+    (#86): the makespan grows by the start-up once, whatever the worker or
+    thesis count, and not at all once it is spent."""
+    costs = {"mod_a": (1000.0, 0.0)}
+    remaining = [(tid, "mod_a", NOMINAL) for tid in range(1, 9)]  # 8 theses x 1 s
+    base = progress.estimate(0, 8, remaining, costs, workers=4)
+    started = progress.estimate(
+        0, 8, remaining, costs, workers=4, startup_ms=progress.WORKER_STARTUP_MS
+    )
+    assert base.eta_seconds == pytest.approx(2.0)
+    assert started.eta_seconds == pytest.approx(2.0 + progress.WORKER_STARTUP_MS / 1000)
+    spent = progress.estimate(0, 8, remaining, costs, workers=4, startup_ms=-5.0)
+    assert spent.eta_seconds == pytest.approx(2.0)
+    # nothing left: no start-up is owed either
+    assert progress.estimate(8, 8, [], costs, startup_ms=2600.0).eta_seconds == 0.0
 
 
 # -- parallelism (#54 defect 2) ---------------------------------------------

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
+import sys
 from collections.abc import Iterator
 
 from tta.core import artefact_kinds
@@ -26,6 +28,13 @@ SUPPORTED = ("en", "de")
 #: The NLTK corpus ``textstat`` uses for English syllable counting. Release
 #: builds bundle it (ADR-0014); from source it may be absent.
 CMUDICT = "corpora/cmudict"
+
+logger = logging.getLogger(__name__)
+
+#: textstat's cached loaders whose result is per-language, not per-text: the
+#: loaded CMU dictionary and the ``Pyphen`` instance. Kept, so a reused worker
+#: does not reload them for every thesis (#86).
+_KEPT_TEXTSTAT_CACHES = frozenset({"get_cmudict", "get_pyphen"})
 
 
 def flesch_reading_ease(text: str) -> float:
@@ -92,4 +101,62 @@ class Readability(Module):
         text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
         # textstat's language is process-global state; set it on every run
         textstat.set_lang(language)
-        return RunResult(metrics={"flesch_reading_ease": flesch_reading_ease(text)})
+        try:
+            score = flesch_reading_ease(text)
+        finally:
+            drop_text_caches()
+        return RunResult(metrics={"flesch_reading_ease": score})
+
+
+def drop_text_caches() -> None:
+    """Free the per-text state textstat and pyphen keep between calls (#86).
+
+    Workers are long-lived (ADR-0013 rev. 3), so whatever a library caches
+    survives into the next thesis. Two caches grow with the corpus: textstat
+    wraps ~50 functions in ``lru_cache`` keyed by the full text (128 entries
+    each, so up to 128 thesis texts per function), and pyphen memoises every
+    word it ever hyphenated in an unbounded dict per dictionary. Together they
+    grew a worker by ~2.4 MB per thesis. Both are pure caches, so clearing them
+    changes no result; the per-language loaders in ``_KEPT_TEXTSTAT_CACHES``
+    stay warm.
+
+    This reaches into library internals, so it is defensive by construction:
+    anything it does not find (a renamed attribute, a different cache type in a
+    future version) is skipped, and nothing here can fail the module's run.
+    Only modules that are already imported are visited - nothing is imported.
+    """
+    try:
+        _clear_pyphen_word_caches()
+        _clear_textstat_lru_caches()
+    except Exception:  # noqa: BLE001 - a cache sweep must never fail a run
+        logger.debug("could not clear textstat/pyphen caches", exc_info=True)
+
+
+def _clear_pyphen_word_caches() -> None:
+    pyphen = sys.modules.get("pyphen")
+    hdcache = getattr(pyphen, "hdcache", None)
+    values = getattr(hdcache, "values", None)
+    if not callable(values):
+        return
+    for hyph_dict in list(values()):
+        clear = getattr(getattr(hyph_dict, "cache", None), "clear", None)
+        if callable(clear):
+            with contextlib.suppress(Exception):
+                clear()
+
+
+def _clear_textstat_lru_caches() -> None:
+    for name, module in list(sys.modules.items()):
+        if module is None or not (name == "textstat" or name.startswith("textstat.")):
+            continue
+        try:
+            members = list(vars(module).items())
+        except TypeError:
+            continue
+        for attr, obj in members:
+            if attr in _KEPT_TEXTSTAT_CACHES:
+                continue
+            with contextlib.suppress(Exception):
+                clear = getattr(obj, "cache_clear", None)
+                if callable(clear):
+                    clear()
