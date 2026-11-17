@@ -1,9 +1,12 @@
 """Shared helpers for the GUI tests."""
 
+import gc
 import os
 import sys
 import tempfile
 import tkinter
+
+import pytest
 
 
 def _pin_tcl_std_channels():
@@ -78,3 +81,26 @@ def display_available() -> bool:
         return True
     except tkinter.TclError:
         return False
+
+
+@pytest.fixture(autouse=True)
+def _finalise_tk_garbage_on_the_main_thread():
+    """Collect each GUI test's Tk garbage here, on the main thread (#89).
+
+    A destroyed window's widgets form reference cycles, so its tkinter
+    ``Variable``s and ``Image``s are freed by the cyclic GC - in whichever
+    thread happens to trigger the next collection. Their ``__del__`` calls into
+    Tcl; from a thread other than the interpreter's, tkinter hands the call to
+    the interpreter thread and waits up to about a second for that thread to
+    be in ``mainloop()``, then raises "main thread is not in main loop". A
+    destroyed root's interpreter never is again, so every such object costs a
+    second. A later test that runs ``MainWindow``'s background run thread made
+    that thread inherit a hundred-odd of them: it sat in planning for over a
+    minute (test_run_cancel on Linux CI). Worse, freeing the last reference to
+    an interpreter off its thread aborts the process (Tcl_AsyncDelete).
+
+    The app itself is not exposed: it has one root, alive and in mainloop()
+    for the whole run, so those calls are simply marshalled to the GUI thread.
+    """
+    yield
+    gc.collect()

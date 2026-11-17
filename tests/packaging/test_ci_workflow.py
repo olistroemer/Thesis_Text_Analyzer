@@ -138,9 +138,14 @@ def test_every_target_os_in_adr_0014_has_a_matrix_entry(workflow_source):
     for target in ("linux-x86_64", "windows-x86_64", "macos-arm64",
                    "macos-x86_64"):
         assert "target: %s" % target in matrix, "no %s matrix entry" % target
-    for runner in ("ubuntu-latest", "windows-latest", "macos-14",
+    # Match the os: lines exactly - a bare substring test also passed on a
+    # comment that merely mentioned a retired runner, and "macos-15" is a
+    # prefix of "macos-15-intel".
+    runners = set(re.findall(r"^\s*os:\s*(\S+)\s*$", matrix, re.MULTILINE))
+    for runner in ("ubuntu-latest", "windows-latest", "macos-15",
                    "macos-15-intel"):
-        assert runner in matrix, "no %s runner" % runner
+        assert runner in runners, "no %s runner" % runner
+    assert "macos-14" not in runners, "macos-14 is no longer accepted (ADR-0014)"
 
 
 def test_windows_binaries_are_addressed_with_their_exe_suffix(workflow_source):
