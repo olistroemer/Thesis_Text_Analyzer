@@ -541,7 +541,13 @@ _WINDOWS: dict[str, HelpWindow] = {}
 
 
 def open_help(parent, topic=None, topics=None) -> HelpWindow:
-    """Open the help viewer, raising the existing one instead of stacking."""
+    """Open the help viewer, raising the existing one instead of stacking.
+
+    A fresh viewer starts on its first topic (the cover page). An open one
+    is raised and focused; it changes page only when ``topic`` is given
+    (Sec. 9.4.1, #92) - the Help button passes none, so the reader's page
+    survives, while the privacy entry passes its page.
+    """
     key = str(parent)
     window = _WINDOWS.get(key)
     try:
@@ -554,6 +560,7 @@ def open_help(parent, topic=None, topics=None) -> HelpWindow:
     else:
         window.deiconify()
         window.lift()
+        window.focus_force()
     if topic is not None:
         window.show_topic(topic)
     return window

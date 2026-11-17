@@ -16,7 +16,7 @@ from tkinter import messagebox, ttk
 
 from tta.core import events, progress, report
 from tta.core.config import save_config
-from tta.core.help_corpus import COVER_URI, PRIVACY_URI
+from tta.core.help_corpus import PRIVACY_URI
 from tta.core.i18n import N_, _, format_integer
 from tta.core.modules.registry import default_registry
 from tta.core.project import Project
@@ -661,11 +661,12 @@ class MainWindow:
         self._help_window = open_help(self.root, topic=PRIVACY_URI)
 
     def _show_help(self) -> None:
-        """Open the help viewer on its cover page (Sec. 9.4.1, #72, #92).
-        An open viewer is navigated back to the cover and raised."""
+        """Open the help viewer, which starts on its cover page (Sec. 9.4.1,
+        #72, #92). An open viewer is only raised and focused: the page the
+        reader is on stays (owner decision 2026-11-17)."""
         from tta.ui.tk.help_view import open_help
 
-        self._help_window = open_help(self.root, topic=COVER_URI)
+        self._help_window = open_help(self.root)
 
     def _show_about(self) -> None:
         """Version, attribution, SPDX licence and the copyable repository URL

@@ -62,9 +62,11 @@ def test_the_privacy_entry_opens_the_help_viewer_on_the_rendered_statement(tmp_p
 
 
 @display_only
-def test_both_help_entries_share_one_viewer_and_navigate_it(tmp_path):
-    """Help topics -> cover page, Privacy statement -> privacy page, and a
-    second activation navigates the open viewer instead of stacking one."""
+def test_the_help_entries_share_one_viewer(tmp_path, monkeypatch):
+    """Sec. 9.4.1 (#92, owner decision 2026-11-17): a fresh viewer starts on
+    the cover page; with one open, Help topics and the ? Help button only
+    raise and focus it and keep its page, while Privacy statement always
+    navigates to the privacy page. Never a second window."""
     from tta.core.help_corpus import COVER_URI, PRIVACY_URI
     from tta.ui.tk.main_window import MainWindow
 
@@ -77,14 +79,23 @@ def test_both_help_entries_share_one_viewer_and_navigate_it(tmp_path):
             window.root.update_idletasks()
             viewer = window._help_window
             assert viewer.current.uri == COVER_URI
+            focused = []
+            monkeypatch.setattr(viewer, "focus_force", lambda: focused.append(1))
+            # the reader moves on; Help must not pull them back to the cover
+            viewer.show_topic("metric:yules_k")
+            window._toolbar_buttons["? Help"].invoke()
+            window.root.update_idletasks()
+            assert window._help_window is viewer
+            assert viewer.current.uri == "metric:yules_k"
+            menu.invoke(labels.index("Help topics"))
+            window.root.update_idletasks()
+            assert viewer.current.uri == "metric:yules_k"
+            assert len(focused) == 2
             menu.invoke(labels.index("Privacy statement"))
             window.root.update_idletasks()
             assert window._help_window is viewer
             assert viewer.current.uri == PRIVACY_URI
-            window._toolbar_buttons["? Help"].invoke()
-            window.root.update_idletasks()
-            assert window._help_window is viewer
-            assert viewer.current.uri == COVER_URI
+            assert len(focused) == 3
             helps = [
                 top
                 for top in window.root.winfo_children()
