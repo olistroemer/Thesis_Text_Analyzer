@@ -18,7 +18,7 @@ The MVP comprises:
 
 - A core analysis library (`tta.core`) that runs analyses, persists results, and exports them — toolkit- and UI-agnostic.
 - A graphical UI (`tta.ui.tk`) targeted at professors who provide thesis files.
-- A command-line interface (`tta.cli`) targeted at researchers and developers, equal in capability to the GUI.
+- A command-line interface (`tta.cli`) targeted at researchers and developers. Its feature set is a **superset** of the GUI's: everything the GUI can do, the CLI can do, and the CLI may additionally offer researcher/developer options (e.g. the cover-page rulesets of [ADR-0023](adr/0023-researcher-cover-rulesets.md)). Any other divergence between the two - a GUI-only feature, or a new CLI-only feature - is a deliberate decision recorded in an ADR ([ADR-003](adr/0003-cli-first-class.md) rev. 2026-11-17).
 
 Out of MVP scope but architecturally accommodated: LM-based modules (perplexity, embedding burstiness), citation/quotation validity modules, smarter figure analysis, full i18n, plugin loaders. See [§12](#12-out-of-mvp-scope).
 
@@ -206,7 +206,7 @@ flowchart LR
     core --> sqlite
 ```
 
-[ADR-002](adr/0002-ui-core-boundary.md) makes this binding: `core/*` must not import from `ui/*` or `cli/*`. The boundary is CI-enforced. The CLI ships with MVP as a peer of the GUI ([ADR-003](adr/0003-cli-first-class.md)).
+[ADR-002](adr/0002-ui-core-boundary.md) makes this binding: `core/*` must not import from `ui/*` or `cli/*`. The boundary is CI-enforced. The CLI ships with MVP as a peer of the GUI whose feature set is a superset of the GUI's ([ADR-003](adr/0003-cli-first-class.md) rev. 2026-11-17).
 
 ## 5.2 Package layout
 
@@ -1019,7 +1019,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 |---|---|---|
 | [0001](adr/0001-ui-toolkit.md) | UI toolkit — tkinter + tksheet | Accepted |
 | [0002](adr/0002-ui-core-boundary.md) | Hexagonal UI/core boundary | Accepted |
-| [0003](adr/0003-cli-first-class.md) | CLI as first-class primary adapter | Accepted |
+| [0003](adr/0003-cli-first-class.md) | CLI as first-class primary adapter; its feature set is a superset of the GUI's | Accepted (rev. 2026-11-17) |
 | [0004](adr/0004-module-contract.md) | Module contract — `ModuleSpec` + ABC, tag-based artefact kinds | Accepted |
 | [0005](adr/0005-producer-swap-deferred.md) | Producer swap deferred; comparison via separate runs | Accepted |
 | [0006](adr/0006-schema.md) | Database schema — unified, source-aware, append-only history | Accepted (rev. 5 — lazy SHA-256; instant add; excluded-thesis scrub) |
