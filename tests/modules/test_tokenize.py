@@ -11,7 +11,7 @@ from tta.core.modules.tokenize import Tokenize
 
 def test_tokenizes_english_sentences(build_ctx):
     ctx = build_ctx(
-        raw_text="The cat sat on the mat. A dog barked loudly!",
+        prose_text="The cat sat on the mat. A dog barked loudly!",
         language={"code": "en", "confidence": 0.99},
     )
     result = Tokenize().run(ctx)
@@ -23,7 +23,7 @@ def test_tokenizes_english_sentences(build_ctx):
 
 def test_german_uses_german_punkt(build_ctx):
     ctx = build_ctx(
-        raw_text="Die Katze sa\u00df z.B. auf der Matte. Der Hund schlief im Garten.",
+        prose_text="Die Katze sa\u00df z.B. auf der Matte. Der Hund schlief im Garten.",
         language={"code": "de", "confidence": 0.99},
     )
     payload = json.loads(
@@ -35,16 +35,16 @@ def test_german_uses_german_punkt(build_ctx):
 
 
 def test_unsupported_language_is_not_applicable(build_ctx):
-    ctx = build_ctx(raw_text="Ciao mondo.", language={"code": "it", "confidence": 0.99})
+    ctx = build_ctx(prose_text="Ciao mondo.", language={"code": "it", "confidence": 0.99})
     with pytest.raises(NotApplicable, match="unsupported language: it"):
         Tokenize().run(ctx)
 
 
 def test_no_sentences_is_not_applicable_not_an_empty_artefact(build_ctx):
-    """#34: an empty/word-less raw_text used to be written out as a
+    """#34: an empty/word-less text used to be written out as a
     perfectly successful but EMPTY tokens artefact, silently zeroing the
     three tokens-consuming modules (13 of the 31 metrics)."""
-    ctx = build_ctx(raw_text="   \n\f  \n ", language={"code": "de", "confidence": 0.99})
+    ctx = build_ctx(prose_text="   \n\f  \n ", language={"code": "de", "confidence": 0.99})
     with pytest.raises(NotApplicable, match="no sentences in text"):
         Tokenize().run(ctx)
     assert not (ctx.workdir / "tokens.json").exists()
@@ -61,7 +61,7 @@ def test_missing_punkt_tab_fails_loud_with_actionable_first_line(build_ctx, monk
     nltk.tokenize._get_punkt_tokenizer.cache_clear()
     monkeypatch.setattr(nltk.data, "path", ["/nonexistent-nltk-data"])
     ctx = build_ctx(
-        raw_text="The cat sat on the mat.", language={"code": "en", "confidence": 0.99}
+        prose_text="The cat sat on the mat.", language={"code": "en", "confidence": 0.99}
     )
     try:
         with pytest.raises(TokenizerDataMissing) as excinfo:

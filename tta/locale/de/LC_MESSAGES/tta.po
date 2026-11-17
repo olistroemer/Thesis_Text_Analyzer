@@ -43,31 +43,31 @@ msgstr ""
 msgid "- (reads the PDF directly)"
 msgstr "- (liest die PDF-Datei direkt)"
 
-#: tta/core/privacy_metadata.py:251
+#: tta/core/privacy_metadata.py:252
 msgid "1. What we process"
 msgstr "1. Was verarbeitet wird"
 
-#: tta/core/privacy_metadata.py:277
+#: tta/core/privacy_metadata.py:278
 msgid "2. Module-level processing"
 msgstr "2. Verarbeitung auf Modulebene"
 
-#: tta/core/privacy_metadata.py:290
+#: tta/core/privacy_metadata.py:291
 msgid "3. Cached files (never exported)"
 msgstr "3. Zwischengespeicherte Dateien (werden nie exportiert)"
 
-#: tta/core/privacy_metadata.py:300
+#: tta/core/privacy_metadata.py:301
 msgid "4. Storage and retention"
 msgstr "4. Speicherung und Aufbewahrung"
 
-#: tta/core/privacy_metadata.py:308
+#: tta/core/privacy_metadata.py:309
 msgid "5. What leaves your machine"
 msgstr "5. Was Ihren Rechner verlässt"
 
-#: tta/core/privacy_metadata.py:327
+#: tta/core/privacy_metadata.py:328
 msgid "6. Responsibility and your rights under GDPR"
 msgstr "6. Verantwortlichkeit und Ihre Rechte nach der DSGVO"
 
-#: tta/core/privacy_metadata.py:332
+#: tta/core/privacy_metadata.py:333
 msgid "7. Publisher and contact"
 msgstr "7. Herausgeber und Kontakt"
 
@@ -136,19 +136,19 @@ msgstr "{count} Arbeiten hinzugefügt - jetzt \"Alle analysieren\" klicken"
 msgid "Address copied to the clipboard."
 msgstr "Adresse in die Zwischenablage kopiert."
 
-#: tta/core/privacy_metadata.py:302
+#: tta/core/privacy_metadata.py:303
 msgid "All data lives in the project folder on this machine and is retained {retention}. The application is fully offline: it makes no network connections of any kind."
 msgstr "Alle Daten liegen im Projektordner auf diesem Rechner und werden {retention} aufbewahrt. Die Anwendung arbeitet vollständig offline: sie baut keinerlei Netzverbindungen auf."
 
-#: tta/core/privacy_metadata.py:176
+#: tta/core/privacy_metadata.py:177
 msgid "An export contains only analysis results and technical values ({count} values, listed in section 5): no personal names, no file names or paths, no notes or tags, and no text from the theses."
 msgstr "Ein Export enthält nur Analyseergebnisse und technische Angaben ({count} Werte, aufgeführt in Abschnitt 5): keine Personennamen, keine Dateinamen oder -pfade, keine Notizen oder Schlagwörter und keinen Text aus den Arbeiten."
 
-#: tta/core/privacy_metadata.py:181
+#: tta/core/privacy_metadata.py:182
 msgid "An export contains the {count} values listed in section 5."
 msgstr "Ein Export enthält die {count} in Abschnitt 5 aufgeführten Werte."
 
-#: tta/core/privacy_metadata.py:220
+#: tta/core/privacy_metadata.py:221
 msgid "Analysis results (aggregated text statistics)"
 msgstr "Analyseergebnisse (aggregierte Textstatistiken)"
 
@@ -156,19 +156,19 @@ msgstr "Analyseergebnisse (aggregierte Textstatistiken)"
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr "Alle ausstehenden Schemamigrationen anwenden, nach einer Sicherungskopie."
 
-#: tta/ui/tk/columns.py:162
+#: tta/ui/tk/columns.py:180
 msgid "Average sentence length, in words."
 msgstr "Mittlere Satzlänge in Wörtern."
 
-#: tta/ui/tk/columns.py:161
+#: tta/ui/tk/columns.py:179
 msgid "Average word length, in characters."
 msgstr "Mittlere Wortlänge in Zeichen."
 
-#: tta/ui/tk/columns.py:88
+#: tta/ui/tk/columns.py:91
 msgid "Avg. sentence length"
 msgstr "Mittlere Satzlänge"
 
-#: tta/ui/tk/columns.py:87
+#: tta/ui/tk/columns.py:90
 msgid "Avg. word length"
 msgstr "Mittlere Wortlänge"
 
@@ -180,11 +180,11 @@ msgstr "Bachelor"
 msgid "Bar chart of thesis counts per detected language."
 msgstr "Balkendiagramm der Anzahl Arbeiten je erkannter Sprache."
 
-#: tta/ui/tk/columns.py:137
+#: tta/ui/tk/columns.py:155
 msgid "Best-estimate publication year (title-page year, else PDF dates)."
 msgstr "Bestmögliche Schätzung des Veröffentlichungsjahres (Jahr der Titelseite, sonst die PDF-Datumsangaben)."
 
-#: tta/ui/tk/columns.py:78
+#: tta/ui/tk/columns.py:81
 msgid "Bookmarks"
 msgstr "Lesezeichen"
 
@@ -196,35 +196,43 @@ msgstr "Boxplots der Wortzahl je erkannter Abschlussart."
 msgid "Box: Q1 to Q3 with the median. Whiskers reach the most extreme thesis within 1.5 x IQR; points beyond are drawn separately."
 msgstr "Box: Q1 bis Q3 mit dem Median. Die Whisker reichen bis zur äußersten Arbeit innerhalb von 1,5 x IQA; Punkte darüber hinaus werden einzeln eingezeichnet."
 
-#: tta/ui/tk/columns.py:65
+#: tta/ui/tk/columns.py:66
 msgid "Cached PDF metadata"
 msgstr "PDF-Metadaten (Cache)"
 
-#: tta/ui/tk/columns.py:124
+#: tta/ui/tk/columns.py:127
 msgid "Cached extracted plain text. Double-click to open it."
 msgstr "Zwischengespeicherter extrahierter Klartext. Doppelklick öffnet ihn."
 
-#: tta/ui/tk/columns.py:127
+#: tta/ui/tk/columns.py:128
+msgid "Cached extracted text without code and formulas, the input of the text metrics. Double-click to open it."
+msgstr "Zwischengespeicherter extrahierter Text ohne Programmcode und Formeln, die Grundlage der Textmetriken. Doppelklick öffnet ihn."
+
+#: tta/ui/tk/columns.py:134
 msgid "Cached full PDF metadata artefact. Double-click to open it."
 msgstr "Zwischengespeichertes Artefakt der vollständigen PDF-Metadaten. Doppelklick öffnet es."
 
-#: tta/ui/tk/columns.py:63
+#: tta/ui/tk/columns.py:64
 msgid "Cached language"
 msgstr "Sprache (Cache)"
 
-#: tta/ui/tk/columns.py:125
+#: tta/ui/tk/columns.py:132
 msgid "Cached language-detection artefact. Double-click to open it."
 msgstr "Zwischengespeichertes Artefakt der Spracherkennung. Doppelklick öffnet es."
+
+#: tta/ui/tk/columns.py:63
+msgid "Cached prose text"
+msgstr "Fließtext (Cache)"
 
 #: tta/ui/tk/columns.py:62
 msgid "Cached text"
 msgstr "Text (Cache)"
 
-#: tta/ui/tk/columns.py:126
+#: tta/ui/tk/columns.py:133
 msgid "Cached tokenisation artefact. Double-click to open it."
 msgstr "Zwischengespeichertes Artefakt der Tokenisierung. Doppelklick öffnet es."
 
-#: tta/ui/tk/columns.py:64
+#: tta/ui/tk/columns.py:65
 msgid "Cached tokens"
 msgstr "Tokens (Cache)"
 
@@ -236,15 +244,15 @@ msgstr "Analyse abbrechen"
 msgid "Cancelling - finishing in-flight theses..."
 msgstr "Wird abgebrochen - laufende Arbeiten werden noch beendet..."
 
-#: tta/core/privacy_metadata.py:292
+#: tta/core/privacy_metadata.py:293
 msgid "Category"
 msgstr "Kategorie"
 
-#: tta/ui/tk/columns.py:134
+#: tta/ui/tk/columns.py:152
 msgid "Category of the PDF 'Creator' tool (e.g. LaTeX, Word)."
 msgstr "Kategorie des PDF-Felds 'Creator', also des Ausgangsprogramms (z. B. LaTeX, Word)."
 
-#: tta/ui/tk/columns.py:133
+#: tta/ui/tk/columns.py:151
 msgid "Category of the PDF 'Producer' tool (e.g. LaTeX, Word)."
 msgstr "Kategorie des PDF-Felds 'Producer', also des erzeugenden Programms (z. B. LaTeX, Word)."
 
@@ -252,9 +260,17 @@ msgstr "Kategorie des PDF-Felds 'Producer', also des erzeugenden Programms (z. B
 msgid "Cell details"
 msgstr "Zelldetails"
 
-#: tta/ui/tk/columns.py:67
+#: tta/ui/tk/columns.py:68
 msgid "Characters (extracted)"
 msgstr "Zeichen (extrahiert)"
+
+#: tta/ui/tk/columns.py:145
+msgid "Characters removed from the text because they are set in a math font (formulas)."
+msgstr "Zeichen, die aus dem Text entfernt wurden, weil sie in einer Formelschrift gesetzt sind (Formeln)."
+
+#: tta/ui/tk/columns.py:141
+msgid "Characters removed from the text because they are set in a monospaced font (code, often also URLs)."
+msgstr "Zeichen, die aus dem Text entfernt wurden, weil sie in einer Festbreitenschrift gesetzt sind (Programmcode, oft auch URLs)."
 
 #: tta/ui/tk/about_view.py:74
 msgid "Close"
@@ -294,11 +310,11 @@ msgstr "Konzepte"
 msgid "Concurrent theses (default: cores - 1)."
 msgstr "Gleichzeitig verarbeitete Arbeiten (Vorgabe: Kerne - 1)."
 
-#: tta/ui/tk/columns.py:156
+#: tta/ui/tk/columns.py:174
 msgid "Confidence of the language detection, from 0 to 1."
 msgstr "Sicherheit der Spracherkennung, von 0 bis 1."
 
-#: tta/core/privacy_metadata.py:219
+#: tta/core/privacy_metadata.py:220
 msgid "Content fingerprints (no personal data recoverable)"
 msgstr "Inhaltsfingerabdrücke (keine personenbezogenen Daten rekonstruierbar)"
 
@@ -330,11 +346,11 @@ msgstr "Das Projekt im Verzeichnis aus --project anlegen oder ein vorhandenes mi
 msgid "Create, migrate or compact the project database."
 msgstr "Die Projektdatenbank anlegen, migrieren oder verdichten."
 
-#: tta/ui/tk/columns.py:73
+#: tta/ui/tk/columns.py:76
 msgid "Created (year)"
 msgstr "Erstellt (Jahr)"
 
-#: tta/ui/tk/columns.py:72
+#: tta/ui/tk/columns.py:75
 msgid "Creator tool"
 msgstr "Ausgangsprogramm"
 
@@ -346,19 +362,19 @@ msgstr "Gestrichelte Linie: Trend nach kleinsten Quadraten über alle dargestell
 msgid "Data table"
 msgstr "Datentabelle"
 
-#: tta/core/privacy_metadata.py:292
+#: tta/core/privacy_metadata.py:293
 msgid "Description"
 msgstr "Beschreibung"
 
-#: tta/ui/tk/columns.py:151
+#: tta/ui/tk/columns.py:169
 msgid "Detected degree from the first pages: bachelor, master, diploma, magister, MAS, licentiate, semester paper, doctoral or unspecified."
 msgstr "Aus den ersten Seiten erkannter Abschluss: Bachelor, Master, Diplom, Magister, MAS, Lizentiat, Semesterarbeit, Dissertation oder nicht erkannt."
 
-#: tta/ui/tk/columns.py:155
+#: tta/ui/tk/columns.py:173
 msgid "Detected primary language as an ISO 639 code."
 msgstr "Erkannte Hauptsprache als ISO-639-Code."
 
-#: tta/ui/tk/columns.py:119
+#: tta/ui/tk/columns.py:122
 msgid "Detected thesis type (bachelor, master, diploma, magister, ...); blank until analysed."
 msgstr "Erkannte Abschlussart (Bachelor, Master, Diplom, Magister, ...); leer bis zur Analyse."
 
@@ -366,7 +382,7 @@ msgstr "Erkannte Abschlussart (Bachelor, Master, Diplom, Magister, ...); leer bi
 msgid "Diploma"
 msgstr "Diplom"
 
-#: tta/core/privacy_metadata.py:222
+#: tta/core/privacy_metadata.py:223
 msgid "Directly identifying values (kept on this machine only)"
 msgstr "Unmittelbar identifizierende Werte (bleiben ausschließlich auf diesem Rechner)"
 
@@ -378,7 +394,7 @@ msgstr "Verteilungen"
 msgid "Doctoral"
 msgstr "Dissertation"
 
-#: tta/core/privacy_metadata.py:221
+#: tta/core/privacy_metadata.py:222
 msgid "Document content (kept on this machine only)"
 msgstr "Dokumentinhalte (bleiben ausschließlich auf diesem Rechner)"
 
@@ -426,7 +442,7 @@ msgstr "Arbeit ausschließen"
 msgid "Exclude thesis {thesis_id} and permanently delete its cached analysis from this machine (artefacts, metrics, run history)? This is destructive and cannot be undone. The source PDF is not touched."
 msgstr "Arbeit {thesis_id} ausschließen und ihre zwischengespeicherte Analyse dauerhaft von diesem Rechner löschen (Artefakte, Metriken, Laufhistorie)? Dies ist destruktiv und kann nicht rückgängig gemacht werden. Die PDF-Quelldatei wird nicht angetastet."
 
-#: tta/ui/tk/columns.py:108
+#: tta/ui/tk/columns.py:111
 msgid "Exclude this thesis from analysis and exports. Excluding an already-analysed thesis deletes its cached analysis (artefacts + metrics) from this machine after a confirmation; the source PDF is not touched."
 msgstr "Diese Arbeit von Analyse und Export ausschließen. Wird eine bereits analysierte Arbeit ausgeschlossen, so wird ihre zwischengespeicherte Analyse (Artefakte und Metriken) nach einer Rückfrage von diesem Rechner gelöscht; die PDF-Quelldatei wird nicht angetastet."
 
@@ -435,7 +451,7 @@ msgstr "Diese Arbeit von Analyse und Export ausschließen. Wird eine bereits ana
 msgid "Excluded"
 msgstr "Ausgeschlossen"
 
-#: tta/core/privacy_metadata.py:318
+#: tta/core/privacy_metadata.py:319
 msgid "Excluded theses, file paths and names, free-form notes and tags, raw text, tokenisations, full PDF metadata, error tracebacks, and module diagnostics never leave this machine."
 msgstr "Ausgeschlossene Arbeiten, Dateipfade und -namen, freie Notizen und Schlagwörter, Rohtext, Tokenisierungen, vollständige PDF-Metadaten, Fehler-Tracebacks und Moduldiagnosen verlassen diesen Rechner nie."
 
@@ -477,7 +493,7 @@ msgstr ""
 msgid "Extended mode"
 msgstr "Erweiterter Modus"
 
-#: tta/ui/tk/columns.py:79
+#: tta/ui/tk/columns.py:82
 msgid "Extraction quality"
 msgstr "Extraktionsqualität"
 
@@ -486,15 +502,15 @@ msgstr "Extraktionsqualität"
 msgid "File"
 msgstr "Datei"
 
-#: tta/ui/tk/columns.py:98
+#: tta/ui/tk/columns.py:101
 msgid "File modified (year)"
 msgstr "Änderungsjahr der Datei"
 
-#: tta/ui/tk/columns.py:118
+#: tta/ui/tk/columns.py:121
 msgid "File name of the thesis PDF. Double-click to open the PDF."
 msgstr "Dateiname der PDF-Datei der Arbeit. Doppelklick öffnet die PDF-Datei."
 
-#: tta/ui/tk/columns.py:97
+#: tta/ui/tk/columns.py:100
 msgid "File size"
 msgstr "Dateigröße"
 
@@ -506,7 +522,7 @@ msgstr "Markiert je Metrik über den Interquartilsabstand (1,5 x IQA jenseits vo
 msgid "Flesch (en) / Amstad (de) reading-ease score"
 msgstr "Lesbarkeitswert nach Flesch (en) bzw. Amstad (de)"
 
-#: tta/ui/tk/columns.py:157
+#: tta/ui/tk/columns.py:175
 msgid "Flesch Reading Ease; higher scores read more easily."
 msgstr "Flesch-Lesbarkeitsindex; höhere Werte lesen sich leichter."
 
@@ -514,11 +530,11 @@ msgstr "Flesch-Lesbarkeitsindex; höhere Werte lesen sich leichter."
 msgid "Flesch reading ease"
 msgstr "Flesch-Lesbarkeit"
 
-#: tta/ui/tk/columns.py:169
+#: tta/ui/tk/columns.py:187
 msgid "Fraction of repeated word bigrams (two-word runs)."
 msgstr "Anteil wiederholter Wort-Bigramme (Zwei-Wort-Folgen)."
 
-#: tta/ui/tk/columns.py:170
+#: tta/ui/tk/columns.py:188
 msgid "Fraction of repeated word trigrams (three-word runs)."
 msgstr "Anteil wiederholter Wort-Trigramme (Drei-Wort-Folgen)."
 
@@ -530,7 +546,7 @@ msgstr "Freie Software unter der GNU General Public License, {spdx} (SPDX)."
 msgid "Generated locally by tta {version}. This file is self-contained: it loads nothing from the network and contains no file names, paths, notes or document text. Regenerate it any time from the Report button or `tta report`."
 msgstr "Lokal erstellt von tta {version}. Diese Datei ist in sich geschlossen: sie lädt nichts aus dem Netz und enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Sie kann jederzeit über die Schaltfläche \"Bericht\" oder mit `tta report` neu erzeugt werden."
 
-#: tta/core/privacy_metadata.py:242
+#: tta/core/privacy_metadata.py:243
 msgid "Generated {now} by tta {version} from `core/privacy_metadata.py`."
 msgstr "Erstellt {now} von tta {version} aus `core/privacy_metadata.py`."
 
@@ -547,11 +563,11 @@ msgstr "Hilfethemen"
 msgid "Histogram of Flesch reading-ease scores, one series per language."
 msgstr "Histogramm der Flesch-Lesbarkeitswerte, eine Reihe je Sprache."
 
-#: tta/ui/tk/columns.py:143
+#: tta/ui/tk/columns.py:161
 msgid "How precise the date behind the publication year is: day, month, semester, year or year range."
 msgstr "Wie genau das Datum hinter dem Veröffentlichungsjahr ist: Tag, Monat, Semester, Jahr oder Studienjahr."
 
-#: tta/ui/tk/columns.py:69
+#: tta/ui/tk/columns.py:72
 msgid "Images"
 msgstr "Abbildungen"
 
@@ -559,11 +575,11 @@ msgstr "Abbildungen"
 msgid "Import another installation's export as a new, read-only source."
 msgstr "Den Export einer anderen Installation als neue, nur lesbare Quelle importieren."
 
-#: tta/core/privacy_metadata.py:182
+#: tta/core/privacy_metadata.py:183
 msgid "In an export, a thesis is identified only by a fingerprint of its PDF file ({columns}). It serves only to recognise duplicates; anyone who holds the PDF itself can recompute it (section 6)."
 msgstr "In einem Export ist eine Arbeit nur durch einen Fingerabdruck ihrer PDF-Datei gekennzeichnet ({columns}). Er dient nur dazu, doppelte Arbeiten zu erkennen; wer die PDF-Datei selbst besitzt, kann ihn nachrechnen (Abschnitt 6)."
 
-#: tta/core/privacy_metadata.py:166
+#: tta/core/privacy_metadata.py:167
 msgid "In brief"
 msgstr "Das Wichtigste in Kürze"
 
@@ -571,15 +587,15 @@ msgstr "Das Wichtigste in Kürze"
 msgid "Inspect the catalogue of analysis modules."
 msgstr "Den Katalog der Analysemodule ansehen."
 
-#: tta/core/privacy_metadata.py:292
+#: tta/core/privacy_metadata.py:293
 msgid "Kind"
 msgstr "Art"
 
-#: tta/ui/tk/columns.py:81
+#: tta/ui/tk/columns.py:84
 msgid "Language"
 msgstr "Sprache"
 
-#: tta/ui/tk/columns.py:82
+#: tta/ui/tk/columns.py:85
 msgid "Language confidence"
 msgstr "Sicherheit der Spracherkennung"
 
@@ -591,7 +607,7 @@ msgstr "Sprachverteilung"
 msgid "Languages"
 msgstr "Sprachen"
 
-#: tta/core/privacy_metadata.py:265
+#: tta/core/privacy_metadata.py:266
 msgid "Leaves your machine on export"
 msgstr "Verlässt beim Export Ihren Rechner"
 
@@ -603,7 +619,7 @@ msgstr "Länge nach Abschlussart"
 msgid "Length over time"
 msgstr "Länge über die Zeit"
 
-#: tta/ui/tk/columns.py:85
+#: tta/ui/tk/columns.py:88
 msgid "Letters"
 msgstr "Buchstaben"
 
@@ -639,11 +655,11 @@ msgstr "Medianlänge"
 msgid "Metrics"
 msgstr "Metriken"
 
-#: tta/ui/tk/columns.py:74
+#: tta/ui/tk/columns.py:77
 msgid "Modified (year)"
 msgstr "Geändert (Jahr)"
 
-#: tta/core/privacy_metadata.py:280
+#: tta/core/privacy_metadata.py:281
 msgid "Module"
 msgstr "Modul"
 
@@ -659,7 +675,7 @@ msgstr ""
 "Keine PDF-Dateien in oder unter:\n"
 "{folder}"
 
-#: tta/core/privacy_metadata.py:171
+#: tta/core/privacy_metadata.py:172
 msgid "No data leaves this machine unless you create an export and pass it on yourself. An export is a file you save in a folder of your choice; the application never transmits it."
 msgstr "Daten verlassen diesen Rechner nur, wenn Sie selbst einen Export erstellen und weitergeben. Ein Export ist eine Datei, die Sie in einem Ordner Ihrer Wahl speichern; die Anwendung übermittelt sie nie."
 
@@ -703,27 +719,27 @@ msgstr "Auffällige Arbeiten"
 msgid "Nothing to export yet - add and analyse theses first."
 msgstr "Noch nichts zu exportieren - fügen Sie zuerst Arbeiten hinzu und analysieren Sie sie."
 
-#: tta/ui/tk/columns.py:159
+#: tta/ui/tk/columns.py:177
 msgid "Number of alphabetic characters in the text."
 msgstr "Anzahl der Buchstaben im Text."
 
-#: tta/ui/tk/columns.py:129
-msgid "Number of characters in the text extracted from the PDF."
-msgstr "Anzahl der Zeichen im aus der PDF-Datei extrahierten Text."
+#: tta/ui/tk/columns.py:136
+msgid "Number of characters in the text extracted from the PDF, without code and formulas."
+msgstr "Anzahl der Zeichen im aus der PDF-Datei extrahierten Text, ohne Programmcode und Formeln."
 
-#: tta/ui/tk/columns.py:131
+#: tta/ui/tk/columns.py:149
 msgid "Number of embedded images detected in the PDF."
 msgstr "Anzahl der in der PDF-Datei erkannten eingebetteten Bilder."
 
-#: tta/ui/tk/columns.py:92
+#: tta/ui/tk/columns.py:95
 msgid "Once-only words (of tokens)"
 msgstr "Einmalwörter (an Tokens)"
 
-#: tta/ui/tk/columns.py:93
+#: tta/ui/tk/columns.py:96
 msgid "Once-only words (of types)"
 msgstr "Einmalwörter (an Typen)"
 
-#: tta/core/privacy_metadata.py:310
+#: tta/core/privacy_metadata.py:311
 msgid "Only when you explicitly export, and only the following values:"
 msgstr "Nur wenn Sie ausdrücklich exportieren, und nur die folgenden Werte:"
 
@@ -752,23 +768,23 @@ msgstr "Ausreißer bei"
 msgid "PDF files"
 msgstr "PDF-Dateien"
 
-#: tta/ui/tk/columns.py:130
+#: tta/ui/tk/columns.py:140
 msgid "Page count from the PDF text layer."
 msgstr "Seitenzahl aus der Textebene der PDF-Datei."
 
-#: tta/ui/tk/columns.py:132
+#: tta/ui/tk/columns.py:150
 msgid "Page count reported by the PDF's own metadata."
 msgstr "Seitenzahl laut den eigenen Metadaten der PDF-Datei."
 
-#: tta/ui/tk/columns.py:68
+#: tta/ui/tk/columns.py:69
 msgid "Pages"
 msgstr "Seiten"
 
-#: tta/ui/tk/columns.py:70
+#: tta/ui/tk/columns.py:73
 msgid "Pages (PDF metadata)"
 msgstr "Seiten (PDF-Metadaten)"
 
-#: tta/ui/tk/columns.py:113
+#: tta/ui/tk/columns.py:116
 msgid "Per-row state. '[!]' means text extraction was flagged as garbled for this thesis, so every metric in this row may be unreliable (US-PROF-QUALITY); blank means no problem was detected."
 msgstr "Zustand der Zeile. '[!]' bedeutet, dass die Textextraktion für diese Arbeit als unlesbar markiert wurde und daher jede Metrik dieser Zeile unzuverlässig sein kann (US-PROF-QUALITY); leer heißt, es wurde kein Problem erkannt."
 
@@ -786,15 +802,15 @@ msgstr "Den Plan ausgeben, ohne ihn auszuführen."
 msgid "Privacy statement"
 msgstr "Datenschutzerklärung"
 
-#: tta/core/privacy_metadata.py:239
+#: tta/core/privacy_metadata.py:240
 msgid "Privacy statement - Thesis Text Analyzer"
 msgstr "Datenschutzerklärung - Thesis Text Analyzer"
 
-#: tta/ui/tk/columns.py:71
+#: tta/ui/tk/columns.py:74
 msgid "Producer tool"
 msgstr "Erzeugendes Programm"
 
-#: tta/core/privacy_metadata.py:280
+#: tta/core/privacy_metadata.py:281
 msgid "Produces"
 msgstr "Erzeugt"
 
@@ -802,15 +818,15 @@ msgstr "Erzeugt"
 msgid "Project directory (default: current directory)."
 msgstr "Projektverzeichnis (Vorgabe: aktuelles Verzeichnis)."
 
-#: tta/ui/tk/columns.py:77
+#: tta/ui/tk/columns.py:80
 msgid "Publication date precision"
 msgstr "Genauigkeit des Veröffentlichungsdatums"
 
-#: tta/ui/tk/columns.py:75
+#: tta/ui/tk/columns.py:78
 msgid "Publication year"
 msgstr "Veröffentlichungsjahr"
 
-#: tta/ui/tk/columns.py:76
+#: tta/ui/tk/columns.py:79
 msgid "Publication year source"
 msgstr "Quelle des Veröffentlichungsjahres"
 
@@ -818,8 +834,8 @@ msgstr "Quelle des Veröffentlichungsjahres"
 msgid "Publication years"
 msgstr "Veröffentlichungsjahre"
 
-#: tta/core/privacy_metadata.py:264
-#: tta/core/privacy_metadata.py:280
+#: tta/core/privacy_metadata.py:265
+#: tta/core/privacy_metadata.py:281
 msgid "Purpose"
 msgstr "Zweck"
 
@@ -857,7 +873,7 @@ msgstr "Alle neu analysieren"
 msgid "Re-run everything regardless of state."
 msgstr "Alles neu ausführen, unabhängig vom Zustand."
 
-#: tta/ui/tk/columns.py:83
+#: tta/ui/tk/columns.py:86
 msgid "Readability (Flesch)"
 msgstr "Lesbarkeit (Flesch)"
 
@@ -865,7 +881,7 @@ msgstr "Lesbarkeit (Flesch)"
 msgid "Reading ease distribution"
 msgstr "Verteilung der Lesbarkeit"
 
-#: tta/core/privacy_metadata.py:280
+#: tta/core/privacy_metadata.py:281
 msgid "Reads"
 msgstr "Liest"
 
@@ -915,6 +931,14 @@ msgstr ""
 "\n"
 "Die PDF-Datei selbst wird nicht angetastet. Dies kann nicht rückgängig gemacht werden."
 
+#: tta/ui/tk/columns.py:71
+msgid "Removed characters (math fonts)"
+msgstr "Entfernte Zeichen (Formelschrift)"
+
+#: tta/ui/tk/columns.py:70
+msgid "Removed characters (monospace)"
+msgstr "Entfernte Zeichen (Festbreitenschrift)"
+
 #: tta/cli/main.py:868
 msgid "Render the data-protection statement."
 msgstr "Die Datenschutzerklärung ausgeben."
@@ -923,11 +947,11 @@ msgstr "Die Datenschutzerklärung ausgeben."
 msgid "Render the data-protection statement. It is generated from the privacy registry in the code and is never hand-written, so it cannot fall behind what the application actually stores."
 msgstr "Die Datenschutzerklärung ausgeben. Sie wird aus dem Datenschutzregister im Quellcode erzeugt und nie von Hand geschrieben, kann also nicht hinter dem zurückfallen, was die Anwendung tatsächlich speichert."
 
-#: tta/ui/tk/columns.py:95
+#: tta/ui/tk/columns.py:98
 msgid "Repeated word pairs"
 msgstr "Wiederholte Wortpaare"
 
-#: tta/ui/tk/columns.py:96
+#: tta/ui/tk/columns.py:99
 msgid "Repeated word triples"
 msgstr "Wiederholte Wortdrillinge"
 
@@ -949,7 +973,7 @@ msgstr "Option für Forschende: die Repositoriums-Regeln dieser Datei beim Lesen
 msgid "Restrict to specific modules (repeatable; US-PROF-SELECT)."
 msgstr "Auf bestimmte Module beschränken (mehrfach angebbar; US-PROF-SELECT)."
 
-#: tta/ui/tk/columns.py:165
+#: tta/ui/tk/columns.py:183
 msgid "Root type-token ratio (Guiraud's index); length-robust richness."
 msgstr "Wurzel-Type-Token-Verhältnis (Guiraud-Index); längenrobustes Maß für Wortschatzreichtum."
 
@@ -994,19 +1018,19 @@ msgstr "Siehe auch"
 msgid "Semester/study paper"
 msgstr "Semester-/Studienarbeit"
 
-#: tta/ui/tk/columns.py:89
+#: tta/ui/tk/columns.py:92
 msgid "Sentence length variation"
 msgstr "Streuung der Satzlänge"
 
-#: tta/ui/tk/columns.py:86
+#: tta/ui/tk/columns.py:89
 msgid "Sentences"
 msgstr "Sätze"
 
-#: tta/ui/tk/columns.py:166
+#: tta/ui/tk/columns.py:184
 msgid "Share of tokens that occur exactly once."
 msgstr "Anteil der Tokens, die genau einmal vorkommen."
 
-#: tta/ui/tk/columns.py:167
+#: tta/ui/tk/columns.py:185
 msgid "Share of word types that occur exactly once."
 msgstr "Anteil der Worttypen, die genau einmal vorkommen."
 
@@ -1026,7 +1050,7 @@ msgstr "Die Version der Anwendung und die Version jedes Analysemoduls anzeigen."
 msgid "Show what one module reads and what it produces."
 msgstr "Anzeigen, was ein einzelnes Modul liest und was es erzeugt."
 
-#: tta/ui/tk/columns.py:175
+#: tta/ui/tk/columns.py:193
 msgid "Size of the PDF file on disk, in bytes."
 msgstr "Größe der PDF-Datei auf dem Datenträger in Bytes."
 
@@ -1043,7 +1067,7 @@ msgstr "Quellcode (GPL Abschn. 6), Adresse zum Aufrufen kopieren:"
 msgid "Source label, e.g. \"FH Wedel CS 2026\"."
 msgstr "Bezeichnung der Quelle, z. B. \"FH Wedel CS 2026\"."
 
-#: tta/ui/tk/columns.py:163
+#: tta/ui/tk/columns.py:181
 msgid "Standard deviation of sentence length, in words."
 msgstr "Standardabweichung der Satzlänge in Wörtern."
 
@@ -1051,11 +1075,11 @@ msgstr "Standardabweichung der Satzlänge in Wörtern."
 msgid "State"
 msgstr "Status"
 
-#: tta/core/privacy_metadata.py:263
+#: tta/core/privacy_metadata.py:264
 msgid "Stored value"
 msgstr "Gespeicherter Wert"
 
-#: tta/core/privacy_metadata.py:218
+#: tta/core/privacy_metadata.py:219
 msgid "Technical bookkeeping (no personal data)"
 msgstr "Technische Verwaltung (keine personenbezogenen Daten)"
 
@@ -1067,7 +1091,7 @@ msgstr "Die Textextraktion wurde für diese Arbeit als unlesbar markiert; jede M
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr "Dieser Ordner ist noch kein Projekt; es wird beim nächsten Start dort angelegt."
 
-#: tta/core/privacy_metadata.py:187
+#: tta/core/privacy_metadata.py:188
 msgid "The person using this application and their institution are responsible for what happens on this machine; the publisher of the application receives no personal data from it (sections 6 and 7)."
 msgstr "Für die Verarbeitung auf diesem Rechner sind die Person, die die Anwendung einsetzt, und ihre Einrichtung verantwortlich; der Herausgeber der Anwendung erhält daraus keine personenbezogenen Daten (Abschnitte 6 und 7)."
 
@@ -1103,7 +1127,7 @@ msgstr "Thesis Text Analyzer - {path}"
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr "Thesis Text Analyzer: Textmetriken studentischer Abschlussarbeiten messen und über eine ganze Kohorte hinweg vergleichen."
 
-#: tta/ui/tk/columns.py:80
+#: tta/ui/tk/columns.py:83
 msgid "Thesis type"
 msgstr "Abschlussart"
 
@@ -1116,7 +1140,7 @@ msgstr "Arbeit {thesis_id} ist nicht mehr in diesem Projekt."
 msgid "Third-party licences"
 msgstr "Lizenzen Dritter"
 
-#: tta/core/privacy_metadata.py:167
+#: tta/core/privacy_metadata.py:168
 msgid "This application works entirely on this machine. It makes no network connections and sends nothing anywhere by itself."
 msgstr "Diese Anwendung arbeitet vollständig auf diesem Rechner. Sie baut keine Netzverbindungen auf und sendet von sich aus nichts."
 
@@ -1138,11 +1162,11 @@ msgstr ""
 "\n"
 "Die Datei docs/dependencies.md im Repository führt alle Bestandteile mit Zweck und Lizenz auf."
 
-#: tta/ui/tk/columns.py:160
+#: tta/ui/tk/columns.py:178
 msgid "Total number of sentences detected."
 msgstr "Gesamtzahl der erkannten Sätze."
 
-#: tta/ui/tk/columns.py:158
+#: tta/ui/tk/columns.py:176
 msgid "Total number of words in the extracted text."
 msgstr "Gesamtzahl der Wörter im extrahierten Text."
 
@@ -1162,7 +1186,7 @@ msgstr "Die Historie auf den letzten Lauf je (Arbeit, Modul) kürzen."
 msgid "Type"
 msgstr "Art"
 
-#: tta/ui/tk/columns.py:164
+#: tta/ui/tk/columns.py:182
 msgid "Type-token ratio: distinct words divided by total words."
 msgstr "Type-Token-Verhältnis: verschiedene Wörter geteilt durch alle Wörter."
 
@@ -1174,7 +1198,7 @@ msgstr "Nicht erkannt"
 msgid "Update stale"
 msgstr "Veraltete aktualisieren"
 
-#: tta/ui/tk/columns.py:148
+#: tta/ui/tk/columns.py:166
 msgid "Verdict on how reliable the extracted text is (ok vs garbled)."
 msgstr "Einschätzung, wie verlässlich der extrahierte Text ist (ok oder unlesbar)."
 
@@ -1182,15 +1206,15 @@ msgstr "Einschätzung, wie verlässlich der extrahierte Text ist (ok oder unlesb
 msgid "View"
 msgstr "Ansicht"
 
-#: tta/ui/tk/columns.py:91
+#: tta/ui/tk/columns.py:94
 msgid "Vocabulary richness (Guiraud)"
 msgstr "Wortschatzreichtum (Guiraud)"
 
-#: tta/ui/tk/columns.py:90
+#: tta/ui/tk/columns.py:93
 msgid "Vocabulary richness (TTR)"
 msgstr "Wortschatzreichtum (TTR)"
 
-#: tta/ui/tk/columns.py:94
+#: tta/ui/tk/columns.py:97
 msgid "Vocabulary richness (Yule's K)"
 msgstr "Wortschatzreichtum (Yules K)"
 
@@ -1198,15 +1222,15 @@ msgstr "Wortschatzreichtum (Yules K)"
 msgid "Where to write it (default: <project>/reports/report-<date>.html)."
 msgstr "Wohin geschrieben wird (Vorgabe: <Projekt>/reports/report-<Datum>.html)."
 
-#: tta/ui/tk/columns.py:147
+#: tta/ui/tk/columns.py:165
 msgid "Whether the PDF carries a bookmarks/outline tree."
 msgstr "Ob die PDF-Datei eine Lesezeichen- bzw. Gliederungsstruktur enthält."
 
-#: tta/ui/tk/columns.py:140
+#: tta/ui/tk/columns.py:158
 msgid "Which signal set the publication year (title page vs PDF metadata)."
 msgstr "Welches Signal das Veröffentlichungsjahr gesetzt hat (Titelseite oder PDF-Metadaten)."
 
-#: tta/ui/tk/columns.py:84
+#: tta/ui/tk/columns.py:87
 msgid "Words"
 msgstr "Wörter"
 
@@ -1242,15 +1266,15 @@ msgstr ""
 "\n"
 "Eine in sich geschlossene Datei: jede Stilregel und jedes Diagramm liegt eingebettet vor, sie stellt keine Anfrage an das Netz, und sie enthält keine Dateinamen, Pfade, Notizen oder Dokumenttexte. Die Datei wird geschrieben, nicht geöffnet - ein Befehlszeilenwerkzeug darf keinen Browser ungefragt starten. Verwenden Sie `tta run --open-report`, um sie öffnen zu lassen."
 
-#: tta/ui/tk/columns.py:135
+#: tta/ui/tk/columns.py:153
 msgid "Year the PDF was created, from its metadata."
 msgstr "Jahr der Erstellung der PDF-Datei laut ihren Metadaten."
 
-#: tta/ui/tk/columns.py:136
+#: tta/ui/tk/columns.py:154
 msgid "Year the PDF was last modified, from its metadata."
 msgstr "Jahr der letzten Änderung der PDF-Datei laut ihren Metadaten."
 
-#: tta/ui/tk/columns.py:176
+#: tta/ui/tk/columns.py:194
 msgid "Year the file was last modified on disk. A weak signal: copying or downloading a file resets it, so it is not used for the publication year."
 msgstr "Jahr der letzten Änderung der Datei auf dem Datenträger. Ein schwaches Signal: Kopieren oder Herunterladen setzt es zurück, daher wird es für das Veröffentlichungsjahr nicht verwendet."
 
@@ -1258,7 +1282,7 @@ msgstr "Jahr der letzten Änderung der Datei auf dem Datenträger. Ein schwaches
 msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
 msgstr "Ihr Projekt liegt unter {path}. Alle Daten und Analysen der Arbeiten werden hier gespeichert. Zum Verschieben oder Sichern des Projekts kopieren Sie diesen Ordner. Für einen anderen Ort wählen Sie Datei -> Projekt öffnen..."
 
-#: tta/ui/tk/columns.py:168
+#: tta/ui/tk/columns.py:186
 msgid "Yule's K: vocabulary richness, robust to text length."
 msgstr "Yules K: Wortschatzreichtum, robust gegenüber der Textlänge."
 
@@ -1311,7 +1335,7 @@ msgstr "Prüfungen:"
 msgid "coarse size statistics"
 msgstr "grobe Größenstatistik"
 
-#: tta/core/privacy_metadata.py:151
+#: tta/core/privacy_metadata.py:152
 msgid "complete PDF Info dict + XMP, incl. Author/Title (JSON)"
 msgstr "vollständiges PDF-Info-Verzeichnis und XMP, einschließlich Autor und Titel (JSON)"
 
@@ -1355,7 +1379,7 @@ msgstr "den Abschluss (Bachelor, Master, Diplom, Magister, ...) anhand der erste
 msgid "detect the thesis language to select language-aware analyses"
 msgstr "die Sprache der Arbeit erkennen, um sprachabhängige Analysen zu wählen"
 
-#: tta/core/privacy_metadata.py:149
+#: tta/core/privacy_metadata.py:150
 msgid "detected language code + confidence (JSON)"
 msgstr "erkannter Sprachcode und Sicherheit (JSON)"
 
@@ -1401,8 +1425,12 @@ msgid "exported {theses} theses, {runs} runs, {metrics} metric values ({policy})
 msgstr "{theses} Arbeiten, {runs} Läufe, {metrics} Metrikwerte exportiert ({policy}) -> {path}"
 
 #: tta/core/privacy_metadata.py:119
-msgid "extract the plain text from the PDF; count pages and characters"
-msgstr "den Klartext aus der PDF-Datei extrahieren; Seiten und Zeichen zählen"
+msgid "extract the plain text from the PDF, once unfiltered and once without code and formulas; count pages and characters"
+msgstr "den Klartext aus der PDF-Datei extrahieren, einmal ungefiltert und einmal ohne Programmcode und Formeln; Seiten und Zeichen zählen"
+
+#: tta/core/privacy_metadata.py:149
+msgid "extracted thesis text without code and formulas, input of the text metrics (UTF-8 file)"
+msgstr "extrahierter Text der Arbeit ohne Programmcode und Formeln, Grundlage der Textmetriken (UTF-8-Datei)"
 
 #: tta/cli/main.py:195
 msgid "failing checks: {names}"
@@ -1519,7 +1547,7 @@ msgstr "Modul hat eine Ausnahme ausgelöst"
 msgid "n"
 msgstr "n"
 
-#: tta/core/privacy_metadata.py:269
+#: tta/core/privacy_metadata.py:270
 msgid "no"
 msgstr "nein"
 
@@ -1544,7 +1572,7 @@ msgstr "kein Projekt unter {path} - führen Sie zuerst `tta db init` aus"
 msgid "no sentence long enough for bigrams"
 msgstr "kein Satz lang genug für Bigramme"
 
-#: tta/core/modules/tokenize.py:91
+#: tta/core/modules/tokenize.py:92
 msgid "no sentences in text"
 msgstr "keine Sätze im Text"
 
@@ -1557,8 +1585,8 @@ msgid "no word tokens in tokenisation"
 msgstr "keine Worttokens in der Tokenisierung"
 
 #: tta/core/modules/count_images.py:261
-#: tta/core/modules/extract_pdf_metadata.py:69
-#: tta/core/modules/extract_pymupdf.py:34
+#: tta/core/modules/extract_pdf_metadata.py:70
+#: tta/core/modules/extract_pymupdf.py:120
 msgid "not a PDF"
 msgstr "keine PDF-Datei"
 
@@ -1655,7 +1683,7 @@ msgstr "Reproduzierbarkeit: welche Module gelaufen sind"
 msgid "schema is up to date"
 msgstr "Schema ist aktuell"
 
-#: tta/core/privacy_metadata.py:150
+#: tta/core/privacy_metadata.py:151
 msgid "sentence/word tokenisation of the full text (JSON)"
 msgstr "Satz- und Worttokenisierung des vollständigen Textes (JSON)"
 
@@ -1752,7 +1780,7 @@ msgid "words"
 msgstr "Wörter"
 
 #: tta/cli/main.py:307
-#: tta/core/privacy_metadata.py:269
+#: tta/core/privacy_metadata.py:270
 msgid "yes"
 msgstr "ja"
 

@@ -39,9 +39,21 @@ def test_extract_pymupdf_survives_a_lone_surrogate(sample_thesis, tmp_path, monk
 
     from tta.core.modules.extract_pymupdf import ExtractPymupdf
 
+    text = "Text " + LONE + " layer"
+
+    class FakeTextPage:
+        def extractText(self):
+            return text + "\n"
+
+        def extractDICT(self, cb=None):
+            span = {"text": text, "font": "Times-Roman", "flags": 0}
+            return {"blocks": [{"type": 0, "lines": [{"spans": [span]}]}]}
+
     class FakePage:
-        def get_text(self, *args, **kwargs):
-            return "Text " + LONE + " layer\n"
+        cropbox = None
+
+        def get_textpage(self, flags=None):
+            return FakeTextPage()
 
     class FakeDoc:
         def __enter__(self):
@@ -58,10 +70,14 @@ def test_extract_pymupdf_survives_a_lone_surrogate(sample_thesis, tmp_path, monk
     workdir.mkdir()
     result = ExtractPymupdf().run(RunContext(thesis=sample_thesis, artefacts={}, workdir=workdir))
 
-    text = result.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
-    assert LONE not in text
-    assert text.count("\ufffd") == 2
-    assert result.diagnostics["surrogates_replaced"] == 2
+    for kind in (artefact_kinds.RAW_TEXT, artefact_kinds.PROSE_TEXT):
+        written = result.artefacts[kind].read_text(encoding="utf-8")
+        assert LONE not in written
+        assert written.count("\ufffd") == 2
+    assert result.diagnostics["surrogates_replaced"] == {
+        artefact_kinds.RAW_TEXT: 2,
+        artefact_kinds.PROSE_TEXT: 2,
+    }
 
 
 def test_extract_pdf_metadata_survives_a_lone_surrogate(build_ctx, sample_thesis, monkeypatch):
@@ -91,12 +107,12 @@ def test_tokenize_survives_a_lone_surrogate(build_ctx, monkeypatch):
     pytest.importorskip("nltk")
     from tta.core.modules import tokenize
 
-    # raw_text on disk cannot hold a lone surrogate any more, so the fake
+    # a text artefact on disk cannot hold a lone surrogate any more, so the fake
     # sits behind the read: segmentation hands one to the word tokeniser
     monkeypatch.setattr(
         tokenize, "_segment", lambda text, language: ["Ein Wort" + LONE + " hier."]
     )
-    ctx = build_ctx(raw_text="Ein Wort hier.", language={"code": "de", "confidence": 0.99})
+    ctx = build_ctx(prose_text="Ein Wort hier.", language={"code": "de", "confidence": 0.99})
     result = tokenize.Tokenize().run(ctx)
 
     payload = json.loads(result.artefacts[artefact_kinds.TOKENS].read_text(encoding="utf-8"))

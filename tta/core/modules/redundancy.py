@@ -28,7 +28,7 @@ def _repetition_rate(sentences: list[list[str]], n: int) -> float | None:
 class Redundancy(Module):
     spec = ModuleSpec(
         name="mod_redundancy",
-        version="0.1.0",
+        version="0.2.0",  # 0.2.0: tokens come from prose_text (#22, ADR-0024)
         consumes=(artefact_kinds.TOKENS,),
         produces_metrics=("bigram_repetition_rate", "trigram_repetition_rate"),
     )

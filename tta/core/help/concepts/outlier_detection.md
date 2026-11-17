@@ -40,7 +40,7 @@ Enthält eine Spalte **weniger als vier** Zahlenwerte, wird nichts hervorgehoben
 
 **Häufig ein Datenfehler.** Die erste Frage bei einer hervorgehobenen Zelle sollte lauten, ob die Textextraktion dieser Arbeit in Ordnung war: [extraction_quality](metric:extraction_quality) prüfen und ebenso, ob [language_code](metric:language_code) plausibel ist. Zeichenmüll und falsch erkannte Sprachen sind die häufigsten Ursachen extremer Werte.
 
-**Bei vielen Spalten teilweise Zufall.** Das Werkzeug zeigt 31 Metriken. Wird jede Spalte einzeln geprüft, fällt schon aus statistischen Gründen ein Teil der Zellen auf, ohne dass etwas dahintersteht. Eine einzelne hervorgehobene Zelle ist ein Anlass zum Nachsehen, kein Befund.
+**Bei vielen Spalten teilweise Zufall.** Das Werkzeug zeigt 34 Metriken. Wird jede Spalte einzeln geprüft, fällt schon aus statistischen Gründen ein Teil der Zellen auf, ohne dass etwas dahintersteht. Eine einzelne hervorgehobene Zelle ist ein Anlass zum Nachsehen, kein Befund.
 
 ## Was das Verfahren nicht kann
 

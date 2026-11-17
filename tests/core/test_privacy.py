@@ -94,7 +94,7 @@ def test_json_report_is_machine_readable():
         "schema_version", "sources", "theses", "module_runs", "metric_values", "artefact_files"
     }
     assert len(payload["modules"]) == 13  # +mod_extract_filesystem_metadata (#18)
-    assert len(payload["artefact_kinds"]) == 4
+    assert len(payload["artefact_kinds"]) == 5  # +prose_text (#22, ADR-0024)
 
 
 # -- legal stubs, sections 6-7 (ADR-0009 "Legal stubs", #6) -------------------

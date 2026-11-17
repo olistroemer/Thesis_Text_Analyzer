@@ -76,6 +76,8 @@ def test_default_registry_matches_catalogue():
     assert names.index("mod_extract_pymupdf") < names.index("mod_classify_language")
     assert names.index("mod_classify_language") < names.index("mod_tokenize")
     assert names.index("mod_tokenize") < names.index("mod_surface_counts")
+    # the text metrics read prose_text from the same extractor (#22, ADR-0024)
+    assert names.index("mod_extract_pymupdf") < names.index("mod_readability")
     # mod_classify_thesis_type sits off raw_text (#9, ADR-0019)
     assert names.index("mod_extract_pymupdf") < names.index("mod_classify_thesis_type")
     # mod_determine_publication_year fuses raw_text + pdf_metadata (#17)
@@ -84,6 +86,7 @@ def test_default_registry_matches_catalogue():
     )
     # 32 metrics across the catalogue (ADR-0011 rev. 3: +thesis_type,
     # +publication_year, +publication_year_source; rev. 4: +file_size_bytes,
-    # +fs_modified_year; rev. 6: +publication_date_precision, #81)
+    # +fs_modified_year; rev. 6: +publication_date_precision, #81; rev. 7:
+    # +removed_monospace_chars, +removed_math_chars, #22)
     metric_count = sum(len(m.spec.produces_metrics) for m in registry.in_topological_order())
-    assert metric_count == 32
+    assert metric_count == 34

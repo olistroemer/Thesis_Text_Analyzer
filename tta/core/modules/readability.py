@@ -85,8 +85,8 @@ def _no_downloads() -> Iterator[None]:
 class Readability(Module):
     spec = ModuleSpec(
         name="mod_readability",
-        version="0.1.0",
-        consumes=(artefact_kinds.RAW_TEXT, artefact_kinds.LANGUAGE),
+        version="0.2.0",  # 0.2.0: reads prose_text (#22, ADR-0024)
+        consumes=(artefact_kinds.PROSE_TEXT, artefact_kinds.LANGUAGE),
         produces_metrics=("flesch_reading_ease",),
     )
 
@@ -98,7 +98,7 @@ class Readability(Module):
             raise NotApplicable(f"no readability formula for language: {language}")
         import textstat  # lazy: see the module docstring (#74)
 
-        text = ctx.artefacts[artefact_kinds.RAW_TEXT].read_text(encoding="utf-8")
+        text = ctx.artefacts[artefact_kinds.PROSE_TEXT].read_text(encoding="utf-8")
         # textstat's language is process-global state; set it on every run
         textstat.set_lang(language)
         try:

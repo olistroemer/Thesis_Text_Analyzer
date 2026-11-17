@@ -2,7 +2,7 @@
 slug: mod_readability
 title: Lesbarkeit berechnen
 kind: module
-consumes: [raw_text, language]
+consumes: [prose_text, language]
 produces_artefacts: []
 produces_metrics: [flesch_reading_ease]
 applicability: Läuft nur für die erkannten Sprachen `de` und `en`. Für jede andere Sprache lautet das Ergebnis „nicht anwendbar" – es gibt keine passende Formel.
@@ -41,7 +41,7 @@ Weil der Fehler nur in eine Richtung geht, hebt er sich über ein Dokument **nic
 - Wort- und Satzlänge sind **Stellvertreter**, keine Messung. Bailin und Grafstein zeigen, dass die sprachlichen Annahmen dahinter allgemein nicht tragen [@bailin2001]. Eine Arbeit kann ihre Sätze kürzen, jeden undurchdringlichen Fachbegriff behalten und ihren Wert „verbessern".
 - Der Wert ist als **Rangordnung innerhalb eines Korpus** brauchbar. Der absolute Betrag ist es nicht, und Verhältnisse zweier Werte sind bedeutungslos.
 
-Hinzu kommt, dass die Formel über den gesamten extrahierten Text läuft – Literaturverzeichnis, Tabelleninhalte, Formelfragmente und Kopfzeilen eingeschlossen, mit vollem Gewicht.
+Hinzu kommt, dass die Formel über den gesamten extrahierten Text läuft – Literaturverzeichnis, Tabelleninhalte und Kopfzeilen eingeschlossen, mit vollem Gewicht. Nur Code und Formeln sind vorher entfernt (`prose_text`, siehe [mod_extract_pymupdf](module:mod_extract_pymupdf)).
 
 ## Kein Netzzugriff
 
