@@ -133,3 +133,15 @@ def test_capture_tk_window(tool, tmp_path):
         assert 320 <= width < 360 and 200 < height < 280
     finally:
         root.destroy()
+
+
+def test_image_selections(tool):
+    """The README preset and the details-panel target name things that exist:
+    the panel needs a thesis whose cells error (an ok cell opens no panel,
+    SDD Sec. 9.9)."""
+    assert set(tool.README_IMAGES) <= set(tool.IMAGES)
+    assert tool.parse_args(["--out", "x", "--readme"]).readme
+    corrupt = [s.filename for s in tool.DEMO_THESES if s.lang == "corrupt"]
+    assert corrupt == [tool.DETAIL_THESIS]
+    with pytest.raises(SystemExit):  # --only and --readme exclude each other
+        tool.parse_args(["--out", "x", "--readme", "--only", "app-cli"])

@@ -5,6 +5,7 @@ Usage (repository root, conda env ``pds``)::
 
     python tools/screenshots.py --out <dir>                 # all images
     python tools/screenshots.py --out <dir> --only app-cli  # a subset
+    python tools/screenshots.py --out <dir> --readme        # the README set
     python tools/screenshots.py --list                      # image names
 
 What it does: writes synthetic thesis PDFs (invented titles, placeholder
@@ -66,14 +67,23 @@ IMAGES = (
     "app-cli",
 )
 GUI_IMAGES = IMAGES[:7]
+#: The subset shown in the repository README (--readme): the grid after a
+#: run, the report, the help viewer and the CLI - what the tool does, what it
+#: produces, how it explains itself, and the researcher's way in.
+README_IMAGES = ("app-hauptfenster-basis", "app-bericht", "app-hilfe", "app-cli")
 
 PROJECT_NAME = "Beispielprojekt"
 INSTITUTION = "FH-Musterstadt"
 MARKER = ".tta-screenshots-workdir"  # proves a --workdir is ours to delete
 MAIN_GEOMETRY = (1400, 580)
 WORKERS = 2
+# The details-panel image: an error cell (basic mode, so no traceback).
+# An ok cell opens no panel at all (SDD Sec. 9.9).
+DETAIL_THESIS, DETAIL_METRIC = "ma14-defekt.pdf", "n_pages"
 PAUSE_AFTER_THESES = 6  # the in-progress image: this many theses finished
-REPORT_TIMESTAMP = datetime(2026, 3, 2, 10, 30)
+# Fixed "generated at" of the report: Claude Shannon's birthday, at 2^10
+# minutes past midnight (10:24). One constant - change it here.
+REPORT_TIMESTAMP = datetime(1916, 4, 30, 10, 24)
 REPORT_WINDOW = (1280, 1700)  # the demo report's height, no blank tail
 CLI_WIDTH = 104
 CLI_RUN_HEAD, CLI_RUN_TAIL = 7, 3  # `tta run` lines kept around the elision
@@ -378,10 +388,31 @@ def prepare_workdir(workdir: Path) -> None:
         if not (workdir / MARKER).is_file():
             sys.exit(f"refusing to delete {workdir}: not created by this tool "
                      f"(no {MARKER}); choose another --workdir")
-        shutil.rmtree(workdir)
+        if not clean_workdir(workdir):
+            sys.exit(f"could not empty {workdir} (a file is still in use?)")
     workdir.mkdir(parents=True)
     (workdir / MARKER).write_text("scratch directory of tools/screenshots.py\n",
                                   encoding="utf-8")
+
+
+def clean_workdir(workdir: Path) -> bool:
+    """Delete the scratch directory, the marker last: if a file is still
+    locked (an aborted run's database, say), the leftover keeps its marker and
+    the next run may still delete it. Returns whether it is gone."""
+    for child in workdir.iterdir():
+        if child.name == MARKER:
+            continue
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            try:
+                child.unlink(missing_ok=True)
+            except OSError:
+                pass  # still in use; reported by the check below
+    if any(child.name != MARKER for child in workdir.iterdir()):
+        return False
+    shutil.rmtree(workdir, ignore_errors=True)
+    return not workdir.exists()
 
 
 def write_demo_pdfs(folder: Path, theses=DEMO_THESES) -> list[Path]:
@@ -416,7 +447,13 @@ def build_demo_project(workdir: Path, project_dir: Path):
     pdfs = write_demo_pdfs(workdir / "beispiele")
     write_project_config(project_dir)
     project = Project.open(project_dir, create=True)
-    project.repo.add_theses(pdfs)
+    # Relative to the working directory where possible (main() runs inside
+    # the scratch directory): error texts quote the PDF path, and it should
+    # read "beispiele/x.pdf", not a scratch path with the account name.
+    here = Path.cwd()
+    project.repo.add_theses(
+        [pdf.relative_to(here) if pdf.is_relative_to(here) else pdf for pdf in pdfs]
+    )
     excluded = {spec.filename for spec in DEMO_THESES if spec.excluded}
     for thesis in project.repo.list_theses(local_only=True, include_excluded=True):
         if thesis.pdf_filename in excluded:
@@ -443,8 +480,26 @@ def write_png(path: Path, width: int, height: int, bgra: bytes) -> None:
                 + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
 
     header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
-                     + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    write_file(path, b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
+               + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+def write_file(path: Path, data: bytes, attempts: int = 10) -> None:
+    """Replace ``path`` atomically. An image viewer or a sync client holding
+    the previous file open makes the replace fail for a moment on Windows,
+    so it is retried briefly rather than aborting the whole run."""
+    path = Path(path)
+    temporary = path.with_name(path.name + ".part")
+    temporary.write_bytes(data)
+    for attempt in range(attempts):
+        try:
+            os.replace(temporary, path)
+            return
+        except OSError:
+            if attempt == attempts - 1:
+                temporary.unlink(missing_ok=True)
+                raise
+            time.sleep(0.5)
 
 
 def png_size(path: Path) -> tuple[int, int]:
@@ -659,7 +714,6 @@ def new_toplevels(root, before: set) -> list:
 
 def run_gui(project, out: Path, wanted: set, log) -> None:
     """Drive MainWindow through a run and its dialogs; capture what's wanted."""
-    from tta.core import events
     from tta.core.i18n import _
     from tta.ui.tk import dialogs
     from tta.ui.tk.help_view import open_help
@@ -679,72 +733,80 @@ def run_gui(project, out: Path, wanted: set, log) -> None:
     # -- run, paused mid-way -------------------------------------------------
     gate = GatedQueue(PAUSE_AFTER_THESES)
     window._event_queue = gate  # the run subscribes this queue's put at start
-    window._run(rerun=False)
-    if not pump_until(root, gate.paused.is_set, timeout=300):
-        raise RuntimeError("the run never reached the pause point")
-    # let the queue drain and the ETA leave "estimating..." (damped, #54)
-    label = lambda: window._progress_label.cget("text") if window._progress_label else ""
-    pump_until(root, lambda: "~" in label(), timeout=8)
-    pump(root, 1.0)
-    if BTN_CANCEL not in window._toolbar_buttons:
-        raise RuntimeError("expected the run toolbar (Cancel + progress)")
-    shot("app-analyselauf", root)
-    gate.release()
-    done = lambda: not (window._run_thread and window._run_thread.is_alive())
-    if not pump_until(root, done, timeout=600):
-        raise RuntimeError("the run did not finish")
-    pump(root, 1.0)  # RunCompleted drained, toolbar restored
-    shot("app-hauptfenster-basis", root)
+    try:
+        window._run(rerun=False)
+        if not pump_until(root, gate.paused.is_set, timeout=300):
+            raise RuntimeError("the run never reached the pause point")
+        # let the queue drain and the ETA leave "estimating..." (damped, #54)
+        label = lambda: window._progress_label.cget("text") if window._progress_label else ""
+        pump_until(root, lambda: "~" in label(), timeout=8)
+        pump(root, 1.0)
+        if BTN_CANCEL not in window._toolbar_buttons:
+            raise RuntimeError("expected the run toolbar (Cancel + progress)")
+        shot("app-analyselauf", root)
+        gate.release()
+        done = lambda: not (window._run_thread and window._run_thread.is_alive())
+        if not pump_until(root, done, timeout=600):
+            raise RuntimeError("the run did not finish")
+        pump(root, 1.0)  # RunCompleted drained, toolbar restored
+        shot("app-hauptfenster-basis", root)
 
-    # -- details panel of an na cell (readability: no formula for French) ----
-    if "app-detailpanel" in wanted:
-        grid = window.grid_view
-        r = next(i for i, row in enumerate(grid.rows)
-                 if row.thesis.pdf_filename.startswith("fr17-"))
-        names = grid._column_names()
-        c = names.index("flesch_reading_ease")
-        grid.sheet.select_cell(r, c, redraw=True)
-        before = toplevel_names(root)
-        grid._on_double_click(None)  # the grid's own "open this" gesture
-        panel = new_toplevels(root, before)
-        if not panel:
-            raise RuntimeError("the details panel did not open")
-        panel[0].geometry("+80+80")
-        pump(root, 0.3)
-        shot("app-detailpanel", panel[0])
-        panel[0].destroy()
-        grid.sheet.deselect("all")
+        # -- details panel of an error cell: the corrupt PDF's page count -------
+        if "app-detailpanel" in wanted:
+            grid = window.grid_view
+            r = next(i for i, row in enumerate(grid.rows)
+                     if row.thesis.pdf_filename == DETAIL_THESIS)
+            names = grid._column_names()
+            c = names.index(DETAIL_METRIC)
+            grid.sheet.select_cell(r, c, redraw=True)
+            before = toplevel_names(root)
+            grid._on_double_click(None)  # the grid's own "open this" gesture
+            panel = new_toplevels(root, before)
+            if not panel:
+                raise RuntimeError("the details panel did not open")
+            panel[0].geometry("+80+80")
+            pump(root, 0.3)
+            shot("app-detailpanel", panel[0])
+            panel[0].destroy()
+            grid.sheet.deselect("all")
 
-    # -- help viewer on a metric page ----------------------------------------
-    if "app-hilfe" in wanted:
-        help_window = open_help(root, topic="metric:yules_k")
-        help_window.geometry("1000x680+80+60")
-        pump(root, 0.3)
-        shot("app-hilfe", help_window)
-        help_window.destroy()
+        # -- help viewer on a metric page ----------------------------------------
+        if "app-hilfe" in wanted:
+            help_window = open_help(root, topic="metric:yules_k")
+            help_window.geometry("1000x680+80+60")
+            pump(root, 0.3)
+            shot("app-hilfe", help_window)
+            help_window.destroy()
 
-    # -- privacy statement --------------------------------------------------
-    if "app-datenschutz" in wanted:
-        before = toplevel_names(root)
-        window._show_privacy()
-        privacy = new_toplevels(root, before)[0]
-        privacy.geometry("+80+60")
-        pump(root, 0.3)
-        shot("app-datenschutz", privacy)
-        privacy.destroy()
+        # -- privacy statement --------------------------------------------------
+        if "app-datenschutz" in wanted:
+            before = toplevel_names(root)
+            window._show_privacy()
+            privacy = new_toplevels(root, before)[0]
+            privacy.geometry("+80+60")
+            pump(root, 0.3)
+            shot("app-datenschutz", privacy)
+            privacy.destroy()
 
-    # -- export: the native "Export complete" message box --------------------
-    if "app-export" in wanted:
-        capture_export_dialog(win32, window, dialogs, _, out / "app-export.png", log)
+        # -- export: the native "Export complete" message box --------------------
+        if "app-export" in wanted:
+            capture_export_dialog(win32, window, dialogs, _, out / "app-export.png", log)
 
-    # -- extended mode -------------------------------------------------------
-    if "app-hauptfenster-erweitert" in wanted:
-        window._extended.set(True)
-        window._mode_changed()
-        pump(root, 0.5)
-        shot("app-hauptfenster-erweitert", root)
-
-    root.destroy()
+        # -- extended mode -------------------------------------------------------
+        if "app-hauptfenster-erweitert" in wanted:
+            window._extended.set(True)
+            window._mode_changed()
+            pump(root, 0.5)
+            shot("app-hauptfenster-erweitert", root)
+    finally:
+        # On a failure too: never leave the run thread parked on the gate
+        # (it holds the project database open) or a window on screen.
+        gate.release()
+        if window._runner is not None:
+            window._runner.cancel()
+        if window._run_thread is not None:
+            window._run_thread.join(timeout=60)
+        root.destroy()
 
 
 def capture_export_dialog(win32: Win32, window, dialogs, _, path: Path, log) -> None:
@@ -813,21 +875,24 @@ def browser_screenshot(browser: str, source: Path, png: Path, size: tuple[int, i
                        profile: Path) -> None:
     """Rasterise a local file with a headless Chromium-family browser on a
     throwaway profile (never the user's); network features are switched off -
-    everything rendered here is local."""
-    png.unlink(missing_ok=True)
+    everything rendered here is local. The browser writes into the scratch
+    directory; the result replaces ``png`` like every other image."""
+    shot = profile.parent / f"browser-{png.name}"
+    shot.unlink(missing_ok=True)
     command = [
         browser, "--headless=new", "--disable-gpu", "--hide-scrollbars",
         "--no-first-run", "--no-default-browser-check", "--disable-extensions",
         "--disable-sync", "--disable-background-networking",
         "--disable-component-update", "--no-pings", "--mute-audio",
         f"--user-data-dir={profile}", "--force-device-scale-factor=1",
-        f"--window-size={size[0]},{size[1]}", f"--screenshot={png}",
+        f"--window-size={size[0]},{size[1]}", f"--screenshot={shot}",
         source.resolve().as_uri(),
     ]
     subprocess.run(command, check=False, timeout=120,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if not png.is_file():
+    if not shot.is_file():
         raise RuntimeError(f"the browser wrote no screenshot: {' '.join(command)}")
+    write_file(png, shot.read_bytes())
 
 
 def render_report(project_dir: Path, workdir: Path, browser: str, out: Path, log) -> None:
@@ -917,8 +982,11 @@ def render_cli(workdir: Path, browser: str, out: Path, log) -> None:
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, help="output directory for the PNGs")
-    parser.add_argument("--only", nargs="+", metavar="NAME", choices=IMAGES,
-                        help="build only these images (default: all)")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--only", nargs="+", metavar="NAME", choices=IMAGES,
+                           help="build only these images (default: all)")
+    selection.add_argument("--readme", action="store_true",
+                           help="build the README subset: " + ", ".join(README_IMAGES))
     parser.add_argument("--workdir", type=Path,
                         default=Path(tempfile.gettempdir()) / "tta-screenshots",
                         help="scratch directory, recreated on every run")
@@ -938,7 +1006,7 @@ def main(argv=None) -> int:
     if args.list:
         print("\n".join(IMAGES))
         return 0
-    wanted = set(args.only or IMAGES)
+    wanted = set(README_IMAGES if args.readme else args.only or IMAGES)
     gui_wanted = wanted & set(GUI_IMAGES)
     if gui_wanted and sys.platform != "win32":
         sys.exit("the Tk captures need Windows (Win32 PrintWindow); "
@@ -987,8 +1055,9 @@ def main(argv=None) -> int:
             render_cli(workdir, browser, out, log)
     finally:
         os.chdir(previous_cwd)
-        if not args.keep:
-            shutil.rmtree(workdir, ignore_errors=True)
+        if not args.keep and not clean_workdir(workdir):
+            print(f"note: {workdir} could not be removed completely; "
+                  "the next run deletes it")
     print(f"done: {len(wanted)} image(s) in {out}")
     return 0
 
