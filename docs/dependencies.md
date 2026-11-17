@@ -66,11 +66,18 @@ the distributed binaries.
 
 | Package | Version | Licence | Purpose | Verdict |
 |---|---|---|---|---|
-| `pymupdf` | 1.27.2.3 | **AGPL-3.0-or-later** OR Artifex commercial | `mod_extract_pymupdf` — the `raw_text` producer, i.e. the head of the whole pipeline. Declared in the `pymupdf` optional extra, but installed by the release job and named in `packaging/tta.spec` `hiddenimports`. | ✅ compatible under GPLv3 §13 (see F2) |
+| `pymupdf` | 1.27.2.3 (audited); 1.28.2 (CI/release builds since the `<2` cap, re-checked 2026-11-17: same licence, no dependencies) | **AGPL-3.0-or-later** OR Artifex commercial | `mod_extract_pymupdf` — the `raw_text` producer, i.e. the head of the whole pipeline. Declared in the `pymupdf` optional extra, but installed by the release job and named in `packaging/tta.spec` `hiddenimports`. | ✅ compatible under GPLv3 §13 (see F2) |
 
 `pymupdf` sits in an extra for historical reasons (the retired AGPL gate). It is **not** optional in
 the shipped product: `.github/workflows/ci.yml` installs `.[build,pymupdf]` for the release build.
 See [§8](#8-audit-findings) F2 for the AGPL reasoning and F5 for the packaging inconsistency.
+
+**Capped below 2 (2026-11-17).** The extra declares `pymupdf>=1.24,<2`. PyMuPDF 2.0/2.1 hard-require
+`networkx`, `numpy`, `onnxruntime`, `pyyaml`, `pymupdf-layout`, `pymupdf4llm`, `psutil` and
+`tabulate`, which would freeze numpy and onnxruntime into the binaries for a layout model `tta`
+does not use (rejected as variant C of Exp #22). None of those packages is in the inventory below
+because the 1.x line pulls in none of them. Reasoning of record:
+[ADR-0014](adr/0014-distribution.md) ("PyMuPDF is pinned below 2").
 
 ---
 
@@ -221,6 +228,8 @@ that PyMuPDF is a "development-phase extractor only" and that "the release gate 
 distributed build that imports it under `tta/core/`". ADR-0017 retired that gate, and the release
 job installs `.[build,pymupdf]` and lists `fitz` in `hiddenimports`. The comment is stale and the
 default extractor's library is not in the default dependency set. Not this lane's file to fix.
+*Comment fixed 2026-11-17 (with the `<2` cap):* it now states that PyMuPDF is the default extractor
+and ships under ADR-0017. The extra itself stays an extra; moving it into the default set is open.
 
 **F6 — the bundled punkt models carry no licence statement.** `nltk_data/tokenizers/punkt_tab/`
 ships a README with provenance and a citation, and no licence; there is no licence file anywhere in
