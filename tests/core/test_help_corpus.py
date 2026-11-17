@@ -21,7 +21,11 @@ metric names (ADR-0012 rev. 3 corrects the check's wording). The bibliography
 is `docs/references.bib`, also per rev. 3: the only render target that
 resolves `[@key]` is the pandoc pipeline, which runs over the repository.
 
-Scope is modules/ metrics/ concepts/. `help/privacy/<locale>/` holds the
+Scope is modules/ metrics/ concepts/, plus the guide pages of ADR-0012
+rev. 6 (#92) in every locale, `help/guide/<locale>/<slug>.md` - the help
+viewer's cover page. The other guide page, `guide:privacy`, is generated at
+view time and has no file: it counts as a link target here, and its content
+is gated by tests/core/test_privacy.py. `help/privacy/<locale>/` holds the
 legal stubs of ADR-0009 Sec. 6-7 - fragments appended to a generated
 statement, with no front matter and one HTML status comment. They are not
 help pages and the viewer's topic tree excludes them.
@@ -42,22 +46,37 @@ from importlib import resources
 
 import pytest
 
-from tta.core.help_corpus import split_front_matter
+from tta.core.help_corpus import (
+    COVER_URI,
+    GENERATED_GUIDE_SLUGS,
+    GUIDE_DIRECTORY,
+    GUIDE_KIND,
+    PRIVACY_URI,
+    split_front_matter,
+)
+from tta.core.i18n import SUPPORTED_LOCALES
 from tta.core.modules.registry import default_registry
 from tta.core.third_party_licenses import LICENSES_URI
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BIBLIOGRAPHY = REPO_ROOT / "docs" / "references.bib"
+README = REPO_ROOT / "README.md"
 HELP_ROOT = pathlib.Path(str(resources.files("tta.core") / "help"))
 
 #: Corpus sections and the `kind` each one's pages must declare (ADR-0012).
 SECTIONS = {"modules": "module", "metrics": "metric", "concepts": "concept"}
+#: Every page directory and its kind: the sections plus the per-locale guide
+#: pages (ADR-0012 rev. 6, #92).
+KINDS = {**SECTIONS, GUIDE_DIRECTORY: GUIDE_KIND}
+#: Guide pages with no file, generated at view time - valid link targets.
+GENERATED_URIS = {f"{GUIDE_KIND}:{slug}" for slug in GENERATED_GUIDE_SLUGS}
 
 #: Front-matter schema. Required per kind, then the fields shared by all.
 REQUIRED = {
     "module": ("consumes", "produces_artefacts", "produces_metrics", "applicability"),
     "metric": ("produced_by", "applicability"),
     "concept": (),
+    "guide": (),
 }
 ALWAYS_REQUIRED = ("slug", "title", "kind")
 OPTIONAL = ("references", "see_also")
@@ -66,9 +85,9 @@ LIST_FIELDS = frozenset(
     {"consumes", "produces_artefacts", "produces_metrics", "references", "see_also"}
 )
 
-CROSS_REF = re.compile(r"\A(module|metric|concept):([A-Za-z0-9_.-]+)\Z")
+CROSS_REF = re.compile(r"\A(module|metric|concept|guide):([A-Za-z0-9_.-]+)\Z")
 #: A markdown link whose target is a cross-reference URI.
-BODY_REF = re.compile(r"\]\(((?:module|metric|concept):[^)\s]*)\)")
+BODY_REF = re.compile(r"\]\(((?:module|metric|concept|guide):[^)\s]*)\)")
 #: A markdown link to an in-app target (ADR-0012 rev. 4) - not a page.
 APP_REF = re.compile(r"\]\((app:[^)\s]*)\)")
 #: A pandoc citation, `[@key]` or `[@a; @b]`.
@@ -81,28 +100,40 @@ EXTERNAL_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(https?://[^)\s]*)")
 
 
 class Page:
-    """One help page: its section, its front matter and its body."""
+    """One help page: its section, its front matter and its body. A guide
+    page also has a locale (its directory under guide/)."""
 
-    def __init__(self, section, path):
+    def __init__(self, section, path, locale=""):
         self.section = section
+        self.locale = locale
         self.path = path
         self.slug = path.name[:-3]
-        self.uri = f"{SECTIONS[section]}:{self.slug}"
+        self.kind = KINDS[section]
+        self.uri = f"{self.kind}:{self.slug}"
         self.fields, self.body = split_front_matter(
             path.read_text(encoding="utf-8"), strict=True
         )
 
     def __repr__(self):
-        return f"help/{self.section}/{self.path.name}"
+        where = f"{self.section}/{self.locale}" if self.locale else self.section
+        return f"help/{where}/{self.path.name}"
 
 
 def load_pages():
-    return [
+    pages = [
         Page(section, path)
         for section in SECTIONS
         for path in sorted((HELP_ROOT / section).iterdir())
         if path.name.endswith(".md")
     ]
+    guide = HELP_ROOT / GUIDE_DIRECTORY
+    for locale in sorted(entry.name for entry in guide.iterdir() if entry.is_dir()):
+        pages += [
+            Page(GUIDE_DIRECTORY, path, locale)
+            for path in sorted((guide / locale).iterdir())
+            if path.name.endswith(".md")
+        ]
+    return pages
 
 
 @pytest.fixture(scope="module")
@@ -112,7 +143,8 @@ def pages():
 
 @pytest.fixture(scope="module")
 def slugs(pages):
-    return {page.uri for page in pages}
+    """Every resolvable page URI: the files, plus the generated guide pages."""
+    return {page.uri for page in pages} | GENERATED_URIS
 
 
 @pytest.fixture(scope="module")
@@ -262,7 +294,7 @@ def test_front_matter_declares_its_own_slug_and_kind(pages):
         (repr(page), page.fields.get("slug"), page.fields.get("kind"))
         for page in pages
         if page.fields.get("slug") != page.slug
-        or page.fields.get("kind") != SECTIONS[page.section]
+        or page.fields.get("kind") != page.kind
     ] == []
 
 
@@ -270,7 +302,7 @@ def test_front_matter_has_every_required_field(pages):
     missing = [
         (repr(page), field)
         for page in pages
-        for field in ALWAYS_REQUIRED + REQUIRED[SECTIONS[page.section]]
+        for field in ALWAYS_REQUIRED + REQUIRED[page.kind]
         if not page.fields.get(field) and page.fields.get(field) != []
     ]
     assert missing == []
@@ -285,7 +317,7 @@ def test_front_matter_has_no_field_outside_the_schema(pages):
         (repr(page), field)
         for page in pages
         for field in page.fields
-        if field not in allowed[SECTIONS[page.section]]
+        if field not in allowed[page.kind]
     ]
     assert extra == [], "front-matter fields ADR-0012's schema does not define"
 
@@ -386,8 +418,69 @@ def test_the_corpus_is_the_size_the_sdd_claims(pages):
     """SDD Sec. 9.4: 13 module + 32 metric + 5 concept pages."""
     counts = {section: 0 for section in SECTIONS}
     for page in pages:
-        counts[page.section] += 1
+        if page.section in counts:
+            counts[page.section] += 1
     assert counts == {"modules": 13, "metrics": 32, "concepts": 5}
+
+
+# --- guide pages (ADR-0012 rev. 6, #92) ----------------------------------------
+
+
+def test_every_locale_has_a_cover_page_and_nothing_else_is_a_guide_page(pages):
+    """The cover page follows the UI language, so each supported locale
+    carries one; the generated privacy page must not exist as a file."""
+    guide = sorted((page.locale, page.uri) for page in pages if page.kind == GUIDE_KIND)
+    assert guide == sorted((locale, COVER_URI) for locale in SUPPORTED_LOCALES)
+
+
+def test_no_generated_guide_page_is_shadowed_by_a_file():
+    stray = [
+        path
+        for slug in GENERATED_GUIDE_SLUGS
+        for path in (HELP_ROOT / GUIDE_DIRECTORY).glob(f"*/{slug}.md")
+    ]
+    assert stray == []
+
+
+def test_the_cover_page_links_to_the_privacy_page_in_every_locale(pages):
+    """#92: the cover page's privacy paragraph ends in a direct link, not a
+    menu path."""
+    covers = [page for page in pages if page.uri == COVER_URI]
+    assert covers
+    assert [repr(page) for page in covers if PRIVACY_URI not in BODY_REF.findall(page.body)] == []
+
+
+def _readme_section(source, heading):
+    """The body of one ``## heading`` section of the README."""
+    match = re.search(rf"^## {heading}\n(.*?)(?=^## |\Z)", source, re.M | re.S)
+    assert match, f"README.md has no '## {heading}' section"
+    return match.group(1)
+
+
+#: The README facts a reworded cover page must keep: acronyms (KIWIT, BMFTR)
+#: and years (funding start, availability of generative AI).
+_FACT = re.compile(r"\b(?:[A-Z]{3,}|(?:19|20)\d\d)\b")
+
+
+def test_the_cover_page_keeps_the_readme_facts(pages):
+    """README and cover page share their substance (#92): the cover page is
+    the README's opening, "Hintergrund" and "Datenschutz" retold for a
+    professor. Prose may differ, facts may not - every acronym and year of
+    those README sections must appear on every locale's cover page. A
+    changed funding body or date then fails here until both say the same."""
+    source = README.read_text(encoding="utf-8").replace("\r\n", "\n")
+    facts = set()
+    for heading in ("Hintergrund", "Datenschutz"):
+        facts |= set(_FACT.findall(_readme_section(source, heading)))
+    assert {"KIWIT", "BMFTR"} <= facts, "the README lost its background facts"
+    missing = [
+        (repr(page), fact)
+        for page in pages
+        if page.uri == COVER_URI
+        for fact in sorted(facts)
+        if fact not in page.body
+    ]
+    assert missing == []
 
 
 # --- the label/title gate (#79) ---------------------------------------------
