@@ -1586,7 +1586,7 @@ msgstr "keine Worttokens in der Tokenisierung"
 
 #: tta/core/modules/count_images.py:261
 #: tta/core/modules/extract_pdf_metadata.py:70
-#: tta/core/modules/extract_pymupdf.py:120
+#: tta/core/modules/extract_pymupdf.py:168
 msgid "not a PDF"
 msgstr "keine PDF-Datei"
 
