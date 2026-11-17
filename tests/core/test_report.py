@@ -284,3 +284,17 @@ def test_default_report_path_is_dated_and_under_reports(tmp_path):
     assert path == tmp_path / "reports" / "report-2026-08-26.html"
     # pure: nothing is created on disk (ADR-0002 - core does no I/O)
     assert not path.parent.exists()
+
+
+def test_new_thesis_types_are_reported_with_their_labels(project):
+    """#82: every detected class is shown to the user under its label; the raw
+    value stays the data key (ADR-0019 rev. 3)."""
+    from tta.core.types import thesis_type_label
+
+    _seed(project, "m.pdf", word_count=30000, publication_year=1999, thesis_type="magister")
+    _seed(project, "l.pdf", word_count=40000, publication_year=1998, thesis_type="licentiate")
+    data = report.collect(project.repo)
+    assert data.by_type == {"licentiate": 1, "magister": 1}
+    page = report.render_html(data)
+    for value in ("magister", "licentiate"):
+        assert thesis_type_label(value) in page

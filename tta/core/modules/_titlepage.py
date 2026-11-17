@@ -248,38 +248,3 @@ def cover_diagnostics(
         "cover_rules": None if cover_rules is None else cover_rules.provenance(),
         "cover_pages": [{"page": page, "rule": rule} for page, rule in front.covers],
     }
-
-
-# -- legacy single-window helpers ---------------------------------------------
-# Still used by mod_classify_thesis_type 0.2.0 until it moves to page windows
-# (#82); removed in the same change.
-
-#: Scan roughly the first page (the pre-#81/#82 window).
-TITLE_PAGE_CHARS = 3000
-#: Plausible four-digit years, not embedded in a longer digit run.
-_YEAR_RE = re.compile(r"(?<!\d)(19\d\d|20\d\d|21\d\d)(?!\d)")
-
-
-def leading_window(text: str, limit: int = TITLE_PAGE_CHARS) -> str:
-    """Everything up to the first page break, capped at ``limit`` characters."""
-    return text.split("\f", 1)[0][:limit]
-
-
-def matched_keywords(normalised_text: str, keywords: tuple[str, ...]) -> list[str]:
-    """Which of ``keywords`` occur in the already-normalised text."""
-    return [kw for kw in keywords if kw in normalised_text]
-
-
-def first_index_of_any(normalised_text: str, keywords: tuple[str, ...]) -> int | None:
-    """Earliest start index among ``keywords`` present, or ``None``."""
-    best: int | None = None
-    for kw in keywords:
-        idx = normalised_text.find(kw)
-        if idx != -1 and (best is None or idx < best):
-            best = idx
-    return best
-
-
-def find_years(text: str, lo: int = 1900, hi: int = 2100) -> list[int]:
-    """Plausible four-digit years found in ``text``, in order of appearance."""
-    return [year for year in (int(m) for m in _YEAR_RE.findall(text)) if lo <= year <= hi]
