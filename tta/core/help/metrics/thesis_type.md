@@ -23,7 +23,7 @@ Die von [mod_classify_thesis_type](module:mod_classify_thesis_type) aus den erst
 
 ## Verwendung
 
-Diese Metrik gruppiert die Auswertungen im Bericht: Längenverteilung nach Art, Bachelor-gegen-Master-Vergleich (US-PROF-COMPARE); jede Art bildet eine eigene Gruppe. In der Tabelle erscheint sie in der Spalte „Art".
+Diese Metrik gruppiert die Auswertungen im Bericht: Die Übersicht zählt jede Art für sich, und der Filter „Abschlussart“ vergleicht Bachelor- und Masterarbeiten jeweils mit der Referenz derselben Art (US-PROF-COMPARE). In der Tabelle erscheint sie in der Spalte „Art".
 
 Vergleichswerte aus einer Referenzsammlung (geplant, #49) gibt es nur für Bachelor- und Masterarbeiten. Die übrigen Arten werden erkannt und angezeigt, gehen aber nicht in solche Vergleichswerte ein: Sie sind dafür zu selten, und die Forschungsfrage betrifft Bachelor- und Masterarbeiten.
 

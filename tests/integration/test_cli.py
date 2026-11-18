@@ -394,18 +394,22 @@ def test_report_writes_one_self_contained_html_file(project_dir):
     document = written[0].read_text("utf-8")
     assert document.startswith("<!DOCTYPE html>")
     assert document.endswith("</html>\n")
-    # QA-PRIV: an offline app must not write a file that phones home
-    assert "http://" not in document and "https://" not in document
-    assert "<script" not in document
-    # ...and no identifying value reaches it (Sec. 9.8.3)
-    assert "seed.pdf" not in document
+    # QA-PRIV: an offline app must not write a file that phones home - outside
+    # the vendored plotly.js there is no URL at all (ADR-0016 rev. 3)
+    from tta.core import report
+
+    outside = document.replace(report.plotly_js(), "")
+    assert "http://" not in outside and "https://" not in outside
+    # a local product: it names the thesis and says it is not for sending
+    assert "seed.pdf" in document
+    assert "This report may contain personal data." in document
 
 
 def test_report_out_overrides_the_default_path(project_dir, tmp_path):
     _seed_thesis(project_dir, analysed=True)
     target = tmp_path / "elsewhere" / "cohort.html"
     invoke("-C", project_dir, "report", "--out", target)
-    assert "Cohort report" in target.read_text("utf-8")
+    assert "Thesis report" in target.read_text("utf-8")
     assert not (project_dir / "reports").exists()
 
 

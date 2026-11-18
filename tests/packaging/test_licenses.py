@@ -293,6 +293,26 @@ def test_generator_produces_a_real_manifest_end_to_end(tmp_path):
     # The declared dependencies must all be accounted for.
     for name in ("click", "nltk", "textstat", "pypdf", "rich", "tksheet"):
         assert re.search(re.escape(name), text, re.I), name
+    # ...and the vendored plotly.js, which pip-licenses cannot see (#84)
+    assert "plotly.js (cartesian partial bundle) 4.3.0" in text
+    assert "Plotly Technologies Inc." in text
+
+
+def test_manifest_lists_vendored_components(generator):
+    text = render(generator, [pkg("click")],
+                  vendored=[("plotly.js", "4.3.0", "MIT", "https://x.invalid", "MIT TEXT")])
+    assert "VENDORED NON-PYTHON COMPONENTS (1)" in text
+    assert "plotly.js 4.3.0" in text and "MIT TEXT" in text
+
+
+def test_every_vendored_licence_file_is_committed(generator):
+    """The report embeds plotly.js in every file it writes (ADR-0016 rev. 3);
+    its MIT notice must travel with the binary."""
+    assert generator.VENDORED
+    for _name, _version, licence, _url, relative in generator.VENDORED:
+        path = REPO_ROOT / relative
+        assert path.is_file(), relative
+        assert licence == "MIT" and "Permission is hereby granted" in path.read_text("utf-8")
 
 
 # ----------------------------------------------- the coverage gate (checker)

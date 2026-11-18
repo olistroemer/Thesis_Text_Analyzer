@@ -409,5 +409,11 @@ def test_matplotlib_is_forbidden_outright(check_build):
     """#53 moved it from GUI-only to forbidden: the report is inline SVG now
     (ADR-0016 rev. 2), so no binary has any use for the plotting stack."""
     assert "matplotlib" in check_build.FORBIDDEN
+
+
+def test_python_plotly_is_forbidden_in_both_graphs(check_build, spec_source):
+    """#84: the report embeds plotly.js; the Python package never ships."""
+    assert "plotly" in check_build.FORBIDDEN
+    assert '"plotly"' in spec_source
     assert "matplotlib" not in check_build.GUI_ONLY
     assert "matplotlib" not in check_build.GUI_REQUIRED

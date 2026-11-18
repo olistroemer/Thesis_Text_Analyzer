@@ -183,11 +183,10 @@ def test_the_report_renders_in_german_and_declares_the_locale(german, seeded_pro
         assert path is not None
         document = path.read_text(encoding="utf-8")
         assert '<html lang="de">' in document
-        assert "Kohortenbericht" in document
+        assert "Bericht zu den Abschlussarbeiten" in document
         assert "Analysierte Arbeiten" in document
-        assert "Cohort report" not in document
-        # no PII, in any locale (Sec. 9.8.3)
-        assert "english_thesis.pdf" not in document
+        assert "Dieser Bericht kann personenbezogene Daten enthalten." in document
+        assert "Thesis report" not in document
     finally:
         window.root.destroy()
 

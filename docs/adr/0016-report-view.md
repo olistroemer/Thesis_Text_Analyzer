@@ -1,8 +1,38 @@
 # ADR-0016: Report as a stand-alone HTML file
 
-**Status:** Accepted (rev. 2; rev. 1's "matplotlib charts in a Tk notebook tab" is superseded)
-**Date:** 2026-06-03, revised 2026-08-26 (#51, #70)
+**Status:** Accepted (rev. 3; rev. 2's inline-SVG charts and its privacy rule are superseded by rev. 3, rev. 1's "matplotlib charts in a Tk notebook tab" by rev. 2)
+**Date:** 2026-06-03, revised 2026-08-26 (#51, #70), revised 2026-11-18 (#84)
 **Drivers:** US-PROF-INSIGHTS (the professor's motivation to use the app at all), US-PROF-TRENDS, US-PROF-COMPARE, US-PROF-NOTICE. Without this report, the MVP serves only US-RES-LOW-FRICTION — i.e. the professor has no reason to use the app beyond doing the researcher a favour.
+
+## Revision 3 (2026-11-18, #84): the interactive professor report
+
+The exploratory trial on branch `explore/plotly-report` showed what the report gains from interactivity and from a comparison with the reference corpus. The owner decided (2026-11-18) to grow it into **the** professor report. Rev. 3 replaces rev. 2's charts, content and privacy rule; everything else in rev. 2 stands (pure `collect`/`render_html` in core, adapters write and open, output path, post-run offer #70).
+
+**One report.** The interactive report replaces the SVG report. It is what the GUI's Report button and `tta report` write; there is no second report.
+
+**Charts: plotly.js, embedded inline.** The document embeds the official **plotly.js "cartesian" partial bundle** (`plotly.js-cartesian-dist-min` 4.3.0, MIT, 1,516,234 bytes; trace types bar, box, contour, heatmap, histogram, histogram2d(contour), image, pie, scatter, scatterternary, violin — the report uses scatter, bar and box). It is vendored in the repository at `tta/core/report_assets/plotly-cartesian-4.3.0.min.js` with its licence, pinned by SHA-256 in `core/report.py`, recorded in `docs/dependencies.md` and in `THIRD_PARTY_LICENSES.txt`. The "basic" bundle lacks box plots; the full bundle is three times the size for trace types the report does not use. **No Python plotting or data package enters the app**: aggregation is plain Python (lists, dicts, `statistics`, seeded `random` for the jitter), no `tta` module imports pandas, numpy, scipy or the Python plotly package, and pandas, scipy and plotly (Python) are on the packaging FORBIDDEN list (`plotly` added by #84). The report's own script (`report_assets/report.js`) builds the figures from one inline JSON block; every user-visible string in it comes from Python through `_()` (ADR-0020).
+
+**Content.** Top to bottom:
+
+1. **A note at the top**: the report may contain personal data (file names, paths, links to the PDFs); it is meant for the professor and not for sending to the research team — that is what the anonymised export is for.
+2. **Summary cards** over the professor's theses (no reference size anywhere).
+3. **Filters**: thesis type, language, field. Type and language filter both the professor's theses and the reference; **field acts on the reference only** (the app does not know a thesis's subject; detection is #44), default "all fields". A field comparison needs a concrete type and language; with "all" in either, the yearly reference summary is used.
+4. **Coverage**: the professor's theses per publication year.
+5. **Length / style / vocabulary metrics over time**, each with a metric picker: the reference **median line**, a band from the 25th to the 75th percentile and a lighter band from the 5th to the 95th per year ([ADR-0025](0025-reference-aggregates.md)), and the professor's theses as points (jittered within the year), **highlighted when outside the 25th-75th percentile and more strongly when outside the 5th-95th**. Each panel lists the theses outside the 5th-95th band with a link to the PDF. Theses dated outside the reference years (2003-2025) are shown without a comparison.
+6. **Per-year boxes** of the professor's theses (years with at least 3 theses).
+7. **Authoring tools**: the professor's theses per year by creating application (PDF creator, producer as fallback).
+
+Dropped from the trial: fields, sample-vs-reference per field, the 2023 shift, correlations, scatter matrix, year/type detection against the repository (they need individual reference values or are researcher diagnostics; an extended researcher report may come later). Dropped from rev. 2: length by type, reading-ease histogram, language mix and the "notable theses" list (replaced by the highlights against the reference). Axes stay linear.
+
+**Privacy rule (replaces rev. 2's "the report is an emission channel").** The report is a **local product for the professor**, not something meant to be sent to us. It **may show everything the local application can see**: file names, file paths, `file://` links to the local PDFs. It carries the note of item 1 at the top. The anonymised export ([ADR-0007](0007-export-format.md), §8.3) remains the only channel meant to leave the machine, and the privacy registry's `exported` flag keeps its single meaning. No new registry entries: the report is written into the project folder like the analysis data it is derived from.
+
+**Offline, no external resources.** The document opens no network connection and references no external resource of any kind: no CDN, no web font, no remote image or script. Enforced by tests: (a) outside the embedded library the document contains no `http://` or `https://` at all; (b) the embedded library is byte-identical to the pinned file; (c) every `src`/`href` in the document is either absent or a local `file:` link to a PDF. The library itself contains URL strings (SVG/XML namespaces, the Chart Studio endpoint, the topojson CDN of the geo traces, which this bundle does not contain); the report's plotly configuration switches off every feature that could use them (`showLink`, `showSendToCloud`, `showEditInChartStudio`, `topojsonURL` empty, no MathJax).
+
+**Size.** A report is ~1.65 MB for a handful of theses and ~1.9 MB for 150 (the library is 1.5 MB), against ~50 KB for rev. 2. Each binary grows by 0.53 MiB (the compressed library, the script and the aggregates); measured in [ADR-0014](0014-distribution.md).
+
+**Revisit when** a professor needs the report on a machine where scripts are disabled in local files (then: a static fallback), or plotly.js drops the partial bundles.
+
+The rev. 2 text below is kept as history. Where it conflicts with rev. 3, rev. 3 wins.
 
 ## Decision (rev. 2)
 

@@ -147,7 +147,7 @@ flowchart LR
     P4 -.->|"optionally"| P5["5. Export & send back<br/>(researcher's ask)"]
 ```
 
-The professor's *reward* is in step 4 — the Report view ([§9.9](#99-report-view)) shows trends, comparisons, and outliers in their collection that they couldn't see by reading individually. Step 5 (export/send) is the researcher's interest; without step 4 there's no reason for the professor to engage.
+The professor's *reward* is in step 4 — the report ([§9.8](#98-report)) shows trends in their collection and where their theses sit against the reference corpus, which they couldn't see by reading individually. Step 5 (export/send) is the researcher's interest; without step 4 there's no reason for the professor to engage.
 
 The two journeys share the first three steps; they diverge at step 4. The researcher's "Export and send" is shifted to step 5 of the professor's path, framed as an optional thank-you rather than the goal.
 
@@ -230,6 +230,9 @@ tta/                              # repository root
 │   │   ├── config.py             # tta.toml reader/writer
 │   │   ├── cover_rules.py        # researcher ruleset loader (ADR-0023)
 │   │   ├── help_corpus.py        # the one front-matter parser + corpus layout (§9.4)
+│   │   ├── report.py             # the professor report: collect + render (§9.8)
+│   │   ├── reference.py          # shipped reference aggregates: load, statistics (ADR-0025)
+│   │   ├── report_assets/        # vendored plotly.js + licence, report.js, reference_aggregates.json
 │   │   └── help/                 # markdown content (see §9.4)
 │   ├── ui/
 │   │   └── tk/                   # Tk + tksheet UI ([ADR-001](adr/0001-ui-toolkit.md))
@@ -239,7 +242,7 @@ tta/                              # repository root
 │   ├── core/                     # tested without any UI
 │   ├── modules/                  # per-module unit tests (QA-TEST)
 │   └── integration/              # exercises the CLI
-├── tools/                        # developer tooling, never frozen into a binary (§5.6.5)
+├── tools/                        # developer + researcher tooling, never frozen into a binary (§5.6.5, ADR-0025)
 ├── docs/                         # this SDD, ADRs, user stories
 ├── research/cover_rules/        # researcher rulesets (repository-specific rules), never packaged (ADR-0023)
 └── pyproject.toml
@@ -368,7 +371,7 @@ The screenshots of the GUI, the HTML report and the CLI used in the project docu
 
 - **Demo data, never user data.** The tool generates synthetic PDFs (PyMuPDF, already in the `dev` extra) with invented titles and placeholder authors, builds a fresh project from them in a scratch directory and opens it directly with `Project.open` - not through `open_startup_project` - so neither the user's default project nor its last-project pointer is read or written (US-PROF-NO-TRACES). Its only writes are that scratch project and the output directory.
 - **Fixed conditions.** German UI (`[ui] locale = "de"` in the demo project, ADR-0020), fixed window sizes, a fixed worker count and a fixed report timestamp (`REPORT_TIMESTAMP`, 30 April 1916 10:24 - Claude Shannon's birthday, at 2^10 minutes past midnight). The in-progress image pauses the run thread on a gated event queue after a set number of finished theses, so it does not depend on timing.
-- **Capture.** Tk windows and the native export message box are captured with Win32 `PrintWindow` through `ctypes` and written as PNG by a small stdlib encoder (Pillow stays out, ADR-0014). The report and the CLI transcript - rendered by rich as SVG - are rasterised by a headless Chromium-family browser (Edge on Windows) running on a throwaway profile. Windows is the supported platform; the browser-rendered images also work on Linux.
+- **Capture.** Tk windows and the native export message box are captured with Win32 `PrintWindow` through `ctypes` and written as PNG by a small stdlib encoder (Pillow stays out, ADR-0014). The report and the CLI transcript - rendered by rich as SVG - are rasterised by a headless Chromium-family browser (Edge on Windows) running on a throwaway profile. The report is a script-driven page (plotly.js, §9.8), so the browser is given a virtual-time budget to finish drawing before the capture; it compares the demo theses with the reference aggregates the app ships (the demo data carries no field, which the report never needs from the professor's side). Windows is the supported platform; the browser-rendered images also work on Linux.
 - **Selections.** `--only NAME ...` builds a subset; `--readme` builds the four images the repository README shows (main window after a run, report, help viewer, CLI). The details-panel image shows an `error` cell, because an `ok` cell opens no panel (§9.9).
 - **GUI hooks.** None: everything is driven through the `MainWindow`, `GridView` and help-viewer methods the GUI tests already use. A UI change that breaks the tool is caught by its smoke test (`tests/ui/test_screenshots_tool.py`, display-gated like the other GUI tests).
 
@@ -881,7 +884,7 @@ Step-by-step, the GUI supports both journeys from §3.3 with no required dialogs
 | 1. Start | Main window opens directly. First launch shows a dismissible banner. | Project auto-opened (default project, or the last one opened, §5.6.1); nothing stored outside it (US-PROF-NO-TRACES). A project that cannot be opened never blocks startup: the default project opens instead and the banner says why. |
 | 2. Add | **Two** affordances, side by side. **"Add files"** → multi-select file dialog → added immediately. **"Add folder"** → single-folder dialog → every PDF **beneath** it, recursively → one count confirmation ("Add 428 PDFs from …?") → added. Both are needed because **Tk has no dialog that selects files *and* directories**: `askopenfilenames` returns files only and `askdirectory` returns exactly one directory, so one button cannot cover both cases (#76). A single recursive button was tried and reverted — it did not remove a choice, it removed a capability. | Add is instant (hash deferred to run, [ADR-0006](adr/0006-schema.md) rev. 4) and the whole selection is **one transaction** ([§8.1](#81-database-schema), #61); thesis type is **detected** at run time, not entered ([ADR-0019](adr/0019-thesis-type-by-detection.md)). |
 | 3. Run | "Run all" toolbar button → status-line progress + per-row live updates. | Default mode = missing + stale + errored. |
-| 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → writes `<project>/reports/report-<YYYY-MM-DD>.html` → opens it in the browser: summary cards + charts + outlier list ([§9.8](#98-report)). | Regenerated from current data on every click; a same-day file is overwritten. |
+| 4. **Report** (professor's payload) | "Report" toolbar button (enables on first successful run) → writes `<project>/reports/report-<YYYY-MM-DD>.html` → opens it in the browser: summary cards, the professor's theses against the reference corpus over time, with filters ([§9.8](#98-report)). | Regenerated from current data on every click; a same-day file is overwritten. |
 | 5. Export (researcher's ask) | "Export" toolbar button → confirmation dialog (row count + save path + Export button). | Default path: `<project>/exports/<institution>-<YYYY-MM-DD>.sqlite`. |
 | 6. Send | Post-export toast with "Show in folder" link. | (Outside the app.) |
 | 7. Post-run offer | When a run finishes with at least one `ok` result, a **non-modal** prompt offers to open the report; a "Don't ask again" checkbox persists the answer (#70). | `ui.open_report_after_run = "ask"`; suppressed for cancelled and all-errored runs. |
@@ -902,74 +905,80 @@ Dismisses on first interaction; never shown again for this project. The same ban
 
 ## 9.8 Report
 
-Decision: [ADR-016](adr/0016-report-view.md) rev. 2. The report is **not a view**: it is a self-contained HTML file, generated on demand and opened in the user's browser. Rev. 1's matplotlib-in-a-notebook-tab is superseded.
+Decision: [ADR-016](adr/0016-report-view.md) rev. 3 (#84), reference data [ADR-0025](adr/0025-reference-aggregates.md). The report is **not a view**: it is a self-contained, interactive HTML file, generated on demand and opened in the user's browser. It is the **professor report**: the professor's own theses against the reference corpus, as a local product for the professor. Rev. 2's inline-SVG report and rev. 1's matplotlib tab are superseded.
 
 Responsibilities split along [ADR-002](adr/0002-ui-core-boundary.md):
 
 | Piece | Where | Contract |
 |---|---|---|
-| Aggregation | `core/report.py` — `collect(repo) -> ReportData` | Pure, stdlib only, no I/O. |
-| Rendering | `core/report.py` — `render_html(data) -> str` | Returns a complete HTML document as a **string**. All CSS and all SVG inline. No file writing, no browser. |
-| Chart maths | `core/report.py` — `box_stats`, `histogram` | Pure functions; matplotlib's conventions reimplemented (see [§9.8.3](#983-behaviour)). |
+| Aggregation | `core/report.py` — `collect(repo) -> ReportData` | Pure, stdlib only, no I/O beyond the repository. One record per usable thesis. |
+| Reference data | `core/reference.py` — `load_shipped()`, `band_level()`, `derive_metrics()`, `build_aggregates()` | Reads the shipped `report_assets/reference_aggregates.json` (package data); the statistics and the generator's pure half ([ADR-0025](adr/0025-reference-aggregates.md)). |
+| Rendering | `core/report.py` — `render_html(data, reference=None, generated_at=None) -> str` | A complete HTML document as a **string**: CSS, the vendored plotly.js, one JSON data block and the report script, all inline. No file writing, no browser. |
 | Post-run policy | `core/report.py` — `should_offer_report(...)` | Pure decision: `"open"` \| `"ask"` \| `"skip"`. |
 | Writing + opening | adapters | GUI: Report toolbar button → write `<project>/reports/report-<YYYY-MM-DD>.html` → `webbrowser.open`. CLI: `tta report [--out PATH]` writes the file and prints the path; it does **not** open a browser. |
+| Generator | `tools/reference_aggregates.py` | Researcher tooling, never frozen: reference project + harvest metadata → the shipped JSON ([ADR-0025](adr/0025-reference-aggregates.md)). |
 
 Same shape as the GDPR statement ([ADR-009](adr/0009-privacy-as-code.md)): core renders a string, both adapters decide what to do with it.
 
 ### 9.8.1 Layout
 
-One document, top to bottom (no tab, no notebook):
+One document, top to bottom:
 
 ```
-┌─ report-2026-08-26.html ──────────────────────────────────────────┐
-│  Thesis Text Analyzer — cohort report      generated 2026-08-26   │
+┌─ report-2026-11-18.html ───────────────────────────────────────────┐
+│  Thesis report                              generated 2026-11-18   │
+│  Note: may contain personal data (file names, paths, links).       │
+│        For you, not for the research team - for that: the export.  │
 │                                                                    │
-│  Summary cards (one row of tiles)                                  │
-│   N theses analysed · N excluded · Languages: en=X de=Y · Years: … │
-│   Bachelor: A · Master: B · Median length: N words                 │
-│   (caption: N garbled excluded from aggregates)                     │
+│  Summary cards: theses analysed (by type) · excluded · languages · │
+│  publication years · median length   (caption: N garbled left out) │
 │                                                                    │
-│  Length over time                  Length by type                  │
-│  ┌──────────────────────────┐      ┌──────────────────────────┐   │
-│  │  inline SVG: scatter     │      │  inline SVG: box plots   │   │
-│  │  (year × words) + trend  │      │  (per detected type)     │   │
-│  └──────────────────────────┘      └──────────────────────────┘   │
+│  Filters (sticky):  Thesis type [all|Bachelor|Master]              │
+│                     Language [all|de|en]   Field (reference) [...] │
+│  Reference caption (source, bands; an interim file says so)        │
 │                                                                    │
-│  Reading ease distribution         Language mix                    │
-│  ┌──────────────────────────┐      ┌──────────────────────────┐   │
-│  │  inline SVG: histogram,  │      │  inline SVG: bar chart   │   │
-│  │  overlaid by language    │      │                          │   │
-│  └──────────────────────────┘      └──────────────────────────┘   │
+│  Coverage: the professor's theses per publication year (bars)      │
+│  Length metrics over time     [metric picker]                      │
+│    reference median, 25-75 band, 5-95 band; theses as points,      │
+│    highlighted outside 25-75 / outside 5-95; list outside 5-95     │
+│  Style metrics over time      [metric picker]   (same)             │
+│  Vocabulary metrics over time [metric picker]   (same)             │
+│  Per-year boxes of the professor's theses [metric picker]          │
+│  Authoring tools per year (professor's theses, stacked bars)       │
 │                                                                    │
-│  Notable theses (table)                                            │
-│   thesis 12 · outlier on: yules_k, flesch_reading_ease             │
-│   …                                                                │
-│                                                                    │
-│  Footer: tta <version> · generated locally · no data left …        │
+│  Footer: tta <version> · generated locally · offline · reference   │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-The two-column chart grid collapses to one column on narrow viewports and when printed. Charts are drawn with a `viewBox` so they scale without rasterising.
+Charts are plotly.js figures (zoom, hover, legend toggling); the panels stack in one column.
 
 ### 9.8.2 Data sources
 
-The report reads from `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`. Aggregates are computed in-process at generation time (cheap — tens of thousands of metric rows in milliseconds), so every click produces a report over the data as it stands **now**.
+**The professor's theses.** `v_current_metrics`, filtered to `source.kind='local' AND theses.excluded=0`, garbled extractions dropped and counted. One record per thesis: id, file name, `file:` URI of the PDF, detected `thesis_type`, `language_code` and `publication_year`, `creator_category`/`producer_category`, and the report's metric catalogue (`core.reference.METRIC_GROUPS`) including the derived `file_size_mb`, `words_per_page`, `images_per_page`, `kb_per_page` (`core.reference.derive_metrics`). Computed in-process on every click, so a report always shows the data as it stands **now**.
 
-A written file cannot re-render itself: rev. 1's "re-render on `RunCompleted` while the tab is active" is **gone**, deliberately ([ADR-016](adr/0016-report-view.md) rev. 2). Its replacement is a post-run offer to generate and open the report (#70, [§9.7](#97-happy-path-walkthrough) step 7).
+**The reference.** Only the shipped aggregates ([ADR-0025](adr/0025-reference-aggregates.md)): per bucket (type × language × field × year, `all` fields per type × language × year, and a yearly summary) and metric the mean, median, 5th, 25th, 75th and 95th percentile; no counts. **The report is generated from these aggregates plus the professor's own project data and nothing else.**
 
-The **length-over-time** chart plots word count against the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year` (SDD §2.1, [ADR-0016](adr/0016-report-view.md)). Grouping by thesis type (by-type counts, length-by-type box plots) uses the detected **`thesis_type`** metric ([ADR-0019](adr/0019-thesis-type-by-detection.md)); the value domain is {`bachelor`, `master`, `diploma`, `magister`, `mas`, `licentiate`, `semester`, `doctoral`, `unspecified`} (`diploma` added by #67, the next five by #82), and theses with no detected type group under `unspecified`. Every type is shown, under its translated label; only `bachelor` and `master` (`core.types.REFERENCE_THESIS_TYPES`) will enter reference-corpus baselines (#49).
+**Shipped data (2026-11-18).** The committed `reference_aggregates.json` is the **release** file (`"status": "release"`), generated from the re-run of the HU+ETH reference corpus with main `fbe297c` and the ETH cover ruleset (`TTA-ref-2026-11`); its `source` and `analysed_with` fields record the run and the module versions. (A first interim file from the 2026-09 run, before #81/#82 and #22, was replaced the same day.) An `"interim"` file would make the report say so in its reference caption. Regenerated when a module change moves a reference metric:
+
+```
+python tools/reference_aggregates.py --project <reference project> \
+    --harvest-root <harvester>/data --status release --source "<corpus, run>"
+```
+
+The time axis is the fused **`publication_year`** metric (#17), **not** the raw PDF `creation_year`. Grouping by thesis type uses the detected **`thesis_type`** ([ADR-0019](adr/0019-thesis-type-by-detection.md)); every type appears under its label in the summary, and the type filter offers the reference types `bachelor` and `master` (`core.types.REFERENCE_THESIS_TYPES`) plus "all".
 
 ### 9.8.3 Behaviour
 
-- **Self-contained, zero external requests.** One file: all CSS in one inline `<style>`, every chart an inline `<svg>`, no images, no scripts, no web fonts, no CDN. QA-PRIV forbids network operations, which also rules out a chart library loaded from a CDN. A unit test asserts the output contains no `http://` and no `https://`.
-- **No PII in the report.** Only values the privacy registry marks `exported=True` (categories `technical`, `metric`) are rendered. In particular `theses.pdf_filename` (`Category.IDENTIFYING`) is **not** in the report: notable theses are identified by `theses.id`, which `tta list` resolves. This is why the report needs no new `core/privacy_metadata.py` entries and no pre-generation confirmation ([ADR-0016](adr/0016-report-view.md) rev. 2, [§8.3.1](#831-anonymisation-rules)).
-- Linear axes throughout (per the project's no-log-scale preference).
-- The "Length over time" trend line is shown only when ≥ 5 data points are available; it is `statistics.linear_regression` over (year, words).
-- **Box plots** use `core.report.box_stats`: Q1/median/Q3 from `statistics.quantiles(..., method="inclusive")`, fences at 1.5 × IQR, whiskers to the most extreme datum **inside** the fence, everything outside drawn as a flier point. Same convention as the grid's outlier highlighting ([§9.5](#95-outlier-highlighting)) and as matplotlib's boxplot default.
-- **Histograms** use `core.report.histogram`: 15 equal-width bins over `[min, max]`, the last bin closed on both ends (`numpy.histogram`'s convention); an all-equal series widens to `[x-0.5, x+0.5]`. Series are overlaid per language with partial fill opacity.
-- Theses flagged with `extraction_quality='garbled'` are excluded from the report's aggregates (with a one-line caption naming the count of excluded theses).
-- Empty panels render a "not enough data" placeholder rather than an empty frame; the report is generated even for a cohort of one.
-- **"Notable theses"** picks outliers via per-metric IQR over the trustworthy length-independent metrics (`avg_word_len`, `std_sentence_len`, `yules_k`, `flesch_reading_ease`); a thesis flagged on ≥ 2 of them is listed.
+- **A local product with a note at the top.** The report may show everything the local app can see: file names, paths, `file:` links that open the PDF. A note at the top says that it may contain personal data and is not meant to be sent to the research team; the anonymised export is ([ADR-0016](adr/0016-report-view.md) rev. 3).
+- **Offline, self-contained.** One file: CSS, plotly.js (vendored, pinned by SHA-256), the data block and the report script inline. No network connection, no external resource (CDN, font, image, script). Tests assert: no `http://`/`https://` outside the embedded library, the library byte-identical to the pinned file, every `src`/`href` absent or a `file:` link. The plotly configuration switches off its cloud features.
+- **Filters.** Type and language filter the professor's theses *and* select the reference; **field selects the reference only**, default "all fields". The comparison bucket is (type, language, field, year) when type and language are concrete, otherwise the yearly summary (field filter disabled, with a hint).
+- **Highlights.** `core.reference.band_level(value, stats)`: `0` inside [p25, p75] (both edges inside), `1` outside it but inside [p05, p95] (edges inside), `2` outside [p05, p95]. Computed in Python for every thesis, metric and possible comparison bucket and embedded; the script only picks the level for the current filter. A thesis without a comparison (year outside 2003-2025, or no bucket/statistic for the selection) is drawn as a hollow point and says so on hover.
+- **Points** are jittered within their year by `random.Random(thesis id)`, so the picture is stable between reports. Clicking a point opens its PDF.
+- **Per-year boxes** use plotly's linear quartile method (the same as `statistics.quantiles(..., method="inclusive")`), years with at least 3 theses.
+- **Authoring tools:** `creator_category`, with `producer_category` where the creator is `other`, `unknown` or missing; counts per year.
+- Linear axes throughout. Numbers follow the active locale (plotly `separators`).
+- Theses flagged with `extraction_quality='garbled'` are excluded from every panel (caption with the count).
+- Empty panels show a "not enough data" placeholder; the report is generated even for a cohort of one, and without reference data (then without bands).
 - **Output path.** Default `<project>/reports/report-<YYYY-MM-DD>.html`; a same-day file is overwritten (a report is derived data, unlike an export, which refuses to overwrite). `reports/` is safe to delete and never exported. `tta report --out PATH` overrides.
 - **Post-run offer (#70).** On `RunCompleted`, `core.report.should_offer_report(mode, cancelled=…, ok=…)` decides: `"skip"` for a cancelled run, for a run with zero `ok` pairs, and for `mode="never"`; `"open"` for `mode="always"`; otherwise `"ask"`. `mode` is `ui.open_report_after_run` in `tta.toml` — `ask` (default) | `always` | `never`; an unknown value falls back to `ask`. In `ask` mode the GUI shows a **non-modal** prompt (Open / Not now, plus a "Don't ask again" checkbox that persists `always`/`never`). The CLI equivalent is `tta run --open-report`, off by default — a CLI must not launch a browser unasked — and it ignores the config preference, the flag being the explicit ask.
 
@@ -1010,6 +1019,7 @@ The State column currently reports **garbled extraction only**. A "source PDF no
 - Artefact files (raw text, tokens, full PDF metadata) never leave the user's machine. Excluding an already-analysed thesis additionally **deletes** these files (and its metric/run rows) from disk locally (`purge_analysis`, [ADR-0006](adr/0006-schema.md) rev. 5, #11) — local defence-in-depth; the source PDF is untouched.
 - Excluded theses do not appear in exports.
 - The pre-export dialog shows the professor exactly what will leave the machine.
+- The professor report ([§9.8](#98-report)) is a local product: it may show file names, paths and links to the PDFs and says at its top that it is not meant to be sent to the research team. It loads nothing from the network and references no external resource ([ADR-0016](adr/0016-report-view.md) rev. 3).
 
 ### QA-PORT — Cross-platform
 
@@ -1074,7 +1084,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0013](adr/0013-runner-orchestration.md) | Runner orchestration — plan/execute split, per-thesis process pool | Accepted |
 | [0014](adr/0014-distribution.md) | Distribution as single-file standalone binary | Accepted (AGPL gate superseded by 0017) |
 | [0015](adr/0015-performance-budget.md) | Performance budget — concrete numbers, CI-enforced | Accepted |
-| [0016](adr/0016-report-view.md) | Report as a stand-alone HTML file — inline SVG, no matplotlib | Accepted (rev. 2; the Tk tab of rev. 1 is superseded) |
+| [0016](adr/0016-report-view.md) | Report as a stand-alone HTML file — rev. 3: the interactive professor report, plotly.js embedded, local product with a privacy note | Accepted (rev. 3; inline SVG of rev. 2 and the Tk tab of rev. 1 superseded) |
 | [0017](adr/0017-license.md) | Project licence — copyleft FOSS (AGPL-3.0 or GPL-3.0; leaf choice open) | Accepted |
 | [0018](adr/0018-ascii-source.md) | ASCII-only Python source — non-ASCII string content via `\uXXXX` escapes | Accepted |
 | [0019](adr/0019-thesis-type-by-detection.md) | Thesis type by detection — add-time dialog removed, override columns dropped; corpus-grounded markers and eight classes | Accepted (rev. 3) |
@@ -1083,6 +1093,7 @@ Numbered ADRs, located under [`adr/`](adr/). Each ADR captures: status, drivers 
 | [0022](adr/0022-publication-date-rules.md) | Publication date from the title page — defined, versioned rules and a stored precision | Accepted |
 | [0023](adr/0023-researcher-cover-rulesets.md) | Repository-specific rules — rule-agnostic hook, rules as researcher data (CLI only), none shipped | Accepted |
 | [0024](adr/0024-two-text-views.md) | Two text views from one extraction — unfiltered `raw_text` for detection, `prose_text` without code and math for the text metrics | Accepted |
+| [0025](adr/0025-reference-aggregates.md) | Reference aggregates shipped inside the app — six statistics per bucket, no counts, >= 10 theses; generated by `tools/reference_aggregates.py` | Accepted |
 
 ---
 

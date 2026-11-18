@@ -84,7 +84,10 @@ PAUSE_AFTER_THESES = 6  # the in-progress image: this many theses finished
 # Fixed "generated at" of the report: Claude Shannon's birthday, at 2^10
 # minutes past midnight (10:24). One constant - change it here.
 REPORT_TIMESTAMP = datetime(1916, 4, 30, 10, 24)
-REPORT_WINDOW = (1280, 1700)  # the demo report's height, no blank tail
+REPORT_WINDOW = (1280, 2300)  # the top of the report: note, cards, filters, two panels
+#: The report draws its charts with plotly.js after load (SDD Sec. 9.8): give
+#: the headless browser virtual time to finish before the capture.
+REPORT_SCRIPT_BUDGET_MS = 10000
 CLI_WIDTH = 104
 CLI_RUN_HEAD, CLI_RUN_TAIL = 7, 3  # `tta run` lines kept around the elision
 
@@ -871,7 +874,7 @@ def find_browser(explicit: str | None) -> str | None:
 
 
 def browser_screenshot(browser: str, source: Path, png: Path, size: tuple[int, int],
-                       profile: Path) -> None:
+                       profile: Path, script_budget_ms: int = 0) -> None:
     """Rasterise a local file with a headless Chromium-family browser on a
     throwaway profile (never the user's); network features are switched off -
     everything rendered here is local. The browser writes into the scratch
@@ -885,6 +888,7 @@ def browser_screenshot(browser: str, source: Path, png: Path, size: tuple[int, i
         "--disable-component-update", "--no-pings", "--mute-audio",
         f"--user-data-dir={profile}", "--force-device-scale-factor=1",
         f"--window-size={size[0]},{size[1]}", f"--screenshot={shot}",
+        *([f"--virtual-time-budget={script_budget_ms}"] if script_budget_ms else []),
         source.resolve().as_uri(),
     ]
     subprocess.run(command, check=False, timeout=120,
@@ -896,7 +900,8 @@ def browser_screenshot(browser: str, source: Path, png: Path, size: tuple[int, i
 
 def render_report(project_dir: Path, workdir: Path, browser: str, out: Path, log) -> None:
     """The HTML report exactly as the GUI's Report button writes it, but with a
-    fixed timestamp and without opening the user's default browser."""
+    fixed timestamp and without opening the user's default browser. It compares
+    the demo theses with the reference aggregates the app ships (ADR-0025)."""
     from tta.core import report
     from tta.core.project import Project
 
@@ -906,7 +911,7 @@ def render_report(project_dir: Path, workdir: Path, browser: str, out: Path, log
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(html, encoding="utf-8")
     browser_screenshot(browser, path, out / "app-bericht.png", REPORT_WINDOW,
-                       workdir / "browser-profile")
+                       workdir / "browser-profile", REPORT_SCRIPT_BUDGET_MS)
     log("app-bericht.png  %dx%d" % png_size(out / "app-bericht.png"))
 
 

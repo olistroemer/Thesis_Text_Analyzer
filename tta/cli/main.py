@@ -897,15 +897,17 @@ def _write_report(out: Path, project: Project) -> Path:
 
 @cli.command(
     "report",
-    short_help=_("Write the stand-alone HTML report for the cohort."),
+    short_help=_("Write the interactive HTML report for your theses."),
     help=_(
-        "Write the stand-alone HTML report over the whole cohort.\n"
+        "Write the interactive HTML report: your theses over time, compared with "
+        "the reference corpus shipped with the app.\n"
         "\n"
-        "One self-contained file: every style rule and every chart is inline, "
-        "it makes no request to the network, and it contains no file names, "
-        "paths, notes or document text. The file is written, not opened - a "
-        "command-line tool must not start a browser unasked. Use "
-        "`tta run --open-report` to have it opened."
+        "One self-contained file that works offline: every chart, style rule and "
+        "script is inline and nothing is loaded from the network. It shows file "
+        "names, paths and links to your PDFs, so it is meant for you, not for "
+        "sending to the research team (that is what `tta export` is for). The "
+        "file is written, not opened - a command-line tool must not start a "
+        "browser unasked. Use `tta run --open-report` to have it opened."
     ),
 )
 @click.option("--out", type=click.Path(path_type=Path), default=None,
@@ -913,11 +915,11 @@ def _write_report(out: Path, project: Project) -> Path:
                      "<project>/reports/report-<date>.html)."))
 @click.pass_context
 def write_report(ctx: click.Context, out: Path | None) -> None:
-    """Write the stand-alone HTML cohort report (Sec. 9.8, ADR-0016 rev. 2).
+    """Write the interactive professor report (Sec. 9.8, ADR-0016 rev. 3).
 
-    One self-contained file: every style rule and every chart inline, no
-    external request, and no file names, paths, notes or document text
-    (Sec. 9.8.3). It is written, not opened - a CLI must not launch a
+    One self-contained, offline file compared with the shipped reference
+    aggregates (ADR-0025). It is a local product: it shows file names and
+    links to the PDFs. It is written, not opened - a CLI must not launch a
     browser unasked; `tta run --open-report` does that on request.
     """
     with open_project(ctx) as project:

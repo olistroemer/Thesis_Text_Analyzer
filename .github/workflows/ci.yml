@@ -393,10 +393,12 @@ jobs:
             fi
           done
 
-      # Tags (the release job collects these) and manual runs only: the repo
-      # is private, and four targets per push exceed the Actions storage
-      # quota (ADR-0014 revision 2026-10-12). Every push still builds and
-      # smoke-tests all four above.
+      # Tags (the release job collects these) and manual runs only (ADR-0014
+      # revision 2026-10-12). The original reason - a private repo whose
+      # Actions storage quota four targets per push exceeded - is gone since
+      # the repository went public on 2026-11-18; the policy is kept unchanged
+      # and may be revisited in ADR-0014 (note 2026-11-18). Every push still
+      # builds and smoke-tests all four above.
       # GUI only: the frozen CLI exists for the smoke above, its users run it
       # from source (ADR-0003 / ADR-0014 revisions 2026-10-12).
       - name: Upload binaries
