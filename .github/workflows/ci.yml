@@ -16,7 +16,8 @@ on:
     tags: ["v*"]
   pull_request:
   # "Run workflow" button: the one non-tag run that uploads the binaries
-  # (ADR-0014 revision 2026-10-12), e.g. to fetch a Windows .exe to test.
+  # (ADR-0014 revision 2026-10-12), e.g. to fetch a Windows .exe to test,
+  # or as the dry run of the README screenshot before tagging (#94).
   workflow_dispatch:
 
 permissions:
@@ -250,6 +251,21 @@ jobs:
       - name: Install build dependencies
         run: pip install -e '.[build]'
 
+      # ADR-0014 revision 2026-11-18: a v* tag must name the package version,
+      # or the release would carry binaries whose About window, report footer
+      # and exports call themselves something else. Checked before anything
+      # is frozen. sys.stdout.write, not print: on Windows print ends the
+      # line with \r\n, and $(...) strips only the \n.
+      - name: Tag matches the package version (v* tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(python -c 'import sys, tta; sys.stdout.write(tta.__version__)')"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match the package version $version (tta/__init__.py, pyproject.toml; ADR-0014)"
+            exit 1
+          fi
+          echo "tag $GITHUB_REF_NAME matches tta $version"
+
       # Both are collected into the binary's nltk_data/ by the spec; a
       # missing cmudict made the binary download it at run time (#75).
       - name: Download NLTK data (punkt_tab, cmudict; bundled into the binary)
@@ -412,9 +428,101 @@ jobs:
             build/licenses/THIRD_PARTY_LICENSES.txt
           if-no-files-found: error
 
+      # README screenshot (#94; ADR-0014 revision 2026-11-18, SDD 5.6.5). The
+      # README shows app-hauptfenster-basis.png from the latest PUBLISHED
+      # release; this job makes it, from source, for the release job to
+      # attach. Windows only (Win32 PrintWindow), and only for tags and manual
+      # runs like the upload above: the tool's smoke test already runs on
+      # every push in lint-and-test (windows), and a manual run on main is
+      # the dry run before tagging. NON-BLOCKING, all three steps: the image
+      # is documentation, so a failure ends in a ::warning:: naming the
+      # fallback, never in a red job - and the binaries are uploaded already.
+      #
+      # The tool's main window is 1400 px wide and Windows clamps a window to
+      # the screen, so the display goes to 1920x1080 first where the runner
+      # allows it. PowerShell, because Set-DisplayResolution is a cmdlet.
+      - name: Display resolution for the README screenshot (Windows)
+        if: runner.os == 'Windows' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          try {
+            Set-DisplayResolution -Width 1920 -Height 1080 -Force -ErrorAction Stop
+          } catch {
+            Write-Host "::warning::could not set the display resolution: $_"
+          }
+          Add-Type -AssemblyName System.Windows.Forms
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          Write-Host "display: $($screen.Width)x$($screen.Height)"
+
+      # The capture, then a check of what it wrote: PrintWindow can "succeed"
+      # with a black or blank bitmap, and a clamped window comes out narrower
+      # than the tool's MAIN_GEOMETRY - neither may reach the README. ok=true
+      # only for a PNG that passes; the upload keys on it. The timeout: a Tk
+      # window that never comes up must not hold the job for hours.
+      - name: README screenshot (Windows, non-blocking)
+        id: screenshot
+        if: runner.os == 'Windows' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          png=screenshot/app-hauptfenster-basis.png
+          if python tools/screenshots.py --out screenshot --only app-hauptfenster-basis \
+              && python - "$png" <<'PY'
+          import struct, sys, zlib
+
+          sys.path.insert(0, "tools")
+          from screenshots import MAIN_GEOMETRY  # the tool's main-window size
+
+          data = open(sys.argv[1], "rb").read()
+          width, height = struct.unpack(">II", data[16:24])
+          idat, pos = [], 8
+          while pos < len(data):
+              length, kind = struct.unpack(">I4s", data[pos:pos + 8])
+              if kind == b"IDAT":
+                  idat.append(data[pos + 8:pos + 8 + length])
+              pos += 12 + length
+          raw = zlib.decompress(b"".join(idat))
+          stride = 1 + 3 * width  # filter byte + RGB rows (the tool's write_png)
+          pixels = b"".join(raw[row * stride + 1:(row + 1) * stride]
+                            for row in range(height))
+          colours = len({pixels[i:i + 3] for i in range(0, len(pixels), 3)})
+          print("%s: %dx%d, %d colours" % (sys.argv[1], width, height, colours))
+          problems = []
+          if width < MAIN_GEOMETRY[0] or height < MAIN_GEOMETRY[1]:
+              problems.append("smaller than the main window's %dx%d (clamped "
+                              "to a small screen?)" % MAIN_GEOMETRY)
+          if colours < 16:
+              problems.append("only %d colour(s): a black or blank capture"
+                              % colours)
+          if problems:
+              sys.exit("rejected: " + "; ".join(problems))
+          PY
+          then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            echo "README screenshot captured: $png"
+          else
+            echo "::warning::no README screenshot from this run: the capture failed or its PNG was rejected (log above). The release goes on without it - attach it by hand before publishing (ADR-0014 fallback b): python tools/screenshots.py --out shots --only app-hauptfenster-basis; gh release upload <tag> shots/app-hauptfenster-basis.png"
+          fi
+
+      # Its own artefact, `screenshot`: the release job attaches the PNG
+      # under its own name, the one the README links to.
+      - name: Upload the README screenshot
+        if: steps.screenshot.outputs.ok == 'true'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          retention-days: 3
+          name: screenshot
+          path: screenshot/app-hauptfenster-basis.png
+          if-no-files-found: error
+
   # Tagged release (issue #4, ADR-0014). Collects the four targets' artefacts
-  # and opens a DRAFT release: publishing needs the #8 licence sign-off, a
-  # human decision, not CI's. (#6, the GDPR statement, is finalised.)
+  # and, when the Windows job captured it, the README screenshot (#94), and
+  # opens a DRAFT release. The licence gate it once waited for (#8) is
+  # closed; the draft stays as the owner's final check of the assets before
+  # publishing, which is also what makes releases/latest - and with it the
+  # README image - point at the new release (ADR-0014 revision 2026-11-18).
   release:
     name: draft release (v* tag)
     if: startsWith(github.ref, 'refs/tags/v')
@@ -441,6 +549,10 @@ jobs:
       # is the checkout, so each artefact holds dist/tta-gui[.exe] and
       # build/licenses/THIRD_PARTY_LICENSES.txt, not two top-level files.
       # The glob saw the two directories and `cp` failed on them (#35).
+      # The README screenshot (artefact `screenshot`) keeps its own name:
+      # the README links to releases/latest/download/app-hauptfenster-basis.png.
+      # It may be missing - its capture is non-blocking - and then the draft
+      # opens without it and the warning names the fallback (ADR-0014).
       - name: Collect the release assets
         run: |
           set -euo pipefail
@@ -455,6 +567,8 @@ jobs:
                   out="THIRD_PARTY_LICENSES-$target.txt" ;;
                 *.exe)
                   out="${name%.exe}-$target.exe" ;;
+                *.png)
+                  out="$name" ;;
                 *)
                   out="$name-$target" ;;
               esac
@@ -462,9 +576,14 @@ jobs:
             done
           done
           ls -l upload
+          if [ ! -f upload/app-hauptfenster-basis.png ]; then
+            echo "::warning::no README screenshot from the Windows build job - the draft opens without app-hauptfenster-basis.png. Attach it before publishing (ADR-0014 fallback b): python tools/screenshots.py --out shots --only app-hauptfenster-basis; gh release upload $GITHUB_REF_NAME shots/app-hauptfenster-basis.png"
+          fi
 
-      # Draft only; the release notes state why. GH_REPO stands in for the
-      # git remote `gh` would otherwise read from a checkout.
+      # Draft only (see the job comment). The notes are written for the
+      # PUBLISHED release, so they say nothing about the draft. GH_REPO
+      # stands in for the git remote `gh` would otherwise read from a
+      # checkout.
       - name: Open the draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -474,4 +593,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" upload/* \
             --draft \
             --title "$GITHUB_REF_NAME" \
-            --notes "Unsigned single-file GUI binaries per ADR-0014 (the tta CLI is used from source) (SmartScreen: More info -> Run anyway; Gatekeeper: right-click -> Open). Each binary bundles its THIRD_PARTY_LICENSES.txt, also attached per target. Draft on purpose: publishing needs the LICENSE sign-off (#8). The GDPR statement (Help -> Privacy statement) was finalised in #6 (ADR-0009)."
+            --notes "Thesis Text Analyzer $GITHUB_REF_NAME. Unsigned single-file GUI binaries (tta-gui), one per target, per ADR-0014; the tta command line is used from source (README). First start: Windows SmartScreen -> More info -> Run anyway; macOS Gatekeeper -> right-click -> Open. Each binary bundles its THIRD_PARTY_LICENSES.txt, also attached per target. app-hauptfenster-basis.png shows the main window after a run, on synthetic demo data."

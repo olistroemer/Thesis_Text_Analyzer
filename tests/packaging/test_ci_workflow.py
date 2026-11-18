@@ -286,11 +286,173 @@ def test_the_release_job_only_runs_for_v_tags(workflow_source):
 
 
 def test_the_release_collects_every_target_and_stays_a_draft(workflow_source):
-    """Publishing needs the #8 licence sign-off (#6 is finalised)."""
+    """The draft is the owner's final check before publishing (ADR-0014
+    revision 2026-11-18; the #8 licence gate it once waited for is closed)."""
     release = job(workflow_source, "release")
     assert "download-artifact" in release
     assert "--draft" in release
     assert "contents: write" in release
+
+
+def test_the_package_has_one_version():
+    """pyproject.toml and tta.__version__ (what About, the report footer and
+    exports show) must agree; the first release is 1.0.0 (ADR-0014)."""
+    import tomllib
+
+    import tta
+
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    assert pyproject["project"]["version"] == tta.__version__
+
+
+def test_a_tag_must_name_the_package_version(workflow_source):
+    """A v1.0.0 tag on 0.1.0 code would release binaries that call
+    themselves 0.1.0 - checked on tags, before anything is frozen."""
+    matrix = job(workflow_source, "build")
+    step = matrix.split("name: Tag matches the package version", 1)[1]
+    step = step.split("- name:", 1)[0]
+    assert "if: startsWith(github.ref, 'refs/tags/v')" in step
+    assert "tta.__version__" in step
+    assert '"$GITHUB_REF_NAME" != "v$version"' in step
+    assert "exit 1" in step
+    assert "print(" not in step  # \r\n on Windows: see the step's comment
+    assert matrix.index("Tag matches the package version") < matrix.index(
+        "pyinstaller packaging/tta.spec"
+    )
+
+
+# ------------------------------------- the README screenshot (#94, ADR-0014)
+
+SCREENSHOT_CONDITION = (
+    "if: runner.os == 'Windows' && (startsWith(github.ref, 'refs/tags/v') "
+    "|| github.event_name == 'workflow_dispatch')"
+)
+SCREENSHOT_STEPS = (
+    "Display resolution for the README screenshot (Windows)",
+    "README screenshot (Windows, non-blocking)",
+)
+README_SCREENSHOT = "app-hauptfenster-basis.png"
+
+
+def _step(job_text, name):
+    body = job_text.split("- name: " + name + "\n", 1)
+    assert len(body) == 2, "no step %r" % name
+    return body[1].split("- name:", 1)[0]
+
+
+def test_the_screenshot_runs_on_windows_for_tags_and_manual_runs(workflow_source):
+    """Same condition as the binary upload: every push is covered by the
+    tool's smoke test in lint-and-test (windows); a manual run is the dry
+    run before tagging."""
+    matrix = job(workflow_source, "build")
+    for name in SCREENSHOT_STEPS:
+        assert SCREENSHOT_CONDITION in _step(matrix, name), name
+
+
+def test_the_screenshot_never_fails_the_build(workflow_source):
+    """The image is documentation: a capture the runner does not allow must
+    not turn the job red or keep the release job from running."""
+    matrix = job(workflow_source, "build")
+    for name in SCREENSHOT_STEPS + ("Upload the README screenshot",):
+        assert "continue-on-error: true" in _step(matrix, name), name
+    capture = _step(matrix, "README screenshot (Windows, non-blocking)")
+    assert "timeout-minutes:" in capture
+    assert "::warning::" in capture
+    assert "gh release upload" in capture  # the warning names the fallback
+
+
+def test_the_screenshot_command_is_the_documented_one(workflow_source):
+    """SDD 5.6.5 / ADR-0014 name this exact command, from source."""
+    capture = _step(job(workflow_source, "build"),
+                    "README screenshot (Windows, non-blocking)")
+    assert ("python tools/screenshots.py --out screenshot "
+            "--only app-hauptfenster-basis") in capture
+    assert "id: screenshot" in capture
+    assert 'echo "ok=true" >> "$GITHUB_OUTPUT"' in capture
+
+
+def test_the_screenshot_comes_after_the_binary_upload(workflow_source):
+    """The binaries reach the release whatever the capture does."""
+    matrix = job(workflow_source, "build")
+    upload = matrix.index("name: Upload binaries")
+    for name in SCREENSHOT_STEPS + ("Upload the README screenshot",):
+        assert upload < matrix.index("- name: " + name + "\n"), name
+
+
+def test_only_a_checked_screenshot_is_uploaded(workflow_source):
+    upload = _step(job(workflow_source, "build"), "Upload the README screenshot")
+    assert "if: steps.screenshot.outputs.ok == 'true'" in upload
+    assert "name: screenshot" in upload
+    assert "path: screenshot/" + README_SCREENSHOT in upload
+    assert "retention-days:" in upload
+
+
+def test_the_release_attaches_the_screenshot_under_its_readme_name(workflow_source):
+    """README links releases/latest/download/<this name>, so the collect loop
+    must not suffix it with a target, and a missing image is a warning."""
+    collect = _step(job(workflow_source, "release"), "Collect the release assets")
+    assert '*.png)\n                  out="$name" ;;' in collect
+    assert "[ ! -f upload/" + README_SCREENSHOT + " ]" in collect
+    assert "::warning::" in collect
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert (
+        "https://github.com/olistroemer/Thesis_Text_Analyzer/releases/latest/"
+        "download/" + README_SCREENSHOT
+    ) in readme
+
+
+def _screenshot_check_script(workflow_source):
+    """The PNG check embedded in the capture step, as CI runs it. Sliced from
+    the text, not parsed: PyYAML is not a dependency, and a test that
+    importorskips it never runs."""
+    import textwrap
+
+    capture = _step(job(workflow_source, "build"),
+                    "README screenshot (Windows, non-blocking)")
+    script = capture.split("<<'PY'\n", 1)[1].split("\n          PY\n", 1)[0]
+    return textwrap.dedent(script)
+
+
+@pytest.mark.parametrize(
+    "size, pattern, accepted",
+    [
+        ((1402, 632), "varied", True),  # what the tool writes on a desktop
+        ((1402, 632), "black", False),  # PrintWindow "succeeded" on nothing
+        ((1020, 632), "varied", False),  # clamped to a 1024 px screen
+    ],
+)
+def test_the_screenshot_check_rejects_a_bad_capture(
+    workflow_source, tmp_path, size, pattern, accepted
+):
+    import importlib.util
+    import subprocess
+    import sys
+
+    spec = importlib.util.spec_from_file_location(
+        "tta_screenshots_ci_check", REPO_ROOT / "tools" / "screenshots.py"
+    )
+    tool = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = tool  # dataclasses resolve their module by name
+    try:
+        spec.loader.exec_module(tool)
+        width, height = size
+        if pattern == "black":
+            bgra = b"\x00\x00\x00\xff" * (width * height)
+        else:
+            row = bytes(i % 251 for i in range(width * 4))
+            bgra = row * height
+        png = tmp_path / README_SCREENSHOT
+        tool.write_png(png, width, height, bgra)
+    finally:
+        sys.modules.pop(spec.name, None)
+    result = subprocess.run(
+        [sys.executable, "-", str(png)],
+        input=_screenshot_check_script(workflow_source),
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    assert (result.returncode == 0) is accepted, result.stdout + result.stderr
 
 
 def test_the_release_ships_the_licence_manifest_alongside(workflow_source):

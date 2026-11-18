@@ -67,9 +67,10 @@ IMAGES = (
     "app-cli",
 )
 GUI_IMAGES = IMAGES[:7]
-#: The subset shown in the repository README (--readme): the grid after a
+#: The subset proposed for the repository README (--readme): the grid after a
 #: run, the report, the help viewer and the CLI - what the tool does, what it
-#: produces, how it explains itself, and the researcher's way in.
+#: produces, how it explains itself, and the researcher's way in. The README
+#: shows only the first, as a release asset made by CI (ADR-0014, #94).
 README_IMAGES = ("app-hauptfenster-basis", "app-bericht", "app-hilfe", "app-cli")
 
 PROJECT_NAME = "Beispielprojekt"
