@@ -28,7 +28,7 @@ msgstr ""
 msgid "- (reads the PDF directly)"
 msgstr ""
 
-#: tta/core/reference.py:51
+#: tta/core/reference.py:60
 msgid "000 Computer science, information, general works"
 msgstr ""
 
@@ -36,7 +36,7 @@ msgstr ""
 msgid "1. What we process"
 msgstr ""
 
-#: tta/core/reference.py:52
+#: tta/core/reference.py:61
 msgid "100 Philosophy and psychology"
 msgstr ""
 
@@ -44,7 +44,7 @@ msgstr ""
 msgid "2. Module-level processing"
 msgstr ""
 
-#: tta/core/reference.py:53
+#: tta/core/reference.py:62
 msgid "200 Religion"
 msgstr ""
 
@@ -52,7 +52,7 @@ msgstr ""
 msgid "3. Cached files (never exported)"
 msgstr ""
 
-#: tta/core/reference.py:54
+#: tta/core/reference.py:63
 msgid "300 Social sciences"
 msgstr ""
 
@@ -60,7 +60,7 @@ msgstr ""
 msgid "4. Storage and retention"
 msgstr ""
 
-#: tta/core/reference.py:55
+#: tta/core/reference.py:64
 msgid "400 Language"
 msgstr ""
 
@@ -68,7 +68,7 @@ msgstr ""
 msgid "5. What leaves your machine"
 msgstr ""
 
-#: tta/core/reference.py:56
+#: tta/core/reference.py:65
 msgid "500 Natural sciences and mathematics"
 msgstr ""
 
@@ -76,7 +76,7 @@ msgstr ""
 msgid "6. Responsibility and your rights under GDPR"
 msgstr ""
 
-#: tta/core/reference.py:57
+#: tta/core/reference.py:66
 msgid "600 Technology, medicine, applied sciences"
 msgstr ""
 
@@ -84,15 +84,15 @@ msgstr ""
 msgid "7. Publisher and contact"
 msgstr ""
 
-#: tta/core/reference.py:58
+#: tta/core/reference.py:67
 msgid "700 Arts and recreation"
 msgstr ""
 
-#: tta/core/reference.py:59
+#: tta/core/reference.py:68
 msgid "800 Literature"
 msgstr ""
 
-#: tta/core/reference.py:60
+#: tta/core/reference.py:69
 msgid "900 History and geography"
 msgstr ""
 
@@ -174,7 +174,7 @@ msgstr ""
 msgid "Apply any pending schema migrations, after taking a safety backup."
 msgstr ""
 
-#: tta/core/report.py:634
+#: tta/core/report.py:637
 msgid "Authoring tools"
 msgstr ""
 
@@ -206,7 +206,7 @@ msgstr ""
 msgid "Bookmarks"
 msgstr ""
 
-#: tta/core/report.py:484
+#: tta/core/report.py:487
 msgid "Box: 25th to 75th percentile with the median; whiskers reach the most extreme thesis within 1.5 x IQR. Years with at least {minimum} theses."
 msgstr ""
 
@@ -286,7 +286,7 @@ msgstr ""
 msgid "Characters removed from the text because they are set in a monospaced font (code, often also URLs)."
 msgstr ""
 
-#: tta/core/report.py:594
+#: tta/core/report.py:597
 msgid "Click a point to open the PDF."
 msgstr ""
 
@@ -345,7 +345,7 @@ msgid ""
 "{error}"
 msgstr ""
 
-#: tta/core/report.py:620
+#: tta/core/report.py:623
 msgid "Coverage"
 msgstr ""
 
@@ -529,7 +529,7 @@ msgstr ""
 msgid "Free software under the GNU General Public License, {spdx} (SPDX)."
 msgstr ""
 
-#: tta/core/report.py:643
+#: tta/core/report.py:646
 msgid "Generated locally by tta {version}. This file is self-contained and works offline: it loads nothing from the network. Regenerate it any time from the Report button or `tta report`."
 msgstr ""
 
@@ -578,11 +578,11 @@ msgstr ""
 msgid "Inspect the catalogue of analysis modules."
 msgstr ""
 
-#: tta/core/report.py:427
+#: tta/core/report.py:429
 msgid "Interim reference values: computed with an earlier version of the analysis; they will be replaced before the release."
 msgstr ""
 
-#: tta/core/report.py:580
+#: tta/core/report.py:583
 msgid "It shows file names, file paths and links to your PDFs. It is meant for you and is not intended to be sent to the research team - for that, use the anonymised export."
 msgstr ""
 
@@ -643,7 +643,7 @@ msgstr ""
 msgid "Median length"
 msgstr ""
 
-#: tta/core/report.py:439
+#: tta/core/report.py:441
 msgid "Metric"
 msgstr ""
 
@@ -681,7 +681,7 @@ msgstr ""
 msgid "Not applicable for this thesis."
 msgstr ""
 
-#: tta/core/report.py:464
+#: tta/core/report.py:466
 msgid "Not enough data for this selection."
 msgstr ""
 
@@ -848,12 +848,12 @@ msgstr ""
 msgid "Ready"
 msgstr ""
 
-#: tta/core/report.py:483
+#: tta/core/report.py:486
 msgid "Reference 5th-95th percentile"
 msgstr ""
 
 #: tta/core/report.py:420
-msgid "Reference: bachelor's and master's theses from two university repositories (HU Berlin, ETH Zurich), {first}-{last}. Per year, the line is the median and the bands span the 25th-75th and the 5th-95th percentile. A band is shown only where at least {minimum} reference theses have a value."
+msgid "Reference: bachelor's and master's theses from two university repositories (HU Berlin, ETH Zurich), {first}-{last}. Per year, the line is the median and the bands span the 25th-75th and the 5th-95th percentile. The median and the 25th-75th band are shown where at least {inner} reference theses have a value, the 5th-95th band only where at least {outer} do; without it, the highlights only tell inside from outside the 25th-75th percentile."
 msgstr ""
 
 #: tta/cli/main.py:426
@@ -1054,11 +1054,11 @@ msgstr ""
 msgid "That folder is not a project yet; it is created there on next start."
 msgstr ""
 
-#: tta/core/report.py:611
+#: tta/core/report.py:614
 msgid "The charts of this report need JavaScript. It runs locally in your browser; nothing is loaded from the network."
 msgstr ""
 
-#: tta/core/report.py:470
+#: tta/core/report.py:472
 msgid "The field applies to the reference only (the app does not know the subject of your theses). Choose a thesis type and a language to compare with one field."
 msgstr ""
 
@@ -1078,19 +1078,23 @@ msgstr ""
 msgid "Theses analysed"
 msgstr ""
 
-#: tta/core/report.py:478
-msgid "Theses outside the 5th-95th percentile of the reference: {count}"
+#: tta/core/report.py:482
+msgid "Theses outside the 25th-75th percentile of the reference: {count}"
 msgstr ""
 
 #: tta/core/report.py:480
+msgid "Theses outside the 5th-95th percentile of the reference: {count}"
+msgstr ""
+
+#: tta/core/report.py:483
 msgid "Thesis"
 msgstr ""
 
-#: tta/core/report.py:656
+#: tta/core/report.py:659
 msgid "Thesis Text Analyzer - thesis report {stamp}"
 msgstr ""
 
-#: tta/core/report.py:602
+#: tta/core/report.py:605
 msgid "Thesis Text Analyzer - {count} analysed thesis(es), generated {stamp}"
 msgstr ""
 
@@ -1102,7 +1106,7 @@ msgstr ""
 msgid "Thesis Text Analyzer: measure the text metrics of student theses and compare them across a whole cohort."
 msgstr ""
 
-#: tta/core/report.py:599
+#: tta/core/report.py:602
 msgid "Thesis report"
 msgstr ""
 
@@ -1135,7 +1139,7 @@ msgid ""
 "The repository's docs/dependencies.md lists every component with its purpose and licence."
 msgstr ""
 
-#: tta/core/report.py:578
+#: tta/core/report.py:581
 msgid "This report may contain personal data."
 msgstr ""
 
@@ -1167,7 +1171,7 @@ msgstr ""
 msgid "Update stale"
 msgstr ""
 
-#: tta/core/report.py:482
+#: tta/core/report.py:485
 msgid "Value"
 msgstr ""
 
@@ -1241,7 +1245,7 @@ msgid ""
 "With --profiling, the flat per-run timing dataset is written instead: one CSV row per module run, with its duration and the size of the PDF it was measured on. Both obey the same rules - only data produced on this machine, and no identifying column."
 msgstr ""
 
-#: tta/core/report.py:481
+#: tta/core/report.py:484
 msgid "Year"
 msgstr ""
 
@@ -1261,23 +1265,23 @@ msgstr ""
 msgid "Your project lives at {path}. All thesis data and analyses are stored here. To move or back up the project, copy this folder. To use a different location, choose File -> Open Project..."
 msgstr ""
 
-#: tta/core/report.py:474
+#: tta/core/report.py:476
 msgid "Your theses of this type and language are compared with the reference theses of the chosen field."
 msgstr ""
 
-#: tta/core/report.py:622
+#: tta/core/report.py:625
 msgid "Your theses per publication year, for the selected type and language."
 msgstr ""
 
-#: tta/core/report.py:627
+#: tta/core/report.py:630
 msgid "Your theses per year"
 msgstr ""
 
-#: tta/core/report.py:636
+#: tta/core/report.py:639
 msgid "Your theses per year by the application that created the PDF (the PDF producer where the creator is not recognised)."
 msgstr ""
 
-#: tta/core/reference.py:107
+#: tta/core/reference.py:116
 msgid "Yule's K"
 msgstr ""
 
@@ -1334,15 +1338,15 @@ msgstr ""
 msgid "available topics:"
 msgstr ""
 
-#: tta/core/reference.py:101
+#: tta/core/reference.py:110
 msgid "average sentence length (words)"
 msgstr ""
 
-#: tta/core/reference.py:108
+#: tta/core/reference.py:117
 msgid "average word length (characters)"
 msgstr ""
 
-#: tta/core/reference.py:110
+#: tta/core/reference.py:119
 msgid "bigram repetition rate"
 msgstr ""
 
@@ -1451,7 +1455,7 @@ msgstr ""
 msgid "extract the plain text from the PDF, once unfiltered and once without code and formulas; count pages and characters"
 msgstr ""
 
-#: tta/core/reference.py:98
+#: tta/core/reference.py:107
 msgid "extracted characters"
 msgstr ""
 
@@ -1467,7 +1471,7 @@ msgstr ""
 msgid "file not found"
 msgstr ""
 
-#: tta/core/reference.py:102
+#: tta/core/reference.py:111
 msgid "file size (MB)"
 msgstr ""
 
@@ -1495,11 +1499,11 @@ msgstr ""
 msgid "fuse the title-page year and PDF metadata dates into a best-estimate publication year"
 msgstr ""
 
-#: tta/core/reference.py:114
+#: tta/core/reference.py:123
 msgid "hapax share of tokens"
 msgstr ""
 
-#: tta/core/reference.py:115
+#: tta/core/reference.py:124
 msgid "hapax share of types"
 msgstr ""
 
@@ -1507,11 +1511,11 @@ msgstr ""
 msgid "id"
 msgstr ""
 
-#: tta/core/reference.py:100
+#: tta/core/reference.py:109
 msgid "images"
 msgstr ""
 
-#: tta/core/reference.py:104
+#: tta/core/reference.py:113
 msgid "images per page"
 msgstr ""
 
@@ -1534,7 +1538,7 @@ msgstr ""
 msgid "internal key"
 msgstr ""
 
-#: tta/core/reference.py:105
+#: tta/core/reference.py:114
 msgid "kB per page"
 msgstr ""
 
@@ -1550,7 +1554,7 @@ msgstr ""
 msgid "left out of every panel"
 msgstr ""
 
-#: tta/core/reference.py:97
+#: tta/core/reference.py:106
 msgid "letters"
 msgstr ""
 
@@ -1582,7 +1586,7 @@ msgstr ""
 msgid "no"
 msgstr ""
 
-#: tta/core/report.py:463
+#: tta/core/report.py:465
 msgid "no comparison"
 msgstr ""
 
@@ -1637,11 +1641,11 @@ msgstr ""
 msgid "other"
 msgstr ""
 
-#: tta/core/report.py:461
+#: tta/core/report.py:463
 msgid "outside the 25th-75th percentile"
 msgstr ""
 
-#: tta/core/report.py:462
+#: tta/core/report.py:464
 msgid "outside the 5th-95th percentile"
 msgstr ""
 
@@ -1649,7 +1653,7 @@ msgstr ""
 msgid "overall: {status}"
 msgstr ""
 
-#: tta/core/reference.py:96
+#: tta/core/reference.py:105
 msgid "pages"
 msgstr ""
 
@@ -1669,7 +1673,7 @@ msgstr ""
 msgid "project ready at {path}"
 msgstr ""
 
-#: tta/core/report.py:455
+#: tta/core/report.py:457
 msgid "publication year"
 msgstr ""
 
@@ -1689,19 +1693,19 @@ msgstr ""
 msgid "read the file's size and modification year from the filesystem; only the year is kept"
 msgstr ""
 
-#: tta/core/reference.py:106
+#: tta/core/reference.py:115
 msgid "reading ease (Flesch / Amstad)"
 msgstr ""
 
-#: tta/core/report.py:458
+#: tta/core/report.py:460
 msgid "reference 25th-75th percentile"
 msgstr ""
 
-#: tta/core/report.py:459
+#: tta/core/report.py:461
 msgid "reference 5th-95th percentile"
 msgstr ""
 
-#: tta/core/report.py:457
+#: tta/core/report.py:459
 msgid "reference median"
 msgstr ""
 
@@ -1733,7 +1737,7 @@ msgstr ""
 msgid "reproducibility: which modules ran"
 msgstr ""
 
-#: tta/core/reference.py:113
+#: tta/core/reference.py:122
 msgid "root TTR"
 msgstr ""
 
@@ -1741,7 +1745,7 @@ msgstr ""
 msgid "schema is up to date"
 msgstr ""
 
-#: tta/core/reference.py:109
+#: tta/core/reference.py:118
 msgid "sentence length spread (std. dev.)"
 msgstr ""
 
@@ -1749,7 +1753,7 @@ msgstr ""
 msgid "sentence/word tokenisation of the full text (JSON)"
 msgstr ""
 
-#: tta/core/reference.py:99
+#: tta/core/reference.py:108
 msgid "sentences"
 msgstr ""
 
@@ -1777,7 +1781,7 @@ msgstr ""
 msgid "the research signal: numeric metric value"
 msgstr ""
 
-#: tta/core/report.py:456
+#: tta/core/report.py:458
 msgid "theses"
 msgstr ""
 
@@ -1790,7 +1794,7 @@ msgstr ""
 msgid "track applied DB migrations"
 msgstr ""
 
-#: tta/core/reference.py:111
+#: tta/core/reference.py:120
 msgid "trigram repetition rate"
 msgstr ""
 
@@ -1798,7 +1802,7 @@ msgstr ""
 msgid "type"
 msgstr ""
 
-#: tta/core/reference.py:112
+#: tta/core/reference.py:121
 msgid "type-token ratio"
 msgstr ""
 
@@ -1846,12 +1850,12 @@ msgstr ""
 msgid "word/sentence/character counts and length statistics"
 msgstr ""
 
-#: tta/core/reference.py:95
+#: tta/core/reference.py:104
 #: tta/core/report.py:379
 msgid "words"
 msgstr ""
 
-#: tta/core/reference.py:103
+#: tta/core/reference.py:112
 msgid "words per page"
 msgstr ""
 
@@ -1860,7 +1864,7 @@ msgstr ""
 msgid "yes"
 msgstr ""
 
-#: tta/core/report.py:460
+#: tta/core/report.py:462
 msgid "your theses: inside the 25th-75th percentile"
 msgstr ""
 
@@ -1868,7 +1872,7 @@ msgstr ""
 msgid "{count} (thesis x module) pairs planned"
 msgstr ""
 
-#: tta/core/report.py:479
+#: tta/core/report.py:481
 msgid "{count} more outside the 25th-75th percentile."
 msgstr ""
 
@@ -1877,15 +1881,15 @@ msgstr ""
 msgid "{count} theses"
 msgstr ""
 
-#: tta/core/report.py:465
+#: tta/core/report.py:467
 msgid "{count} thesis(es) are dated outside the reference years and are shown without a comparison."
 msgstr ""
 
-#: tta/core/report.py:567
+#: tta/core/report.py:570
 msgid "{count} thesis(es) with a garbled text extraction are left out of every panel."
 msgstr ""
 
-#: tta/core/report.py:469
+#: tta/core/report.py:471
 msgid "{count} thesis(es) without a publication year are not on the time axis."
 msgstr ""
 

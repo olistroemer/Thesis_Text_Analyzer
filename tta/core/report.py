@@ -420,9 +420,11 @@ def _reference_caption(reference: ref.Reference | None) -> str:
         text = _(
             "Reference: bachelor's and master's theses from two university repositories "
             "(HU Berlin, ETH Zurich), {first}-{last}. Per year, the line is the median "
-            "and the bands span the 25th-75th and the 5th-95th percentile. A band is "
-            "shown only where at least {minimum} reference theses have a value."
-        ).format(first=first, last=last, minimum=reference.document.get("min_theses"))
+            "and the bands span the 25th-75th and the 5th-95th percentile. The median "
+            "and the 25th-75th band are shown where at least {inner} reference theses "
+            "have a value, the 5th-95th band only where at least {outer} do; without "
+            "it, the highlights only tell inside from outside the 25th-75th percentile."
+        ).format(first=first, last=last, inner=reference.min_inner, outer=reference.min_outer)
         if reference.status == "interim":
             text += " " + _(
                 "Interim reference values: computed with an earlier version of the "
@@ -477,6 +479,7 @@ def _strings() -> dict[str, str]:
         ),
         "outsideTitle": _("Theses outside the 5th-95th percentile of the reference: {count}"),
         "outsideMore": _("{count} more outside the 25th-75th percentile."),
+        "outsideInner": _("Theses outside the 25th-75th percentile of the reference: {count}"),
         "colThesis": _("Thesis"),
         "colYear": _("Year"),
         "colValue": _("Value"),

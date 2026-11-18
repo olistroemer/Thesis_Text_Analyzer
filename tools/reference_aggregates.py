@@ -16,7 +16,7 @@ package and never frozen into a binary. It reads
   repository host, also read-only - for the field (DDC main class) of each
   reference thesis, joined by PDF file stem through ``downloads.pdf_path``.
 
-The pure half (population rule, statistics, threshold, file format) is
+The pure half (population rule, statistics, thresholds, file format) is
 ``tta.core.reference``; this file only knows the harvester's layout.
 """
 

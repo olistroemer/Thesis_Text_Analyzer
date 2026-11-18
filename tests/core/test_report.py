@@ -9,6 +9,9 @@ reference aggregates (ADR-0025), a local product with a note at the top.
 import hashlib
 import json
 import re
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -36,10 +39,11 @@ def _payload(document: str) -> dict:
 
 
 def _reference(rows):
-    """A Reference from {(type, lang, field, year): {metric: (p05, p25, med, p75, p95)}}."""
+    """A Reference from {(type, lang, field, year): {metric: (p05, p25, med, p75, p95)}};
+    p05 and p95 None for a bucket with the inner band only."""
     document = {
         "format": ref.FORMAT, "format_version": ref.FORMAT_VERSION, "status": "release",
-        "years": list(ref.YEARS), "min_theses": 10, "stats": list(ref.STATS),
+        "years": list(ref.YEARS), "min_theses": ref.min_theses(), "stats": list(ref.STATS),
         "rows": [
             {"type": t, "language": l, "field": f, "year": y,
              "values": {m: [med, med, p05, p25, p75, p95]
@@ -141,6 +145,20 @@ def test_comparison_options_order(reference):
 def test_level_string_at_the_percentile_edges(reference, value, levels):
     options = report.comparison_options(reference)
     assert report.level_string(_record(value), "word_count", reference, options) == levels
+
+
+def test_level_string_without_the_outer_band_never_claims_outside_5_95():
+    """A bucket with the inner band only (ADR-0025 rev. 2): far off is level 1,
+    not 2, while the yearly summary with both bands still says 2."""
+    inner_only = _reference({
+        ("all", "all", "all", 2015): BANDS,
+        ("bachelor", "de", "all", 2015): {"word_count": (None, 20.0, 25.0, 30.0, None)},
+    })
+    options = report.comparison_options(inner_only)
+    assert options == ["summary", "all"]
+    for value, levels in ((25.0, "00"), (30.0, "00"), (35.0, "11"), (500.0, "21"),
+                          (-500.0, "21")):
+        assert report.level_string(_record(value), "word_count", inner_only, options) == levels
 
 
 def test_level_string_without_a_comparison(reference):
@@ -290,6 +308,95 @@ def test_render_html_levels_follow_band_level(project, reference):
     payload = _payload(report.render_html(report.collect(project.repo), reference))
     levels = {t["name"]: t["lv"]["word_count"] for t in payload["theses"]}
     assert levels == {"in.pdf": "002", "far.pdf": "222"}
+
+
+def test_render_html_caption_names_both_thresholds(project, reference):
+    out = report.render_html(report.collect(project.repo), reference)
+    assert "shown where at least 4 reference theses have a value" in out
+    assert "the 5th-95th band only where at least 20 do" in out
+
+
+def test_render_html_carries_null_outer_statistics(project):
+    inner_only = _reference({
+        ("bachelor", "de", "all", 2015): {"word_count": (None, 20.0, 25.0, 30.0, None)},
+    })
+    payload = _payload(report.render_html(report.collect(project.repo), inner_only))
+    stats = payload["bands"]["bachelor|de|all"]["word_count"][2015 - ref.YEARS[0]]
+    assert stats == [25.0, 25.0, None, 20.0, 30.0, None]
+
+
+HARNESS = Path(__file__).with_name("report_js_harness.js")
+
+
+def _run_script(payload: dict, tmp_path, selection=("bachelor", "de", "all")) -> dict:
+    """The traces report.js would draw, from node with a fake DOM/Plotly."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    data = tmp_path / "payload.json"
+    data.write_text(json.dumps(payload), encoding="utf-8")
+    script = Path(report.__file__).with_name("report_assets") / "report.js"
+    result = subprocess.run([node, str(HARNESS), str(script), str(data), *selection],
+                            capture_output=True, text=True, check=True, timeout=60)
+    return json.loads(result.stdout)
+
+
+def test_report_script_draws_no_outer_band_where_it_is_missing(project, tmp_path):
+    """ADR-0025 rev. 2: years with the inner statistics only get the median
+    and the 25-75 band, no 5-95 band; each band breaks where it is missing,
+    a lone year is a short block; the highlight there stops at level 1."""
+    both = {"word_count": (100.0, 200.0, 250.0, 300.0, 400.0)}
+    inner = {"word_count": (None, 200.0, 250.0, 300.0, None)}
+    rows = {("bachelor", "de", "all", year): both for year in (2010, 2011, 2012, 2020)}
+    rows.update({("bachelor", "de", "all", year): inner for year in (2013, 2014, 2015, 2018)})
+    _seed(project, "far-inner.pdf", word_count=900.0, publication_year=2014,
+          thesis_type="bachelor", language_code="de")
+    _seed(project, "far-outer.pdf", word_count=900.0, publication_year=2011,
+          thesis_type="bachelor", language_code="de")
+    payload = _payload(report.render_html(report.collect(project.repo), _reference(rows)))
+    traces = _run_script(payload, tmp_path)["traces"]["g-length"]
+
+    def band_years(group):
+        xs = set()
+        for trace in traces:
+            if trace.get("legendgroup") == group:
+                xs.update(round(x, 2) for x in trace["x"])
+        return xs
+
+    assert band_years("outer") == {2010, 2011, 2012, 2019.65, 2020.35}
+    assert band_years("inner") == {2010, 2011, 2012, 2013, 2014, 2015,
+                                   2017.65, 2018.35, 2019.65, 2020.35}
+    # every filled band edge is paired with its lower edge, per run
+    for group, runs in (("outer", 2), ("inner", 3)):
+        edges = [t for t in traces if t.get("legendgroup") == group]
+        fills = [t for t in edges if t.get("fill")]
+        assert len(edges) == 2 * runs and len(fills) == runs
+        assert sum(t["showlegend"] for t in fills) == 1
+    median = next(t for t in traces if t.get("name") == payload["strings"]["median"])
+    text = dict(zip(payload["years"], median["text"]))
+    assert "P5-P95" in text[2011] and "P25-P75" in text[2011]
+    assert "P5-P95" not in text[2014] and "P25-P75" in text[2014]
+    assert text[2016] is None
+    points = {t["name"]: t["text"] for t in traces if t.get("mode") == "markers"}
+    strings = payload["strings"]
+    assert any("far-inner.pdf" in head for head in points[strings["level1"]])
+    assert any("far-outer.pdf" in head for head in points[strings["level2"]])
+    assert not any("far-inner.pdf" in head for head in points[strings["level2"]])
+
+
+def test_report_script_claims_nothing_about_5_95_without_a_level_2(project, tmp_path):
+    """Theses only outside an inner-only band: the note under the panel counts
+    them against the 25-75 band, not as '0 outside the 5-95 band'."""
+    inner = {"word_count": (None, 200.0, 250.0, 300.0, None)}
+    rows = {("bachelor", "de", "all", year): inner for year in (2013, 2014)}
+    for name in ("a.pdf", "b.pdf"):
+        _seed(project, name, word_count=900.0, publication_year=2014,
+              thesis_type="bachelor", language_code="de")
+    payload = _payload(report.render_html(report.collect(project.repo), _reference(rows)))
+    notes = _run_script(payload, tmp_path)["notes"]["o-length"]
+    strings = payload["strings"]
+    assert notes == [strings["outsideInner"].replace("{count}", "2")]
+    assert "5th-95th" not in " ".join(notes)
 
 
 def test_render_html_without_reference_data(project):

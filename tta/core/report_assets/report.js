@@ -133,14 +133,10 @@
     var series = (D.bands[sel.bandKey] || {})[metric];
     if (!series || !series.some(function (s) { return s; })) { return []; }
     function column(i) { return series.map(function (s) { return s ? s[i] : null; }); }
-    // Each run of consecutive years with a bucket gets its own band, so a
-    // band is never filled across a year without reference data; a lone
-    // year is drawn as a short block around it.
-    var runs = [], current = null;
-    series.forEach(function (s, i) {
-      if (s) { if (!current) { current = []; runs.push(current); } current.push(i); }
-      else { current = null; }
-    });
+    // A bucket always has the inner band (p25-p75), the outer band
+    // (p05-p95) only from more theses (ADR-0025 rev. 2: p05/p95 null).
+    function hasInner(s) { return !!s; }
+    function hasOuter(s) { return !!s && s[P05] !== null && s[P95] !== null; }
     var traces = [];
     function edge(xs, ys, extra) {
       var t = { type: "scatter", mode: "lines", line: { width: 0 }, hoverinfo: "skip", x: xs, y: ys,
@@ -148,26 +144,39 @@
       for (var k in extra) { t[k] = extra[k]; }
       traces.push(t);
     }
-    runs.forEach(function (run, n) {
-      var xs = [], idx = [];
-      if (run.length === 1) { xs = [D.years[run[0]] - 0.35, D.years[run[0]] + 0.35]; idx = [run[0], run[0]]; }
-      else { run.forEach(function (i) { xs.push(D.years[i]); idx.push(i); }); }
-      function at(stat) { return idx.map(function (i) { return series[i][stat]; }); }
-      edge(xs, at(P05), { legendgroup: "outer" });
-      edge(xs, at(P95), { fill: "tonexty", fillcolor: C.bandOuter, name: S.outer, legendgroup: "outer",
-        showlegend: n === 0 });
-      edge(xs, at(P25), { legendgroup: "inner" });
-      edge(xs, at(P75), { fill: "tonexty", fillcolor: C.bandInner, name: S.inner, legendgroup: "inner",
-        showlegend: n === 0 });
-    });
+    // Each run of consecutive years that has a band gets its own pair of
+    // edges, so a band is never filled across a year without it; a lone
+    // year is drawn as a short block around it.
+    function band(has, low, high, fillcolor, name, group) {
+      var runs = [], current = null;
+      series.forEach(function (s, i) {
+        if (has(s)) { if (!current) { current = []; runs.push(current); } current.push(i); }
+        else { current = null; }
+      });
+      runs.forEach(function (run, n) {
+        var xs = [], idx = [];
+        if (run.length === 1) { xs = [D.years[run[0]] - 0.35, D.years[run[0]] + 0.35]; idx = [run[0], run[0]]; }
+        else { run.forEach(function (i) { xs.push(D.years[i]); idx.push(i); }); }
+        function at(stat) { return idx.map(function (i) { return series[i][stat]; }); }
+        edge(xs, at(low), { legendgroup: group });
+        edge(xs, at(high), { fill: "tonexty", fillcolor: fillcolor, name: name, legendgroup: group,
+          showlegend: n === 0 });
+      });
+    }
+    band(hasOuter, P05, P95, C.bandOuter, S.outer, "outer");
+    band(hasInner, P25, P75, C.bandInner, S.inner, "inner");
     return traces.concat([
       {
         x: D.years, y: column(MEDIAN), type: "scatter", mode: "lines+markers", connectgaps: false,
         marker: { size: 4, color: C.ink2 },
         line: { color: C.ink2, width: 2 }, name: S.median,
-        customdata: series.map(function (s) { return s ? [null, fmt(s[P05]), fmt(s[P25]), fmt(s[P75]), fmt(s[P95]), fmt(s[MEAN])] : null; }),
-        hovertemplate: "%{x}: " + S.median + " %{y:.4~g}<br>P25-P75: %{customdata[2]} - %{customdata[3]}" +
-          "<br>P5-P95: %{customdata[1]} - %{customdata[4]}<extra></extra>"
+        customdata: series.map(function () { return [null]; }),  // no PDF to open
+        text: series.map(function (s) {
+          if (!s) { return null; }
+          return "P25-P75: " + fmt(s[P25]) + " - " + fmt(s[P75]) +
+            (hasOuter(s) ? "<br>P5-P95: " + fmt(s[P05]) + " - " + fmt(s[P95]) : "");
+        }),
+        hovertemplate: "%{x}: " + S.median + " %{y:.4~g}<br>%{text}<extra></extra>"
       }
     ]);
   }
@@ -208,6 +217,15 @@
     box.textContent = "";
     var strong = byLevel["2"], mild = byLevel["1"];
     if (!strong.length && !mild.length) { return; }
+    if (!strong.length) {
+      // No level 2 (e.g. no 5-95 band for these years): count against the
+      // 25-75 band only and claim nothing about the 5-95 band.
+      var only = document.createElement("p");
+      only.className = "note";
+      only.textContent = tpl(S.outsideInner, { count: mild.length });
+      box.appendChild(only);
+      return;
+    }
     var details = document.createElement("details");
     var summary = document.createElement("summary");
     summary.textContent = tpl(S.outsideTitle, { count: strong.length });
