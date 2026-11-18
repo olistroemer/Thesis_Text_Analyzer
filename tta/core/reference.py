@@ -3,7 +3,10 @@
 The professor report compares the professor's theses with the research
 team's reference corpus. Only six statistics per bucket and metric travel
 (mean, median, 5th/25th/75th/95th percentile), never a count and never an
-individual reference value. This module holds both halves that must agree:
+individual reference value. Each statistic has its own minimum number of
+theses (``min_theses``): the centre and the quartiles need fewer than the
+5th/95th percentiles, which on a short series are little more than its
+minimum and maximum. This module holds both halves that must agree:
 
 * the **report side**: ``load_shipped()`` reads the packaged JSON,
   ``Reference.stats()`` looks a bucket up, ``band_level()`` says how far
@@ -29,16 +32,22 @@ from tta.core.i18n import N_
 from tta.core.types import REFERENCE_THESIS_TYPES
 
 FORMAT = "tta-reference-aggregates"
-FORMAT_VERSION = 1
+#: 2: one threshold per statistic; p05/p95 may be null (ADR-0025 rev. 2).
+FORMAT_VERSION = 2
 
 #: Publication years the reference covers (ADR-0025 decision 3).
 YEARS = (2003, 2025)
 
-#: A statistic ships only if at least this many theses have a value for the
-#: metric in the bucket (ADR-0025 decision 5).
-MIN_THESES = 10
-
 STATS = ("mean", "median", "p05", "p25", "p75", "p95")
+
+#: A statistic ships only if at least this many theses have a value for the
+#: metric in the bucket (ADR-0025 decision 5, rev. 2): the centre and the
+#: inner band (mean, median, p25, p75) from 4, the outer band (p05, p95)
+#: from 20.
+MIN_THESES_INNER = 4
+MIN_THESES_OUTER = 20
+INNER_STATS = ("mean", "median", "p25", "p75")
+OUTER_STATS = ("p05", "p95")
 
 #: Languages with their own buckets; the yearly summary takes every language.
 LANGUAGES = ("de", "en")
@@ -183,16 +192,23 @@ def _round(value: float) -> float:
     return float(f"{value:.4g}")
 
 
-def summarise(values: list[float]) -> list[float]:
-    """The six statistics, in ``STATS`` order, rounded."""
+def min_theses(min_inner: int = MIN_THESES_INNER,
+               min_outer: int = MIN_THESES_OUTER) -> dict[str, int]:
+    """The threshold of every statistic, in ``STATS`` order."""
+    return {stat: (min_outer if stat in OUTER_STATS else min_inner) for stat in STATS}
+
+
+def summarise(values: list[float], *, outer: bool = True) -> list[float | None]:
+    """The six statistics, in ``STATS`` order, rounded. Without ``outer``,
+    p05 and p95 are None (too few theses for the outer band)."""
     ordered = sorted(values)
     return [
         _round(math.fsum(ordered) / len(ordered)),
         _round(quantile(ordered, 0.5)),
-        _round(quantile(ordered, 0.05)),
+        _round(quantile(ordered, 0.05)) if outer else None,
         _round(quantile(ordered, 0.25)),
         _round(quantile(ordered, 0.75)),
-        _round(quantile(ordered, 0.95)),
+        _round(quantile(ordered, 0.95)) if outer else None,
     ]
 
 
@@ -230,16 +246,20 @@ def build_aggregates(
     generated: str,
     generator: str,
     analysed_with: list[str] | tuple[str, ...] = (),
-    min_theses: int = MIN_THESES,
+    min_inner: int = MIN_THESES_INNER,
+    min_outer: int = MIN_THESES_OUTER,
 ) -> dict:
     """The shipped document from individual reference theses.
 
     Every bucket is computed directly from the theses, so a thesis of a
-    dropped small bucket still counts in the coarser ones. A statistic needs
-    ``min_theses`` values; a bucket with none is not shipped. No count of any
-    kind enters the result."""
+    dropped small bucket still counts in the coarser ones. A metric ships
+    with mean, median, p25 and p75 from ``min_inner`` values and also with
+    p05 and p95 from ``min_outer`` (else those two are None); a bucket with
+    no metric is not shipped. No count of any kind enters the result."""
     if status not in ("interim", "release"):
         raise ValueError(f"status must be interim or release, not {status!r}")
+    if not 1 <= min_inner <= min_outer:
+        raise ValueError("thresholds must satisfy 1 <= min_inner <= min_outer")
     buckets: dict[tuple, dict[str, list[float]]] = {}
     for thesis in theses:
         for key in bucket_keys(thesis):
@@ -251,9 +271,9 @@ def build_aggregates(
     for key in sorted(buckets, key=_sort_key):
         series = buckets[key]
         values = {
-            name: summarise(series[name])
+            name: summarise(series[name], outer=len(series[name]) >= min_outer)
             for name in METRICS
-            if len(series.get(name, ())) >= min_theses
+            if len(series.get(name, ())) >= min_inner
         }
         if values:
             thesis_type, language, field_code, year = key
@@ -271,7 +291,7 @@ def build_aggregates(
             "Reference aggregates of the Thesis Text Analyzer (ADR-0025). Generated "
             "by tools/reference_aggregates.py - do not edit by hand. Six statistics "
             "per bucket and metric, no counts; a statistic ships only if at least "
-            "min_theses theses have a value."
+            "min_theses[statistic] theses have a value, else it is null."
             + (
                 " INTERIM: computed from an older analysis run, replaced before "
                 "the release."
@@ -287,7 +307,7 @@ def build_aggregates(
         "generator": generator,
         "analysed_with": list(analysed_with),
         "years": list(YEARS),
-        "min_theses": min_theses,
+        "min_theses": min_theses(min_inner, min_outer),
         "stats": list(STATS),
         "metrics": list(METRICS),
         "fields": list(FIELDS),
@@ -322,12 +342,26 @@ class Reference:
             raise ValueError(f"unsupported format_version {document.get('format_version')!r}")
         if tuple(document.get("stats", ())) != STATS:
             raise ValueError("unexpected statistics list")
+        thresholds = document.get("min_theses")
+        if (
+            not isinstance(thresholds, dict)
+            or tuple(thresholds) != STATS
+            or not all(type(v) is int and v >= 1 for v in thresholds.values())
+            or len({thresholds[s] for s in INNER_STATS}) != 1
+            or len({thresholds[s] for s in OUTER_STATS}) != 1
+            or thresholds["p05"] < thresholds["median"]
+        ):
+            raise ValueError("min_theses must give one threshold per statistic")
         self.document = document
+        self.min_inner = thresholds["median"]
+        self.min_outer = thresholds["p05"]
         self.status = document.get("status", "release")
         self.years = tuple(document.get("years", YEARS))
         self._rows: dict[tuple[str, str, str, int], dict[str, list[float]]] = {}
         for row in document.get("rows", ()):
             key = (row["type"], row["language"], row["field"], int(row["year"]))
+            for values in row["values"].values():
+                _check_values(values)
             self._rows[key] = row["values"]
 
     @property
@@ -341,9 +375,24 @@ class Reference:
         return self._rows
 
     def stats(self, thesis_type: str, language: str, field_code: str, year: int,
-              metric: str) -> dict[str, float] | None:
+              metric: str) -> dict[str, float | None] | None:
+        """The bucket's statistics of one metric (p05/p95 None without an
+        outer band), or None without a bucket or statistic."""
         values = self._rows.get((thesis_type, language, field_code, int(year)), {}).get(metric)
         return dict(zip(STATS, values)) if values else None
+
+
+def _check_values(values) -> None:
+    """Six entries in ``STATS`` order: the inner statistics always numbers,
+    p05 and p95 both numbers or both null."""
+    if not isinstance(values, list) or len(values) != len(STATS):
+        raise ValueError("a metric needs one entry per statistic")
+    stats = dict(zip(STATS, values))
+    if not all(_number(stats[s]) for s in INNER_STATS):
+        raise ValueError("mean, median, p25 and p75 must be numbers")
+    outer = [stats[s] for s in OUTER_STATS]
+    if not (all(v is None for v in outer) or all(_number(v) for v in outer)):
+        raise ValueError("p05 and p95 must both be numbers or both be null")
 
 
 def load_shipped() -> Reference | None:
@@ -356,12 +405,14 @@ def load_shipped() -> Reference | None:
         return None
 
 
-def band_level(value: float, stats: dict[str, float]) -> int:
+def band_level(value: float, stats: dict[str, float | None]) -> int:
     """How far outside the reference a value lies (SDD Sec. 9.8.3).
 
     0: inside [p25, p75]; 1: outside it but inside [p05, p95]; 2: outside
-    [p05, p95]. Both edges of each band count as inside."""
-    if value < stats["p05"] or value > stats["p95"]:
+    [p05, p95]. Both edges of each band count as inside. Without an outer
+    band (p05/p95 None) a value outside [p25, p75] is 1: nothing is claimed
+    about a 5th-95th percentile the reference does not have."""
+    if stats["p05"] is not None and (value < stats["p05"] or value > stats["p95"]):
         return 2
     if value < stats["p25"] or value > stats["p75"]:
         return 1
