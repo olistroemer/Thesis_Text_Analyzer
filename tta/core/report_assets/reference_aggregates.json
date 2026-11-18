@@ -5,7 +5,7 @@
   "status": "release",
   "source": "Reference theses of HU Berlin (edoc) and ETH Zurich, bachelor and master; re-run of 2026-11-18 (TTA-ref-2026-11) with main fbe297c and the ETH cover ruleset",
   "generated": "2026-11-18",
-  "generator": "tools/reference_aggregates.py (tta 0.1.0)",
+  "generator": "tools/reference_aggregates.py (tta 1.0.0)",
   "analysed_with": ["mod_check_extraction_quality 0.1.0", "mod_classify_language 0.1.0", "mod_classify_thesis_type 0.3.0+covers.eth-research-collection.49402e14", "mod_count_images 0.2.0", "mod_determine_publication_year 0.2.0+covers.eth-research-collection.49402e14", "mod_extract_filesystem_metadata 0.1.0", "mod_extract_pdf_metadata 0.1.0", "mod_extract_pymupdf 0.2.0", "mod_readability 0.2.0", "mod_redundancy 0.2.0", "mod_surface_counts 0.2.0", "mod_vocabulary 0.3.0"],
   "years": [2003, 2025],
   "min_theses": {"mean": 4, "median": 4, "p05": 20, "p25": 4, "p75": 4, "p95": 20},
