@@ -68,7 +68,7 @@ def _state(project_dir, thesis_id):
 def test_version_json_lists_all_modules():
     result = invoke("version", "--format", "json")
     payload = json.loads(result.stdout)
-    assert payload["app"] == "0.1.0"
+    assert payload["app"] == "1.0.0"
     assert len(payload["modules"]) == 13  # ADR-0011 rev. 4 (#18)
     assert payload["modules"]["mod_vocabulary"] == "0.3.0"
 
