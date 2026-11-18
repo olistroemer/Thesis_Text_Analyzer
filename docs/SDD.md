@@ -2,8 +2,8 @@
 title: "Thesis Text Analyzer — Software Design Document"
 subtitle: "MVP design specification"
 author: "Data Science Project Group SS26"
-version: "0.1.0-draft"
-status: "Working draft"
+version: "1.0"
+status: "Released with tta 1.0.0"
 ---
 
 # 1. Introduction
